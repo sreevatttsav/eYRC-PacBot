@@ -1,0 +1,63 @@
+{
+  "per_speed": [
+    {
+      "w": 2.0,
+      "phase": "stop",
+      "fwd_end": "stop",
+      "n_back": 1376,
+      "back_span": 0.199,
+      "back_r2": 0.1779,
+      "back_raw": 1376,
+      "k_lin": null,
+      "coast_m": 0.018716937136947706
+    },
+    {
+      "w": 3.0,
+      "phase": "stop",
+      "fwd_end": "stop",
+      "n_back": 219,
+      "back_span": 0.199,
+      "back_r2": 0.8868,
+      "back_raw": 219,
+      "k_lin": 0.16236241021540385,
+      "coast_m": 0.018946931352594315
+    },
+    {
+      "w": 4.0,
+      "phase": "stop",
+      "fwd_end": "stop",
+      "n_back": 215,
+      "back_span": 0.1992,
+      "back_r2": 0.8294,
+      "back_raw": 215,
+      "k_lin": 0.10811879103352823,
+      "coast_m": 0.018845682161425584
+    },
+    {
+      "w": 6.0,
+      "phase": "stop",
+      "fwd_end": "stop",
+      "n_back": 228,
+      "back_span": 0.199,
+      "back_r2": 0.8717,
+      "back_raw": 228,
+      "k_lin": 0.08375036134333448,
+      "coast_m": 0.018747117178122705
+    },
+    {
+      "w": 8.0,
+      "phase": "stop",
+      "fwd_end": "stop",
+      "n_back": 215,
+      "back_span": 0.199,
+      "back_r2": 0.8766,
+      "back_raw": 215,
+      "k_lin": 0.0636172362508268,
+      "coast_m": 0.01923777280246912
+    }
+  ],
+  "k_lin_mean": 0.10446219971077333,
+  "coast_max": 0.01923777280246912,
+  "skipped": 0,
+  "note": "front range understates travel by cos20 ~= 0.94; K_LIN=0.017 geometric default stands unless a clean r2>=0.8 BACK fit says otherwise"
+}

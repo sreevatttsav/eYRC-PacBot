@@ -649,6 +649,44 @@ Then Ctrl+C the controller.
     TURN: 1.86 rad/s
   -- lateral: mean|offset|=0.001545055097694231 coverage=86.6% n=21598
   ```
+- 2026-10-05 Linux→Mac: `maze15` stopped on user instruction (~58 s
+  wall, 28,950 ticks; `task1b/logs/20261005T161553Z_maze15/`, controller
+  `2515a3e`). Sim stdout captured via `script -qec` — wrapper lines
+  only, sim binary still produces no stdout during the run. Controller
+  output captured in `controller_maze15.log`. What I noticed: GATEWAY
+  handed off to FOLLOW at t=2.0 s (good), then a new `FRONT_BACKOUT`
+  state fired at t=27.2 s (`front_emergency`) and recovered. One turn
+  FAIL (−6.7°). FOLLOW mean wheel 0.63 rad/s (slow). Sensor validity
+  excellent (87–100% valid), lateral coverage 84.6%. Verbatim
+  `analyze_run.py` below.
+  ```
+  == maze15 commit=2515a3e ticks=28950
+  -- turns --
+    #0 t=55.9s target=+90deg(logged) final_err=-6.7deg dur=3.49s exit=FOLLOW:approach rev=0[] FAIL
+  -- stuck --
+    zero episodes
+  -- transitions --
+    BRAKE->FOLLOW [approach] x1
+    FOLLOW->FRONT_BACKOUT [front_emergency] x1
+    FOLLOW->REVERSE [blocked] x1
+    FRONT_BACKOUT->FOLLOW [approach] x1
+    GATEWAY->FOLLOW [approach] x1
+    REVERSE->TURN [left] x1
+    TURN->BRAKE [coast] x1
+  -- sensors (valid/sat/held/none) --
+    fl: valid=87.2% sat=12.1% held=0.0% none=0.7%
+    fr: valid=100.0% sat=0.0% held=0.0% none=0.0%
+    sl: valid=87.9% sat=12.1% held=0.0% none=0.0%
+    sr: valid=100.0% sat=0.0% held=0.0% none=0.0%
+  -- mean |wheel| by state --
+    BRAKE: 2.00 rad/s
+    FOLLOW: 0.63 rad/s
+    FRONT_BACKOUT: 1.50 rad/s
+    GATEWAY: 2.35 rad/s
+    REVERSE: 3.00 rad/s
+    TURN: 1.88 rad/s
+  -- lateral: mean|offset|=0.028556816046407123 coverage=84.6% n=24479
+  ```
 
 - 2026-10-05 Mac→Linux: maze8 follow-up fix implemented. Stuck
   detection now evaluates only FOLLOW/GATEWAY and clears its partial

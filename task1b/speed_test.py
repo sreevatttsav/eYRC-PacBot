@@ -1,31 +1,32 @@
 """speed_test.py -- linear-speed identification (Stage 2a).
 
-Runs INSTEAD of the controller on the Linux box, facing a wall with
-room to back up. Per wheel speed w, it:
-  1. reverses until the front opens: numeric >= 0.299, OR sat/none
-     sustained 1 s (open space -- the spawn entrance opens to exactly
-     0.300 = sat, which can never satisfy a numeric acceptance),
+Runs INSTEAD of the controller on the Linux box. Spawn sits ~0.10 m
+in front of the entrance wall with open space behind (see
+SIM_NOTES.md), so per wheel speed w, each trial:
+  1. reverses at -w until the front opens: numeric >= 0.299, OR
+     unknown front sustained 1 s (open space),
   2. holds still 0.5 s,
-  3. drives forward at constant w until min front <= 0.12 (or 10 s),
+  3. drives forward at w until min front <= 0.12 (COAST data only),
   4. commands zero for 2 s and records coast distance.
 
-Trials where the robot provably did not move (BACK rear-blocked:
-front unchanged and no opening) are SKIPPED as "no_room", not
-measured -- driving into the spawn wall yields n_win=0, k_lin=null.
+K_LIN is fit on the BACK opening slope (known command, translation
+along the facing axis). The forward sweep is NOT used for speed: in
+the tight slot the rays sweep across walls as the robot yaws, so
+forward range-rate measures rotation, not translation (s2_speed_v2:
+k = -0.07..0.17 garbage vs geometric 0.017).
 
-Speed is the least-squares slope of front range vs time while the
-front reads in [0.30, 0.15]; a window spanning < 0.10 m of range is
-rejected. Output per w: K_LIN (m/s per wheel rad/s) and coast
-distance. K_LIN replaces WHEEL_R_EST in RECOVER distance and runlog
-dead-reckoning.
+Fits need window span >= 0.05 m and r^2 >= 0.8, else k_lin is null
+with a reason -- never commit a contaminated fit. K_LIN itself
+defaults to the binary-MJCF geometric value (0.017); this script
+CONFIRMS it, it does not discover it.
 
 Sampling: every processed row is a FRESH payload (phaser.Sampler);
 phase clocks advance per-sample, so durations are honest even though
 the bridge publishes slower than the control loop iterates.
 
-Caveat: if the front rays splay, range understates travel by
-cos(splay) (~3% at 15 deg splay -- unverified). Coast check for s2c:
-require FRONT_STOP_DIST >= coast + 0.05 at the tested cruise speed.
+Caveat: front rays splay 20 deg (SIM_NOTES.md), so range understates
+travel by cos20 ~= 0.94 (~6%) when facing squarely. Coast check for
+s2c: require FRONT_STOP_DIST >= coast + 0.05 at cruise speed.
 
 Usage:
     python3 speed_test.py --label s2_speed
@@ -48,30 +49,32 @@ TOPIC_SENSORS = "pacbot/sensors"
 TOPIC_WHEEL_VEL = "pacbot/wheel_vel"
 
 BACK_TARGET = 0.299
-OPEN_SUSTAIN_S = 1.0   # sat/none this long = open space, stop backing
+OPEN_SUSTAIN_S = 1.0   # unknown front this long = open space, stop backing
 STILL_S = 0.5
 FWD_END = 0.12
 COAST_S = 2.0
 SETTLE_S = 1.0
 PHASE_TIMEOUT = 10.0
-WIN_LO, WIN_HI = 0.15, 0.30
-WIN_SPAN_MIN = 0.10    # window must cover this much range to fit k
-MOVE_MIN = 0.03        # BACK must change the front by this much
+BACK_SPAN_MIN = 0.05   # BACK fit needs this much opening range
+BACK_R2_MIN = 0.8      # ... and this fit quality, else null, not garbage
 ABORT_DIST = 0.08
 MAX_RANGE = 2.0
 
 
-def slope(txs):
-    """Least-squares d(range)/dt; speed = -slope (range shrinks)."""
+def slope_r2(txs):
+    """Least-squares slope + r^2. None if <5 samples or no time spread."""
     n = len(txs)
     if n < 5:
-        return None
+        return None, None
     mt = statistics.mean(t for t, _ in txs)
     mx = statistics.mean(x for _, x in txs)
     den = sum((t - mt) ** 2 for t, _ in txs)
     if den <= 0:
-        return None
-    return sum((t - mt) * (x - mx) for t, x in txs) / den
+        return None, None
+    m = sum((t - mt) * (x - mx) for t, x in txs) / den
+    ss = sum((x - mx) ** 2 for _, x in txs)
+    r2 = 1.0 - sum((x - (mx + m * (t - mt))) ** 2 for t, x in txs) / ss if ss > 0 else 0.0
+    return m, max(0.0, min(r2, 1.0))
 
 
 def main():
@@ -86,8 +89,8 @@ def main():
             os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs"))
     logger = RunLogger(base, label=args.label, constants={
         "speeds": speeds, "back_target": BACK_TARGET,
-        "window": [WIN_LO, WIN_HI], "abort_dist": ABORT_DIST,
-        "fresh_samples_only": True,
+        "back_span_min": BACK_SPAN_MIN, "back_r2_min": BACK_R2_MIN,
+        "abort_dist": ABORT_DIST, "fit": "BACK opening slope",
     })
 
     tofs = {k: Tof(MAX_RANGE, 0.1, 0.05) for k in ("fl", "fr", "sl", "sr")}
@@ -172,36 +175,43 @@ def main():
                     open_t = 0.0
                 return open_t >= OPEN_SUSTAIN_S
 
-            r, back = run_phase(-2.0, -2.0, "BACK", PHASE_TIMEOUT,
-                                stop=back_stop)
+            r, back = run_phase(-w, -w, "BACK", PHASE_TIMEOUT,
+                                 stop=back_stop)
             f0 = [front_min(v) for _, v, _ in back if front_min(v) is not None]
             moved = (r == "stop" and f0
-                     and (max(f0) - min(f0) > MOVE_MIN or max(f0) >= BACK_TARGET))
+                     and (max(f0) - min(f0) > BACK_SPAN_MIN
+                          or max(f0) >= BACK_TARGET))
+            # K_LIN from the BACK opening slope (translation along the
+            # facing axis). Opening range grows: speed = +slope.
+            bwin = [(t, front_min(v)) for t, v, _ in back
+                    if front_min(v) is not None]
+            bspan = (max(x for _, x in bwin) - min(x for _, x in bwin)) if bwin else 0.0
+            m, r2 = slope_r2(bwin) if bspan >= BACK_SPAN_MIN else (None, None)
+            if m is not None and (r2 is None or r2 < BACK_R2_MIN):
+                m, r2 = None, r2  # contaminated fit: null, not garbage
+            k_lin = (m / w) if m is not None else None
             # 2. still
             run_phase(0.0, 0.0, "STILL", STILL_S, fresh_only=False)
             if not moved:
                 trials.append({"w": w, "phase": r, "skip": "no_room",
+                               "k_lin": None,
                                "note": "front never opened: rear-blocked spawn?"})
                 logger.event("SPEED", "IDLE", f"{tag[0]}:no_room")
                 run_phase(0.0, 0.0, "SETTLE", SETTLE_S, fresh_only=False)
                 continue
-            # 3. forward
+            # 3. forward (COAST data only -- FWD range-rate in the slot
+            # measures ray sweep, not translation; never fit k here)
             r3, fwd = run_phase(w, w, "FWD", PHASE_TIMEOUT,
                                 stop=lambda v, s, d: (front_min(v) is not None
                                                       and front_min(v) <= FWD_END))
             # 4. coast
             _, coast = run_phase(0.0, 0.0, "COAST", COAST_S)
             pub(0.0, 0.0)
-            win = [(t, front_min(v)) for t, v, s in fwd
-                   if front_min(v) is not None
-                   and WIN_LO <= front_min(v) <= WIN_HI]
-            span = (max(x for _, x in win) - min(x for _, x in win)) if win else 0.0
-            m = slope(win) if span >= WIN_SPAN_MIN else None
-            k_lin = (-m / w) if m is not None else None
             c = [front_min(v) for _, v, s in coast if front_min(v) is not None]
             trials.append({
                 "w": w, "phase": r, "fwd_end": r3,
-                "n_win": len(win), "win_span": round(span, 4),
+                "n_back": len(bwin), "back_span": round(bspan, 4),
+                "back_r2": round(r2, 4) if r2 is not None else None,
                 "k_lin": k_lin,
                 "coast_m": (c[0] - c[-1]) if c else None,
             })
@@ -217,7 +227,9 @@ def main():
                "k_lin_mean": statistics.mean(ks) if ks else None,
                "coast_max": max((t.get("coast_m") or 0) for t in trials),
                "skipped": sum(1 for t in trials if t.get("skip")),
-               "note": "speed understated by cos(splay) if rays splay"}
+               "note": ("front range understates travel by cos20 ~= 0.94; "
+                        "K_LIN=0.017 geometric default stands unless a "
+                        "clean r2>=0.8 BACK fit says otherwise")}
     with open(os.path.join(logger.run_dir, "summary.json"), "w") as f:
         json.dump(summary, f, indent=2)
     print(json.dumps(summary, indent=2))

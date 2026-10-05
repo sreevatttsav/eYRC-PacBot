@@ -101,9 +101,14 @@ STUCK_ESCALATE_S = 3.0  # re-flag within this -> escalate
 RECOVER_DIST = 0.10    # back-out distance per recovery (m, estimated)
 
 # Linear-speed layer (Stage 2). Cruise is commanded in m/s and
-# converted with the MEASURED K_LIN (speed_test); wheel-space maneuver
-# speeds below are unchanged.
-K_LIN = 0.017          # m/s per wheel rad/s; mesh guess until speed_test
+# converted with K_LIN. K_LIN = 0.017 is GROUND TRUTH from the sim
+# binary's embedded MJCF (wheel geom size 0.017, direct hinge drive --
+# see SIM_NOTES.md), NOT the speed_test fit: the maze-slot sweeps
+# measure ray-sweep across walls (rotation contamination), giving
+# 0.05-0.17. Straight-line rolling slip on flat floor is ~1-5%.
+# Sanity anchor: yaw gain 0.0914 (measured) vs R/track = 0.218
+# kinematic -- the sim loses ~58% in yaw (slip), translation unaffected.
+K_LIN = 0.017          # m/s per wheel rad/s (binary MJCF wheel radius)
 CRUISE_LINEAR_MPS = 0.04   # s2a cruise (refactor at explicit speed)
 MAX_LINEAR_MPS = 0.12      # s2c ceiling (only if scoring rewards speed)
 

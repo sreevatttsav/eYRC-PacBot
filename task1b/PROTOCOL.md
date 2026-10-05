@@ -345,6 +345,36 @@ Then Ctrl+C the controller.
     GATEWAY_HOLD: 0.00 rad/s
   -- lateral: mean|offset|=None coverage=0.0% n=0
   ```
+- 2026-10-05 Linux→Mac: `maze7` stopped on user instruction (~39 s
+  wall, 19,300 ticks; `task1b/logs/20261005T150451Z_maze7/`, controller
+  `8a77d68`). Sim stdout is **empty** again. What I noticed: the
+  "advance one cell" fix worked — GATEWAY fired at spawn and handed
+  off to FOLLOW at t=2.0 s (no more GATEWAY_HOLD). But then the bot
+  fell into a **wedge cycle**: 8× `FOLLOW→WEDGE→FOLLOW` from t=8.7 s
+  to t=44 s, never escaping. All sensors 100% valid, lateral offset
+  0.012 m. No turns, no stuck episodes. Verbatim `analyze_run.py`
+  below.
+  ```
+  == maze7 commit=8a77d68 ticks=19300
+  -- turns --
+    (none)
+  -- stuck --
+    zero episodes
+  -- transitions --
+    FOLLOW->WEDGE [wedge_enter] x8
+    GATEWAY->FOLLOW [approach] x1
+    WEDGE->FOLLOW [approach] x7
+  -- sensors (valid/sat/held/none) --
+    fl: valid=100.0% sat=0.0% held=0.0% none=0.0%
+    fr: valid=100.0% sat=0.0% held=0.0% none=0.0%
+    sl: valid=100.0% sat=0.0% held=0.0% none=0.0%
+    sr: valid=100.0% sat=0.0% held=0.0% none=0.0%
+  -- mean |wheel| by state --
+    FOLLOW: 2.35 rad/s
+    GATEWAY: 2.35 rad/s
+    WEDGE: 3.00 rad/s
+  -- lateral: mean|offset|=0.012178204663212436 coverage=100.0% n=19300
+  ```
 - 2026-10-05 Mac verdict on `maze2` (55k ticks, stopped early):
   turns now read 5/5 PASS after an analyzer fix -- the reported
   `lost_left` FAIL (+86.8 deg) was a TOOLING artifact: gap/lost

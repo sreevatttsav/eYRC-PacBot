@@ -11,6 +11,18 @@ run for that. Use --t0/--t1 to window on t_wall (e.g. a clean straight).
 Usage:
     python3 replay.py logs/20250101T000000Z_baseline/ticks.csv
     python3 replay.py logs/<run>/ticks.csv --t0 3 --t1 12
+
+Stuck regression (Stage 0 gate -- exit code 1 on failure):
+    python3 replay.py <rerun>/ticks.csv --stuck-expect 5.0:7.0
+    python3 replay.py <first>/ticks.csv --stuck-expect 16.5:38.5
+
+Recomputes yaw_cmd = YAW_GAIN_K*(R-L) and runs the CURRENT
+StuckDetector over the whole log, then asserts:
+  (a) every 1 s bin of each --stuck-expect window contains a flag
+      (known pins/jams must be caught), and
+  (b) zero flags on steady TURN ticks (1 s spin-up transient after
+      each TURN entry is excluded -- a fixed 1 s window cannot judge
+      a step change until it fills with post-step data).
 """
 import argparse
 import csv
@@ -33,7 +45,13 @@ sys.modules["paho.mqtt"] = _mqtt
 sys.modules["paho.mqtt.client"] = _mc
 
 import task_1b_boilerplate as B  # noqa: E402
-from sensing import Tof  # noqa: E402
+from sensing import StuckDetector, Tof  # noqa: E402
+
+# Stage-1b defines these in the controller; fall back until then.
+YAW_GAIN_K = getattr(B, "YAW_GAIN_K", 0.13)
+STUCK_CMD_MIN = getattr(B, "STUCK_CMD_MIN", 0.3)
+STUCK_RATIO = getattr(B, "STUCK_RATIO", 0.25)
+STUCK_WIN_S = getattr(B, "STUCK_WIN_S", 1.0)
 
 
 def legacy_ema(prev, new, dt):
@@ -46,6 +64,13 @@ def main():
     ap.add_argument("ticks_csv")
     ap.add_argument("--t0", type=float, default=None)
     ap.add_argument("--t1", type=float, default=None)
+    ap.add_argument("--stuck-expect", action="append", default=[],
+                    metavar="A:B",
+                    help="t_wall window that must be flagged (repeatable)")
+    ap.add_argument("--stuck-quiet", action="append", default=["TURN"],
+                    metavar="STATE",
+                    help="states where zero flags are allowed "
+                         "(1 s post-entry excluded)")
     a = ap.parse_args()
 
     tofs = {k: Tof(B.MAX_RANGE, B.TOF_HOLD_S, B.FILTER_TAU)
@@ -103,6 +128,56 @@ def main():
     print("-- e_lat --")
     show("old (legacy filter)", old_lat)
     show("new (validity-gated)", new_lat)
+
+    if a.stuck_expect:
+        sys.exit(stuck_regress(a.ticks_csv, a.stuck_expect, a.stuck_quiet))
+
+
+def stuck_regress(path, expects, quiet_states):
+    """Recompute stuck flags with current constants; assert coverage of
+    known spans and silence on steady quiet-state ticks."""
+    rows = list(csv.DictReader(open(path)))
+    sd = StuckDetector(STUCK_WIN_S, STUCK_CMD_MIN, STUCK_RATIO)
+    flags = []  # (t_wall, flagged, state)
+    for r in rows:
+        yc = YAW_GAIN_K * (float(r["R"]) - float(r["L"]))
+        f = sd.update(yc, float(r["gyro_z"]), float(r["dt_rep"]))
+        flags.append((float(r["t_wall"]), bool(f), r.get("state", "?")))
+    print(f"-- stuck regress (K={YAW_GAIN_K} min={STUCK_CMD_MIN} "
+          f"ratio={STUCK_RATIO} win={STUCK_WIN_S}s) --")
+    ok = True
+    for spec in expects:
+        lo, hi = (float(v) for v in spec.split(":"))
+        # every 1 s bin of the window must contain a flag
+        b = lo
+        missing = []
+        while b < hi:
+            be = min(b + 1.0, hi)
+            if not any(f and b <= t < be for t, f, _ in flags):
+                missing.append((b, be))
+            b = be
+        status = "COVERED" if not missing else f"MISSED {missing}"
+        if missing:
+            ok = False
+        print(f"  expect {lo:.1f}-{hi:.1f}s: {status}")
+    # quiet states: TURN entry times for the spin-up exclusion
+    entries = []
+    prev = None
+    for t, f, s in flags:
+        if s == "TURN" and prev != "TURN":
+            entries.append(t)
+        prev = s
+    bad = [(t, s) for t, f, s in flags
+           if f and s in quiet_states
+           and not any(e <= t < e + 1.0 for e in entries)]
+    if bad:
+        ok = False
+        print(f"  steady-{quiet_states} flags: {len(bad)} "
+              f"first at t={bad[0][0]:.2f}s FAIL")
+    else:
+        print(f"  steady-{quiet_states} flags: 0 PASS")
+    print("STUCK-REGRESS " + ("PASS" if ok else "FAIL"))
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":

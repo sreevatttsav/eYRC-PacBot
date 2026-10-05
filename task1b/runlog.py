@@ -51,6 +51,8 @@ TICKS_HEADER = [
     "turn_progress",  # rad gained in current 1 s no-progress window
     "abort_reason",  # "", hard_timeout, no_progress (+ event reasons)
     "lat_mode",    # both / left_only / right_only / blind (Stage 2)
+    "e_heading",   # rad, wrap(ref - gyro_th) (Stage 3)
+    "steer_lat", "steer_front", "steer_heading",  # components (Stage 3)
     "x_est", "y_est", "th_est",  # dead-reckoned pose (ESTIMATED, drifts)
     "x_true", "y_true", "th_true",  # sim ground truth if available, else empty
     "extra",       # JSON of unrecognized payload keys (future pose/topics)
@@ -134,9 +136,10 @@ class RunLogger:
     def tick(self, raw, filt, gyro_z, dt_rep, e_lat, e_front, steer,
              L, R, state, true_pose=None, extra=None,
              statuses=("none",) * 4, yaw_cmd=0.0, stuck=False,
-             turn=None, lat_mode=""):
+             turn=None, lat_mode="", heading=None):
         """turn: None or dict(target, angle, error, elapsed, progress,
-        abort) -- missing keys log as empty (old callers unaffected)."""
+        abort) -- missing keys log as empty (old callers unaffected).
+        heading: None or dict(e, lat, front, heading) components."""
         now = time.monotonic()
         if self._mono0 is None:
             self._mono0 = now
@@ -182,6 +185,8 @@ class RunLogger:
             tcol("error", "%+.4f"), tcol("elapsed", "%.3f"),
             tcol("progress", "%+.4f"), str(turn.get("abort", "")),
             str(lat_mode),
+            *((f"{heading[k]:+.4f}" if heading and heading.get(k) is not None
+               else "") for k in ("e", "lat", "front", "heading")),
             f"{self._x:.4f}", f"{self._y:.4f}", f"{self._th:+.4f}",
             xt, yt, tht,
             json.dumps(extra or {}, separators=(",", ":")),

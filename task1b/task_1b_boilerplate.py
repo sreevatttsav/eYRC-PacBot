@@ -12,6 +12,7 @@ import argparse
 import json
 import math
 import os
+from collections import deque
 
 import paho.mqtt.client as mqtt
 
@@ -100,6 +101,20 @@ MAX_LINEAR_MPS = 0.12      # s2c ceiling (only if scoring rewards speed)
 SENSOR_CAP_M = 0.300
 SAT_MODE = "ceiling"   # or "distance"
 
+# Heading-aware centering (Stage 3). The reference accumulates each
+# COMPLETED turn's intended target (never the measured exit angle --
+# that would bake the ~3 deg residual in). Illustration used KP 3.0 /
+# 2.0; tuning starts low.
+KP_HEADING = 1.0       # heading trim (wheel rad/s per rad), start low
+STEER_HEADING_MAX = 1.0  # bound on the heading contribution
+# Optional wall-slope re-anchor: heading ~= asin(side_rate / v).
+# Needs K_LIN (Stage 2 done). Strict gates; FOLLOW-only so turns
+# (entry-relative angles) are never disturbed.
+REANCHOR_ENABLE = True
+REANCHOR_V_MIN = 0.03    # need forward motion for a slope signal
+REANCHOR_MAX_IMPLIED = 0.5  # ignore wild slopes (rad)
+REANCHOR_CONSIST_S = 1.0    # consistent slope this long -> correct gyro_th
+
 # Superseded by K_LIN/YAW_GAIN_K (kept for meta compat only).
 WHEEL_R_EST = 0.017    # m
 WHEEL_TRACK_EST = 0.08  # m
@@ -146,6 +161,11 @@ def _controller_constants():
         "K_LIN": K_LIN, "CRUISE_LINEAR_MPS": CRUISE_LINEAR_MPS,
         "MAX_LINEAR_MPS": MAX_LINEAR_MPS,
         "SENSOR_CAP_M": SENSOR_CAP_M, "SAT_MODE": SAT_MODE,
+        "KP_HEADING": KP_HEADING, "STEER_HEADING_MAX": STEER_HEADING_MAX,
+        "REANCHOR_ENABLE": REANCHOR_ENABLE,
+        "REANCHOR_V_MIN": REANCHOR_V_MIN,
+        "REANCHOR_MAX_IMPLIED": REANCHOR_MAX_IMPLIED,
+        "REANCHOR_CONSIST_S": REANCHOR_CONSIST_S,
         "MAX_RANGE": MAX_RANGE, "FILTER_TAU": FILTER_TAU,
         "TOF_HOLD_S": TOF_HOLD_S, "WALL_TARGET": WALL_TARGET,
         "WEDGE_ENTER": WEDGE_ENTER, "WEDGE_EXIT": WEDGE_EXIT,
@@ -191,6 +211,16 @@ class CenteringController:
         self.i_lat = 0.0
         self.t = 0.0              # controller clock (sim-time, from dt)
         self.gyro_th = 0.0        # integrated heading (turn termination)
+        # Heading reference (Stage 3): accumulates intended turn targets.
+        self.heading_ref = 0.0
+        self.e_heading = 0.0
+        self.steer_lat = 0.0
+        self.steer_front = 0.0
+        self.steer_heading = 0.0
+        # wall-slope re-anchor state (Stage 3): 1 s regression buffers
+        self._ra_sl = deque()
+        self._ra_sr = deque()
+        self.reanchor_mag = None  # last correction (for log extra)
         # Escape state
         self.spin_dir = 0.0
         self.backup_ticks = 0
@@ -241,6 +271,76 @@ class CenteringController:
     def _set_state(self, state, reason):
         self.state = state
         self.state_reason = reason
+
+    @staticmethod
+    def _wrap(a):
+        return (a + math.pi) % (2.0 * math.pi) - math.pi
+
+    def _reanchor(self, dt, v):
+        """Wall-slope re-anchor (Stage 3, optional). A valid unsaturated
+        side wall gives heading ~= asin(side_rate / v), with the rate
+        from a least-squares fit over a 1 s buffer (consecutive
+        differences are pure ToF noise at 50 Hz). After a consistent
+        window, snap gyro_th toward the implied heading.
+        FOLLOW-tail only (no active turn: entry-relative turn math is
+        never disturbed). Corrections below ~4.6 deg are ignored: slope
+        noise alone reads ~3 deg, while real drift is unbounded and
+        always grows past the gate."""
+        self.reanchor_mag = None
+        if (not REANCHOR_ENABLE or dt <= 0 or v < REANCHOR_V_MIN):
+            self._ra_sl.clear()
+            self._ra_sr.clear()
+            return
+        if (self.sl_f is not None
+                and self.last_status[2] in ("valid", "held")):
+            self._ra_sl.append((self.t, self.sl_f))
+        if (self.sr_f is not None
+                and self.last_status[3] in ("valid", "held")):
+            self._ra_sr.append((self.t, self.sr_f))
+        for buf in (self._ra_sl, self._ra_sr):
+            while buf and self.t - buf[0][0] > REANCHOR_CONSIST_S:
+                buf.popleft()
+        implied = []
+        for buf, sgn in ((self._ra_sl, -1.0), (self._ra_sr, 1.0)):
+            s = self._slope(buf)
+            if s is not None:
+                implied.append(math.asin(max(-1.0, min(sgn * s / v, 1.0))))
+        if not implied:
+            return
+        if len(implied) == 2 and implied[0] * implied[1] < 0:
+            return  # walls disagree: no signal (buffers keep filling)
+        avg = sum(implied) / len(implied)
+        if abs(avg) > REANCHOR_MAX_IMPLIED:
+            return
+        # implied lives in the CURRENT corridor frame: compare against
+        # (gyro_th - ref), ~0 when parallel. (Bare gyro_th would snap
+        # to disaster after the first turn.)
+        corr = self._wrap(avg - self._wrap(self.gyro_th - self.heading_ref))
+        # Gate at ~4.6 deg: EMA-correlated ToF noise still pushes fitted
+        # slopes to ~3 deg tails, so anything smaller is likely noise.
+        # Drift is unbounded and start crookedness is typically larger,
+        # so real errors always grow past this gate.
+        if abs(corr) > 0.08:
+            self.gyro_th += corr
+            self.reanchor_mag = corr
+            self._ra_sl.clear()
+            self._ra_sr.clear()
+            self._ra_sl.clear()
+            self._ra_sr.clear()
+
+    @staticmethod
+    def _slope(buf):
+        """Least-squares d(val)/dt over buffer; None if <10 samples or
+        span < 0.8 s (not enough baseline to beat ToF noise)."""
+        if len(buf) < 10 or buf[-1][0] - buf[0][0] < 0.8:
+            return None
+        n = len(buf)
+        mt = sum(t for t, _ in buf) / n
+        mv = sum(v for _, v in buf) / n
+        den = sum((t - mt) ** 2 for t, _ in buf)
+        if den <= 0:
+            return None
+        return sum((t - mt) * (v - mv) for t, v in buf) / den
 
     def _finalize(self, L, R, e_lat, e_front, steer, yaw_rate, dt):
         """Single exit path: runs stuck detection (fix 2) on the final
@@ -343,18 +443,23 @@ class CenteringController:
         else:
             self.i_lat *= I_LEAK
 
-        # 4. Steer composition. Single-wall hold: too far from the left
-        #    wall (sl > target) steers left (+), and symmetrically right.
-        steer = 0.0
+        # 4. Steer composition, by component (Stage 3 logs each).
+        #    Single-wall hold: too far from the left wall (sl > target)
+        #    steers left (+), and symmetrically right. Heading trim is
+        #    added in the FOLLOW tail only (turns own their wheels).
+        steer_lat = 0.0
         if e_lat is not None:
-            steer += KP_LAT * e_lat
+            steer_lat = KP_LAT * e_lat
         elif single is not None:
             side, reading = single
-            steer += side * KP_LAT * (reading - WALL_TARGET)
-        if e_front is not None:
-            steer += KP_FRONT * e_front
-        steer += KI_LAT * self.i_lat - KD_YAW * yaw_rate
+            steer_lat = side * KP_LAT * (reading - WALL_TARGET)
+        steer_front = KP_FRONT * e_front if e_front is not None else 0.0
+        steer = steer_lat + steer_front + KI_LAT * self.i_lat - KD_YAW * yaw_rate
         steer = max(-MAX_STEER, min(steer, MAX_STEER))
+        self.steer_lat = steer_lat
+        self.steer_front = steer_front
+        self.steer_heading = 0.0
+        self.e_heading = 0.0
 
         # 5. Longitudinal + escape. States: FOLLOW / REVERSE / TURN /
         #    BACKUP / WEDGE / RECOVER. Every return goes through
@@ -556,6 +661,10 @@ class CenteringController:
                 verified = (not front_known) or (front_clear > TURN_VERIFY_DIST)
                 if verified:
                     self.prev_turn_dir = 1.0 if self.turn_target > 0 else -1.0
+                    # reference += INTENDED target, never measured exit:
+                    # baking the ~3 deg residual in would offset every
+                    # subsequent straight (5 deg -> ~2.9 cm at KP 3/2).
+                    self.heading_ref += self.turn_target
                     self.spin_dir = 0.0
                     self.turn_active = False
                     self.retry_used = False  # completed: no flip, no retry
@@ -606,6 +715,16 @@ class CenteringController:
             v_cmd = CRUISE_LINEAR_MPS * 0.25
         v_cmd = min(v_cmd, MAX_LINEAR_MPS)
         base = v_cmd / K_LIN
+
+        # Heading trim (Stage 3). e_heading closes heading_ref against
+        # integrated gyro; bounded contribution, FOLLOW-only (turns own
+        # their wheels, maneuvers ignore it).
+        self.e_heading = self._wrap(self.heading_ref - self.gyro_th)
+        self.steer_heading = max(-STEER_HEADING_MAX,
+                                 min(KP_HEADING * self.e_heading,
+                                     STEER_HEADING_MAX))
+        steer = max(-MAX_STEER, min(steer + self.steer_heading, MAX_STEER))
+        self._reanchor(dt, v_cmd)
 
         left_vel = base - steer
         right_vel = base + steer
@@ -670,6 +789,9 @@ def on_message(client, userdata, msg):
                  if k not in ("fl", "fr", "sl", "sr", "gyro", "dt",
                               "x", "y", "th", "theta", "yaw")}
         extra["gyro_full"] = data.get("gyro")
+        if CONTROLLER.reanchor_mag is not None:
+            extra["reanchor"] = CONTROLLER.reanchor_mag
+            CONTROLLER.reanchor_mag = None
         in_turn = CONTROLLER.turn_active
         LOGGER.tick(
             raw=(fl, fr, sl, sr),
@@ -687,7 +809,11 @@ def on_message(client, userdata, msg):
                   "elapsed": CONTROLLER.turn_t if in_turn else "",
                   "progress": CONTROLLER.turn_progress if in_turn else "",
                   "abort": CONTROLLER.abort_reason},
-            lat_mode=CONTROLLER.lat_mode)
+            lat_mode=CONTROLLER.lat_mode,
+            heading={"e": CONTROLLER.e_heading,
+                     "lat": CONTROLLER.steer_lat,
+                     "front": CONTROLLER.steer_front,
+                     "heading": CONTROLLER.steer_heading})
         if _PREV_STATE is not None and CONTROLLER.state != _PREV_STATE:
             LOGGER.event(_PREV_STATE, CONTROLLER.state,
                          CONTROLLER.state_reason)

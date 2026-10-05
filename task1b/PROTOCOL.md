@@ -649,3 +649,15 @@ Then Ctrl+C the controller.
   below 0.15 m: the bot should remain in FOLLOW and steer/slow; only
   simultaneous close readings should enter REVERSE/TURN. Record all
   escape transitions and whether 180° turns still repeat.
+- 2026-10-05 Mac→Linux: remove persistent gateway override after
+  handoff. `gateway_passed` and its side-corridor latch are removed;
+  while the probe itself remains bounded, normal FOLLOW always uses
+  the nearest front ray for slowdown and the ordinary front PD. Added
+  a maze12-signature regression (one close front, one open front,
+  symmetric close side walls). Validation: 8/8 controller tests,
+  5/5 turn-plant tests, and all 5 corridor replay scenarios pass.
+
+  **Next run: maze13**. Confirm the gateway hands off normally, then
+  when one front ray is <0.15 m and the other is open, check the bot
+  slows and steers away without a blind U-turn. Report transitions and
+  the sim observation/log as usual.

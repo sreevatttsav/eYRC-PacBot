@@ -17,6 +17,7 @@ except ImportError:
                         "paho.mqtt.client": client})
 
 from task_1b_boilerplate import CenteringController, YAW_GAIN_K
+from task_1b_boilerplate import GATEWAY_APPROACH_M, GATEWAY_CORRIDOR_S
 
 
 class ControllerRegressionTests(unittest.TestCase):
@@ -119,6 +120,20 @@ class ControllerRegressionTests(unittest.TestCase):
         ctl.update(0.10, 0.10, 0.18, 0.18, 0.0, 0.02)
         self.assertEqual(ctl.state, "REVERSE")
         self.assertNotEqual(ctl.spin_dir, 0.0)
+
+    def test_gateway_handoff_returns_to_nearest_front_speed_control(self):
+        ctl = CenteringController()
+        # Reproduce the maze12 signature at the end of the entrance probe:
+        # one close front ray, one open ray, and symmetric close side walls.
+        ctl.gateway_active = True
+        ctl.gateway_distance = GATEWAY_APPROACH_M
+        ctl.gateway_corridor_t = GATEWAY_CORRIDOR_S
+
+        left, right, *_ = ctl.update(0.10, 0.60, 0.10, 0.10, 0.0, 0.02)
+
+        self.assertFalse(ctl.gateway_active)
+        self.assertEqual(ctl.state, "FOLLOW")
+        self.assertLess((left + right) / 2.0, 1.0)
 
 
 if __name__ == "__main__":

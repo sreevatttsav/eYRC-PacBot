@@ -334,10 +334,8 @@ class CenteringController:
         self.gateway_distance = 0.0
         self.gateway_clear_t = 0.0
         self.gateway_corridor_t = 0.0
-        self.gateway_corridor_lost_t = 0.0
         self.gateway_tries = 0
         self.gateway_failed = False
-        self.gateway_passed = False
         # Wedge hysteresis state (fix 4)
         self.wedge_active = False
         self.wedge_below_t = 0.0
@@ -621,15 +619,6 @@ class CenteringController:
             and self.sr_f < GATEWAY_CORRIDOR_MAX
             and abs(self.sl_f - self.sr_f) < GATEWAY_CORRIDOR_SYM_DB
         )
-        if self.gateway_passed:
-            self.gateway_corridor_lost_t = (
-                0.0 if gateway_corridor
-                else self.gateway_corridor_lost_t + dt
-            )
-            if self.gateway_corridor_lost_t >= 0.5:
-                self.gateway_passed = False
-                self.gateway_corridor_lost_t = 0.0
-        gateway_corridor_pass = self.gateway_passed and gateway_corridor
         if self.gateway_failed:
             self._set_state("GATEWAY_HOLD", "gateway_abort")
             return self._finalize(0.0, 0.0, e_lat, e_front,
@@ -773,9 +762,7 @@ class CenteringController:
                 self.gateway_distance = 0.0
                 self.gateway_clear_t = 0.0
                 self.gateway_corridor_t = 0.0
-                self.gateway_passed = corridor_exit and not front_exit
-                self.gateway_corridor_lost_t = 0.0
-                reason = ("gateway_corridor" if self.gateway_passed else
+                reason = ("gateway_corridor" if corridor_exit and not front_exit else
                           "gateway_clear" if front_exit else
                           "gateway_approach_done")
                 self._set_state("FOLLOW", reason)
@@ -816,12 +803,6 @@ class CenteringController:
             self.gateway_active = False
             self.gateway_t = 0.0
             self.gateway_clear_t = 0.0
-
-        # The corridor handoff can be armed on this tick. Refresh the
-        # one-ray-open exception before generic blocked/escape handling.
-        gateway_corridor_pass = self.gateway_passed and gateway_corridor
-        if gateway_corridor_pass and gateway_path_open:
-            blocked = front_block_l and front_block_r
 
         # Exit escape once the front is clear again -- but NOT while a
         # reverse/backup countdown is still running (those phases create
@@ -1032,11 +1013,8 @@ class CenteringController:
         # within [STOP, CAP-0.02]; a saturated front reads the cap, i.e.
         # full cruise. Unknown front -> cautious half speed.
         if front_clear is not None and not blocked:
-            front_for_speed = front_clear
-            if gateway_corridor_pass and gateway_path_open:
-                front_for_speed = max(front_vals)
             span = (SENSOR_CAP_M - 0.02) - FRONT_STOP_DIST
-            scale = (front_for_speed - FRONT_STOP_DIST) / span if span > 0 else 1.0
+            scale = (front_clear - FRONT_STOP_DIST) / span if span > 0 else 1.0
             scale = max(0.25, min(1.0, scale))
             v_cmd = CRUISE_LINEAR_MPS * scale
         elif front_clear is None:
@@ -1045,15 +1023,6 @@ class CenteringController:
             v_cmd = CRUISE_LINEAR_MPS * 0.25
         v_cmd = min(v_cmd, MAX_LINEAR_MPS)
         base = v_cmd / K_LIN
-
-        if gateway_corridor_pass and gateway_path_open:
-            steer_front_follow = max(
-                -GATEWAY_FRONT_STEER_MAX,
-                min(steer_front, GATEWAY_FRONT_STEER_MAX),
-            )
-            steer = max(-MAX_STEER, min(
-                steer_lat + steer_front_follow + KI_LAT * self.i_lat
-                - KD_YAW * yaw_rate, MAX_STEER))
 
         # --- Wall follow + junction seek: latch one wall, then treat a
         #     sustained opening on THAT side as a branch even if the

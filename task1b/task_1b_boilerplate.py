@@ -135,10 +135,11 @@ BLIND_TURN_S = 15.0      # fully blind this long -> 180 deg turn-back;
 # or 2nd try.
 GATEWAY_FRONT_MAX = 0.15  # both fronts numeric below this...
 GATEWAY_SYM_DB = 0.03     # ...symmetric within this...
-GATEWAY_SIDE_OPEN = 0.20  # ...with sides above this (not wedge)...
+GATEWAY_SIDE_OPEN = 0.20  # ...with both side readings above this...
 GATEWAY_V_FRAC = 0.5      # ...creep at this fraction of cruise...
-GATEWAY_ABORT_DIST = 0.06  # ...abort to backout below this (no touch)...
-GATEWAY_TIMEOUT = 4.0     # ...or after this long. Max 2 attempts.
+GATEWAY_ABORT_DIST = 0.06  # ...park if either front approaches contact...
+GATEWAY_CLEAR_S = 0.15    # both front rays clear this long -> FOLLOW
+GATEWAY_TIMEOUT = 8.0     # bounded crossing time; timeout parks safely
 
 # Heading-aware centering (Stage 3). The reference accumulates each
 # COMPLETED turn's intended target (never the measured exit angle --
@@ -208,6 +209,7 @@ def _controller_constants():
         "GATEWAY_SIDE_OPEN": GATEWAY_SIDE_OPEN,
         "GATEWAY_V_FRAC": GATEWAY_V_FRAC,
         "GATEWAY_ABORT_DIST": GATEWAY_ABORT_DIST,
+        "GATEWAY_CLEAR_S": GATEWAY_CLEAR_S,
         "GATEWAY_TIMEOUT": GATEWAY_TIMEOUT,
         "KP_HEADING": KP_HEADING, "STEER_HEADING_MAX": STEER_HEADING_MAX,
         "REANCHOR_ENABLE": REANCHOR_ENABLE,
@@ -311,7 +313,9 @@ class CenteringController:
         # Gateway probe state (spawn frames).
         self.gateway_active = False
         self.gateway_t = 0.0
+        self.gateway_clear_t = 0.0
         self.gateway_tries = 0
+        self.gateway_failed = False
         # Wedge hysteresis state (fix 4)
         self.wedge_active = False
         self.wedge_below_t = 0.0
@@ -588,6 +592,11 @@ class CenteringController:
                       for v, s in ((self.fl_f, fl_s), (self.fr_f, fr_s))
                       if v is not None and s in ("valid", "held"))
 
+        if self.gateway_failed:
+            self._set_state("GATEWAY_HOLD", "gateway_abort")
+            return self._finalize(0.0, 0.0, e_lat, e_front,
+                                  0.0, yaw_rate, dt)
+
         # --- stuck recovery finishes first (distance-driven backout) ---
         if self.recover_active:
             back = BASE_SPEED * 0.5
@@ -651,11 +660,13 @@ class CenteringController:
                 return self._finalize(wl, wr, e_lat, e_front,
                                       steer, yaw_rate, dt)
 
-        # --- gateway probe (maze2 spawn): symmetric close fronts with
+        # --- gateway probe (maze2/3 spawn): symmetric close fronts with
         #     open sides = frame to squeeze through, NOT a wall. The
         #     splayed rays hit the posts; the gap runs between them.
-        #     Creep forward centered on e_front trim; abort to normal
-        #     escape on contact approach, timeout, or 2nd try.
+        #     Latch the probe once entered: one front ray can clear before
+        #     the other while the robot passes between the posts. Use side
+        #     centering + gyro damping, never front-ray difference, for
+        #     steering during this asymmetric crossing.
         in_maneuver_now = (self.reverse_ticks > 0 or self.backup_ticks > 0
                            or self.wedge_active or self.spin_dir != 0.0
                            or self.recover_active)
@@ -664,25 +675,50 @@ class CenteringController:
             and self.fl_f < GATEWAY_FRONT_MAX
             and self.fr_f < GATEWAY_FRONT_MAX
             and abs(self.fl_f - self.fr_f) < GATEWAY_SYM_DB
-            and (not sl_num or self.sl_f >= GATEWAY_SIDE_OPEN)
-            and (not sr_num or self.sr_f >= GATEWAY_SIDE_OPEN)
+            and sl_num and sr_num
+            and self.sl_f >= GATEWAY_SIDE_OPEN
+            and self.sr_f >= GATEWAY_SIDE_OPEN
         )
-        if not in_maneuver_now and gateway_sig:
+        if not in_maneuver_now and (self.gateway_active or gateway_sig):
             if not self.gateway_active:
                 self.gateway_active = True
                 self.gateway_t = 0.0
+                self.gateway_clear_t = 0.0
                 self.gateway_tries += 1
             self.gateway_t += dt
-            if self.gateway_t > GATEWAY_TIMEOUT:
+            front_clear_l = (fl_s == "sat" or
+                             (fl_num and self.fl_f > self.RESUME_DIST))
+            front_clear_r = (fr_s == "sat" or
+                             (fr_num and self.fr_f > self.RESUME_DIST))
+            if front_clear_l and front_clear_r:
+                self.gateway_clear_t += dt
+            else:
+                self.gateway_clear_t = 0.0
+
+            if (self.gateway_clear_t >= GATEWAY_CLEAR_S
+                    and not blocked):
                 self.gateway_active = False
                 self.gateway_t = 0.0
-                self._set_state("FOLLOW", "gateway_timeout")
-                # fall through to normal logic (will hit blocked -> escape)
+                self.gateway_clear_t = 0.0
+                self._set_state("FOLLOW", "gateway_clear")
+                # front is clear; continue into normal FOLLOW logic
+            elif (self.gateway_t > GATEWAY_TIMEOUT
+                  or any(v is not None and s in ("valid", "held")
+                         and v < GATEWAY_ABORT_DIST
+                         for v, s in ((self.fl_f, fl_s),
+                                      (self.fr_f, fr_s)))):
+                # Don't hand a failed entrance probe to the generic blocked
+                # handler: that immediately reverses and turns out of spawn.
+                self.gateway_active = False
+                self.gateway_failed = True
+                self._set_state("GATEWAY_HOLD", "gateway_timeout")
+                return self._finalize(0.0, 0.0, e_lat, e_front,
+                                      0.0, yaw_rate, dt)
             else:
-                # creep at reduced speed, centered on e_front
+                # Creep forward, centered by side ToF and gyro damping.
                 v_gw = CRUISE_LINEAR_MPS * GATEWAY_V_FRAC
                 base_gw = v_gw / K_LIN
-                steer_gw = KP_FRONT * e_front if e_front is not None else 0.0
+                steer_gw = steer_lat - KD_YAW * yaw_rate
                 steer_gw = max(-MAX_STEER, min(steer_gw, MAX_STEER))
                 left_gw = base_gw - steer_gw
                 right_gw = base_gw + steer_gw
@@ -691,9 +727,10 @@ class CenteringController:
                 self._set_state("GATEWAY", "probe")
                 return self._finalize(left_gw, right_gw, e_lat, e_front,
                                       steer_gw, yaw_rate, dt)
-        else:
+        elif not self.gateway_active:
             self.gateway_active = False
             self.gateway_t = 0.0
+            self.gateway_clear_t = 0.0
 
         # Exit escape once the front is clear again -- but NOT while a
         # reverse/backup countdown is still running (those phases create

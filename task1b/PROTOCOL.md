@@ -95,3 +95,42 @@ Then Ctrl+C the controller.
   above (controller `f6d2a63`). s1 (3/3 turns) and s2 analyses are
   in prior commit messages; `SIM_NOTES.md` holds binary-extracted
   sim facts. Waiting on maze1 logs + sim verdict line.
+- 2026-10-05 Linux→Mac: `maze1` ran to controller completion/timeout
+  (251,400 ticks; `task1b/logs/20261005T131606Z_maze1/`). Controller was
+  at `c8019a3`, with `K_LIN=0.017`, `YAW_GAIN_K=0.0914`, `SAT_MODE=ceiling`.
+  The captured sim stdout file is **empty**, so there is no sim `MAZE
+  SOLVED` line, time, score, or collision count to report. What I noticed:
+  the controller did both commanded +90° turns cleanly, both brief stuck
+  events cleared in about one second, and after the second turn at
+  wall-clock ~45 s it remained in FOLLOW. Front and side sensors stayed
+  overwhelmingly at the 0.300/saturated boundary, so this run demonstrates
+  state-machine recovery, not verified forward maze progress. The verbatim
+  `analyze_run.py` report is below.
+  ```
+  == maze1 commit=c8019a3 ticks=251400
+  -- turns --
+    #0 t=0.5s target=+90deg(logged) final_err=-1.8deg dur=3.60s exit=FOLLOW:clear rev=0[] PASS
+    #1 t=41.4s target=+90deg(logged) final_err=-0.8deg dur=3.60s exit=FOLLOW:clear rev=0[] PASS
+  -- stuck --
+    t=18.7s @RECOVER hold=1.17s
+    t=35.2s @RECOVER hold=1.12s
+  -- transitions --
+    BRAKE->FOLLOW [clear] x2
+    FOLLOW->RECOVER [stuck] x2
+    FOLLOW->REVERSE [blocked] x1
+    RECOVER->FOLLOW [clear] x2
+    REVERSE->TURN [left] x2
+    TURN->BRAKE [coast] x2
+  -- sensors (valid/sat/held/none) --
+    fl: valid=0.3% sat=93.1% held=0.0% none=6.6%
+    fr: valid=5.8% sat=87.0% held=0.0% none=7.2%
+    sl: valid=1.6% sat=98.3% held=0.1% none=0.0%
+    sr: valid=6.3% sat=93.6% held=0.1% none=0.0%
+  -- mean |wheel| by state --
+    BRAKE: 2.00 rad/s
+    FOLLOW: 2.35 rad/s
+    RECOVER: 3.00 rad/s
+    REVERSE: 3.00 rad/s
+    TURN: 1.87 rad/s
+  -- lateral: mean|offset|=0.009005999999999998 coverage=0.2% n=475
+  ```

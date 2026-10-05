@@ -58,6 +58,14 @@ TOF_SIGMA = 0.005  # m
 GYRO_SIGMA = 0.02  # rad/s
 OMEGA_TAU = 0.12   # yaw inertia lag (s) -- makes KD_YAW meaningful
 
+# Turn plant for Stage 1c logic tests: first-order lag + yaw gain.
+# Plant default (0.18) is the SIM surrogate: the log measured -1.09 rad/s
+# at w=3, i.e. k = 1.09/6 = 0.18. The CONTROLLER's YAW_GAIN_K stays at
+# the plan's conservative 0.13 until step_test replaces it -- the gap
+# between the two is exactly what the slow-plant test probes.
+TURN_PLANT_TAU = 0.03
+TURN_PLANT_GAIN = 0.18
+
 CSV_HEADER = ["timestamp", "mode", "scenario", "kp_lat", "kp_front",
               "kd_yaw", "ki_lat", "gyro_bias", "seed",
               "rms", "max", "final", "hit", "spun"]
@@ -114,6 +122,109 @@ def step_pose(x, y, th, om_prev, Vl, Vr, dt):
     x += v * math.cos(th) * dt
     y += v * math.sin(th) * dt
     return x, y, th, om, v
+
+
+class TurnPlant:
+    """First-order yaw plant for turn-logic tests (Stage 1c).
+
+    omega_dot = (gain*(R-L) - omega)/tau. stall=True pins omega at 0
+    (expect no_progress abort ~1.0 s into the turn, ~1.5 s from block).
+    """
+
+    def __init__(self, gain=TURN_PLANT_GAIN, tau=TURN_PLANT_TAU,
+                 stall=False, noise=0.02, seed=0):
+        self.gain = gain
+        self.tau = tau
+        self.stall = stall
+        self.noise = noise
+        self.rng = random.Random(seed)
+        self.om = 0.0
+
+    def step(self, L, R, dt):
+        cmd = 0.0 if self.stall else self.gain * (R - L)
+        self.om += (cmd - self.om) * dt / (self.tau + dt)
+        meas = self.om + self.rng.gauss(0, self.noise)
+        return self.om, meas
+
+
+def run_turn_test(name, target_deg, plant_gain=TURN_PLANT_GAIN,
+                  stall=False, seed=0, T=14.0):
+    """Drive a fresh controller: blocked front until the turn passes 60%
+    of target, then open. Returns outcome dict."""
+    ctl = CenteringController()
+    want_left = target_deg > 0
+    mag = abs(target_deg)
+    if mag > 100:  # dead-end 180: both sides close (but above wedge)
+        sl0, sr0 = 0.10, 0.10
+    elif want_left:
+        sl0, sr0 = 0.35, 0.25
+    else:
+        sl0, sr0 = 0.25, 0.35
+    plant = TurnPlant(gain=plant_gain, stall=stall, seed=seed)
+    turned = 0.0
+    aborts = []
+    prev_state = None
+    n = int(T / DT)
+    om_meas = 0.0
+    first_abort = None
+    for i in range(n):
+        frac = abs(turned) / math.radians(mag)
+        front = 0.05 if frac < 0.6 else 1.0
+        L, R, el, ef, st = ctl.update(front, front, sl0, sr0,
+                                      om_meas, DT)
+        om, om_meas = plant.step(L, R, DT)
+        turned += om * DT
+        if ctl.state != prev_state:
+            aborts.append((i * DT, prev_state, ctl.state,
+                           ctl.state_reason))
+            if (first_abort is None and ctl.state == "BACKUP"
+                    and ctl.abort_reason):
+                first_abort = (i * DT, ctl.abort_reason)
+            prev_state = ctl.state
+        if ctl.state == "FOLLOW" and i * DT > 1.0:
+            break
+    err_deg = abs(math.degrees(abs(turned) - math.radians(mag)))
+    return {"name": name, "target_deg": target_deg,
+            "turned_deg": math.degrees(turned), "final_err_deg": err_deg,
+            "abort_reason": ctl.abort_reason,
+            "first_abort": first_abort,
+            "state": ctl.state, "transitions": aborts,
+            "time_s": i * DT}
+
+
+def turn_tests(plant_gain=TURN_PLANT_GAIN, seed=0):
+    cases = [
+        ("left90", 90.0, plant_gain, False),
+        ("right90", -90.0, plant_gain, False),
+        ("deadend180", 180.0, plant_gain, False),
+        ("stalled", 90.0, plant_gain, True),
+        ("slow060", 90.0, 0.6 * plant_gain, False),
+    ]
+    results = []
+    for name, tgt, gain, stall in cases:
+        r = run_turn_test(name, tgt, plant_gain=gain, stall=stall,
+                          seed=seed)
+        if name.startswith("stalled"):
+            fa = r["first_abort"]
+            r["pass"] = (fa is not None and fa[1] == "no_progress"
+                         and 1.2 <= fa[0] <= 2.0)
+        elif name.startswith("slow"):
+            r["pass"] = (r["abort_reason"] == "" and r["state"] == "FOLLOW"
+                         and r["final_err_deg"] <= 5.0)
+        else:
+            r["pass"] = (r["abort_reason"] == "" and r["state"] == "FOLLOW"
+                         and r["final_err_deg"] <= 5.0)
+        results.append(r)
+        first = (f"first_abort={r['first_abort']}" if r["first_abort"]
+                 else "no-abort")
+        print(f"{r['name']:10s} turned={r['turned_deg']:+7.1f}deg "
+              f"err={r['final_err_deg']:.1f}deg t={r['time_s']:.2f}s "
+              f"abort={r['abort_reason'] or '-':12s} "
+              f"end={r['state']} {first} "
+              f"{'PASS' if r['pass'] else 'FAIL'}")
+    print("TURN-TESTS " +
+          ("PASS" if all(r["pass"] for r in results) else "FAIL"))
+    return results
 
 
 def run_scenario(name, gains, T=12.0, seed=1, gyro_bias=0.0,
@@ -184,8 +295,16 @@ def main():
     ap.add_argument("--verbose", action="store_true")
     ap.add_argument("--csv", default=None,
                     help="append per-scenario metrics to this CSV file")
+    ap.add_argument("--turn-tests", action="store_true",
+                    help="run turn-logic tests on the yaw plant (Stage 1c)")
+    ap.add_argument("--plant-gain", type=float, default=TURN_PLANT_GAIN,
+                    help="yaw gain for the turn plant (from step_test)")
     a = ap.parse_args()
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    if a.turn_tests:
+        turn_tests(plant_gain=a.plant_gain, seed=a.seed)
+        return
 
     if a.sweep:
         print(f"{'KP':>5} {'KD':>5} | {'offset':>6} {'angle':>6} "

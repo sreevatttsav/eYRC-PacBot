@@ -44,6 +44,12 @@ TICKS_HEADER = [
     "e_lat", "e_front", "steer",
     "L", "R",     # commanded wheel velocities (rad/s)
     "state",       # controller state: FOLLOW / REVERSE / TURN / BACKUP / WEDGE
+    "turn_target",  # rad, signed (+left). "" when no turn active/old log
+    "turn_angle",   # rad turned since turn entry (gyro integral)
+    "turn_error",   # rad remaining (target - angle)
+    "turn_elapsed",  # s since turn start
+    "turn_progress",  # rad gained in current 1 s no-progress window
+    "abort_reason",  # "", hard_timeout, no_progress (+ event reasons)
     "x_est", "y_est", "th_est",  # dead-reckoned pose (ESTIMATED, drifts)
     "x_true", "y_true", "th_true",  # sim ground truth if available, else empty
     "extra",       # JSON of unrecognized payload keys (future pose/topics)
@@ -124,7 +130,10 @@ class RunLogger:
     # -- per-callback ----------------------------------------------------
     def tick(self, raw, filt, gyro_z, dt_rep, e_lat, e_front, steer,
              L, R, state, true_pose=None, extra=None,
-             statuses=("none",) * 4, yaw_cmd=0.0, stuck=False):
+             statuses=("none",) * 4, yaw_cmd=0.0, stuck=False,
+             turn=None):
+        """turn: None or dict(target, angle, error, elapsed, progress,
+        abort) -- missing keys log as empty (old callers unaffected)."""
         now = time.monotonic()
         if self._mono0 is None:
             self._mono0 = now
@@ -145,6 +154,16 @@ class RunLogger:
         else:
             xt, yt, tht = true_pose
 
+        turn = turn or {}
+        def tcol(key, fmt):
+            v = turn.get(key)
+            if v is None or v == "":
+                return ""
+            try:
+                return fmt % float(v)
+            except (ValueError, TypeError):
+                return str(v)
+
         self._tick_buf.append([
             self._i, f"{now:.4f}", f"{t_wall:.4f}",
             f"{dt_rep:.4f}", f"{dt_wall:.4f}",
@@ -156,6 +175,9 @@ class RunLogger:
             (f"{e_front:+.4f}" if e_front is not None else ""),
             f"{steer:+.4f}",
             f"{L:+.3f}", f"{R:+.3f}", state,
+            tcol("target", "%+.4f"), tcol("angle", "%+.4f"),
+            tcol("error", "%+.4f"), tcol("elapsed", "%.3f"),
+            tcol("progress", "%+.4f"), str(turn.get("abort", "")),
             f"{self._x:.4f}", f"{self._y:.4f}", f"{self._th:+.4f}",
             xt, yt, tht,
             json.dumps(extra or {}, separators=(",", ":")),

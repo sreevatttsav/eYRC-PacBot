@@ -64,20 +64,25 @@ WEDGE_ENTER_T = 0.1
 WEDGE_MIN_DWELL = 0.5
 WEDGE_MAX_T = 2.0      # then hand off to stuck/give-up logic
 
-# Gyro-terminated turns (fix 3). TURN_RATE_REF derives from SPIN_SPEED
-# and the wheel-size estimates -- recheck after Phase-1 calibration.
+# Gyro-terminated turns (fix 3, reworked Stage 1b). Turn rate now comes
+# from the MEASURED yaw gain (step test), not wheel-size estimates.
+YAW_GAIN_K = 0.13        # yaw/(R-L); from log until step_test replaces it
 TURN_KP = 2.0          # P gain on angle error (rad/s per rad)
-TURN_MIN_W = 1.5       # minimum wheel speed in a turn (rad/s)
-TURN_EXIT_ERR = 0.0873  # 5 deg
-TURN_EXIT_GYRO = 0.2   # rad/s
+TURN_MIN_W = 1.5       # minimum wheel speed in a turn (rad/s, step test sets)
+TURN_EXIT_ERR = 0.052  # 3 deg; coast adds ~1-2 deg -> final inside +/-5
 TURN_TIE_DB = 0.05     # side-openness deadband: tie -> prev turn dir
 DEADEND_DIST = 0.15    # both sides below this + blocked front = 180 deg
 TURN_VERIFY_DIST = 0.20  # front clearance required after a turn
 TURN_MAX_RETRIES = 2
+TURN_TIMEOUT_BASE = 0.5    # hard timeout = BASE + PER_RAD*|target|
+TURN_TIMEOUT_PER_RAD = 2.5  # 4.4 s per 90 deg, 8.4 s per 180 (provisional)
+NO_PROGRESS_START = 0.5   # begin no-progress watch this far into a turn
+NO_PROGRESS_WIN = 1.0     # abort if angle gains < MIN in any window
+NO_PROGRESS_MIN = 0.0873  # 5 deg
 
-# Stuck detection + recovery (fix 2).
+# Stuck detection + recovery (fix 2, retuned Stage 1b: 0.5 missed the pin).
 STUCK_WIN_S = 1.0
-STUCK_CMD_MIN = 0.5    # |commanded yaw| must exceed this (rad/s)
+STUCK_CMD_MIN = 0.3    # |commanded yaw| must exceed this (rad/s)
 STUCK_RATIO = 0.25     # |measured| below this fraction of commanded
 STUCK_ESCALATE_S = 3.0  # re-flag within this -> escalate
 RECOVER_DIST = 0.10    # back-out distance per recovery (m, estimated)
@@ -132,10 +137,16 @@ def _controller_constants():
         "WEDGE_ENTER_T": WEDGE_ENTER_T, "WEDGE_MIN_DWELL": WEDGE_MIN_DWELL,
         "WEDGE_MAX_T": WEDGE_MAX_T,
         "TURN_KP": TURN_KP, "TURN_MIN_W": TURN_MIN_W,
-        "TURN_EXIT_ERR": TURN_EXIT_ERR, "TURN_EXIT_GYRO": TURN_EXIT_GYRO,
+        "TURN_EXIT_ERR": TURN_EXIT_ERR,
         "TURN_TIE_DB": TURN_TIE_DB, "DEADEND_DIST": DEADEND_DIST,
         "TURN_VERIFY_DIST": TURN_VERIFY_DIST,
         "TURN_MAX_RETRIES": TURN_MAX_RETRIES,
+        "TURN_TIMEOUT_BASE": TURN_TIMEOUT_BASE,
+        "TURN_TIMEOUT_PER_RAD": TURN_TIMEOUT_PER_RAD,
+        "NO_PROGRESS_START": NO_PROGRESS_START,
+        "NO_PROGRESS_WIN": NO_PROGRESS_WIN,
+        "NO_PROGRESS_MIN": NO_PROGRESS_MIN,
+        "YAW_GAIN_K": YAW_GAIN_K,
         "STUCK_WIN_S": STUCK_WIN_S, "STUCK_CMD_MIN": STUCK_CMD_MIN,
         "STUCK_RATIO": STUCK_RATIO, "STUCK_ESCALATE_S": STUCK_ESCALATE_S,
         "RECOVER_DIST": RECOVER_DIST,
@@ -168,13 +179,22 @@ class CenteringController:
         self.reverse_ticks = 0
         self.flip_next = False   # after a give-up, try the other way first
         self.spin_done_s = 0.0   # committed turn executed this escape
-        # Gyro turn state (fix 3)
+        # Gyro turn state (fix 3, Stage 1b)
         self.turn_active = False
         self.turn_entry = 0.0
         self.turn_target = 0.0   # signed radians
         self.turn_t = 0.0
         self.turn_retries = 0
         self.prev_turn_dir = 1.0  # tie-break default: left (fixed rule)
+        self.retry_dir = None    # hard-timeout retry: force same dir once
+        self.turn_angle = 0.0    # exposed for turn logging
+        self.turn_error = 0.0
+        self.retry_used = False
+        self._from_backup = False
+        self.np_t0 = 0.0         # no-progress window start (turn-time)
+        self.np_a0 = 0.0         # no-progress window start (angle)
+        self.turn_progress = 0.0  # angle gained in current 1 s window
+        self.abort_reason = ""   # last turn abort: "", timeout, no_progress
         # Wedge hysteresis state (fix 4)
         self.wedge_active = False
         self.wedge_below_t = 0.0
@@ -199,10 +219,6 @@ class CenteringController:
     RESUME_DIST = 0.20     # front clearance needed to exit escape
     MIN_SPIN_S = 0.6       # committed turn before a clear front may exit spin
 
-    @property
-    def TURN_RATE_REF(self):
-        return WHEEL_R_EST * 2.0 * SPIN_SPEED / WHEEL_TRACK_EST
-
 
     def _set_state(self, state, reason):
         self.state = state
@@ -211,12 +227,16 @@ class CenteringController:
     def _finalize(self, L, R, e_lat, e_front, steer, yaw_rate, dt):
         """Single exit path: runs stuck detection (fix 2) on the final
         command. A rising stuck edge during any maneuver switches this
-        tick's output to stuck recovery (distance-driven reverse)."""
-        yaw_cmd = WHEEL_R_EST * (R - L) / WHEEL_TRACK_EST
+        tick's output to stuck recovery (distance-driven reverse).
+        The edge is blanked during turn spin-up (turn_t < 1 window):
+        a fixed 1 s window cannot judge a step change until it fills
+        with post-step data, and the flag still logs for analysis."""
+        yaw_cmd = YAW_GAIN_K * (R - L)
         self.yaw_cmd = yaw_cmd
         stuck_now = self.stuck.update(yaw_cmd, yaw_rate, dt)
         self.stuck_flag = stuck_now
-        if stuck_now and not self._stuck_prev:
+        blanked = (self.state == "TURN" and self.turn_t < STUCK_WIN_S)
+        if stuck_now and not self._stuck_prev and not blanked:
             L, R = self._on_stuck(L, R)
         if not stuck_now and self._stuck_prev:
             self.last_stuck_clear_t = self.t
@@ -395,6 +415,7 @@ class CenteringController:
 
         if self.backup_ticks > 0:
             self.backup_ticks -= 1
+            self._from_backup = True  # next fresh block is a retry, not new
             self._set_state("BACKUP", "giveup")
             back = BASE_SPEED * 0.5
             return self._finalize(-back, -back, e_lat, e_front,
@@ -402,13 +423,22 @@ class CenteringController:
 
         if blocked or self.spin_dir != 0.0:
             if self.spin_dir == 0.0 and self.reverse_ticks == 0:
-                # fresh block: pick the turn, reverse first for room
+                # fresh block: pick the turn, reverse first for room.
+                # A stale same-dir retry from an older obstacle is dropped
+                # unless we came straight out of BACKUP.
+                if not self._from_backup:
+                    self.retry_dir = None
+                    self.retry_used = False
+                self._from_backup = False
                 deadend = (front_known and self.sl_f is not None
                            and self.sr_f is not None
                            and self.sl_f < DEADEND_DIST
                            and self.sr_f < DEADEND_DIST)
                 mag = math.pi if deadend else math.pi / 2.0
-                if (self.sl_f is not None and self.sr_f is not None
+                if self.retry_dir is not None:
+                    tdir = self.retry_dir  # hard-timeout retry: same dir
+                    self.retry_dir = None
+                elif (self.sl_f is not None and self.sr_f is not None
                         and abs(self.sl_f - self.sr_f) > TURN_TIE_DB):
                     tdir = 1.0 if self.sl_f > self.sr_f else -1.0
                 else:
@@ -422,6 +452,7 @@ class CenteringController:
                 self.turn_active = False
                 self.turn_retries = 0
                 self.turn_t = 0.0
+                self.abort_reason = ""
                 self.reverse_ticks = max(1, int(self.REVERSE_S / dt)) if dt > 0 else 200
                 self.spin_done_s = 0.0  # new escape -> new committed turn
             if self.reverse_ticks > 0:
@@ -430,32 +461,66 @@ class CenteringController:
                 back = BASE_SPEED * 0.5
                 return self._finalize(-back, -back, e_lat, e_front,
                                       steer, yaw_rate, dt)
-            # --- gyro-terminated turn (fix 3): P servo on integrated
-            #     angle, NOT on time. Time-based turns inherit the ~15%
-            #     wheel-size error measured in the log. ---
+            # --- gyro-terminated turn (fix 3, Stage 1b): P servo on
+            #     integrated angle. Exit on |err| <= 3 deg only (coast
+            #     adds ~1-2 deg -> final inside +/-5). Aborts: hard
+            #     timeout, or no-progress (<5 deg gained in any 1 s
+            #     window after 0.5 s in). ---
             if not self.turn_active:
                 self.turn_active = True
                 self.turn_entry = self.gyro_th
                 self.turn_t = 0.0
+                self.np_t0 = 0.0
+                self.np_a0 = 0.0
+                self.turn_progress = 0.0
             self.turn_t += dt
             turned = self.gyro_th - self.turn_entry
             err = self.turn_target - turned
-            timeout = 2.0 * abs(self.turn_target) / self.TURN_RATE_REF
+            timeout = TURN_TIMEOUT_BASE + TURN_TIMEOUT_PER_RAD * abs(self.turn_target)
             if self.turn_t > timeout:
+                # hard timeout: retry once same dir, then flip
                 self.backup_ticks = max(1, int(self.BACKUP_S / dt)) if dt > 0 else 250
                 self.spin_dir = 0.0
                 self.turn_active = False
-                self.flip_next = True
+                if not self.retry_used:
+                    self.retry_used = True
+                    self.retry_dir = 1.0 if self.turn_target > 0 else -1.0
+                else:
+                    self.retry_used = False
+                    self.retry_dir = None
+                    self.flip_next = True
+                self.abort_reason = "hard_timeout"
                 self._set_state("BACKUP", "turn_timeout")
                 back = BASE_SPEED * 0.5
                 return self._finalize(-back, -back, e_lat, e_front,
                                       steer, yaw_rate, dt)
-            if abs(err) < TURN_EXIT_ERR and abs(yaw_rate) < TURN_EXIT_GYRO:
+            if self.turn_t >= NO_PROGRESS_START:
+                if self.turn_t - self.np_t0 >= NO_PROGRESS_WIN:
+                    self.turn_progress = turned - self.np_a0
+                    if self.turn_progress < NO_PROGRESS_MIN:
+                        # pinned side: reverse out and flip direction
+                        self.backup_ticks = max(1, int(self.BACKUP_S / dt)) if dt > 0 else 250
+                        self.spin_dir = 0.0
+                        self.turn_active = False
+                        self.retry_used = False
+                        self.retry_dir = None
+                        self.flip_next = True
+                        self.abort_reason = "no_progress"
+                        self._set_state("BACKUP", "no_progress")
+                        back = BASE_SPEED * 0.5
+                        return self._finalize(-back, -back, e_lat, e_front,
+                                              steer, yaw_rate, dt)
+                    self.np_t0 = self.turn_t
+                    self.np_a0 = turned
+            if abs(err) <= TURN_EXIT_ERR:
+                verified = (not front_known) or (front_clear > TURN_VERIFY_DIST)
                 verified = (not front_known) or (front_clear > TURN_VERIFY_DIST)
                 if verified:
                     self.prev_turn_dir = 1.0 if self.turn_target > 0 else -1.0
                     self.spin_dir = 0.0
                     self.turn_active = False
+                    self.retry_used = False  # completed: no flip, no retry
+                    self.retry_dir = None
                     self._set_state("FOLLOW", "turn_done" if front_known
                                     else "turn_done_unverified")
                     # fall through to FOLLOW tail below
@@ -472,12 +537,17 @@ class CenteringController:
                                               steer, yaw_rate, dt)
                     self.turn_entry = self.gyro_th  # retry same target
                     self.turn_t = 0.0
+                    self.np_t0 = 0.0
+                    self.np_a0 = 0.0
+                    self.turn_progress = 0.0
                     err = self.turn_target
             if self.turn_active:
                 w = TURN_KP * err
                 wmag = min(SPIN_SPEED, max(TURN_MIN_W, abs(w)))
                 w = math.copysign(wmag, err) if err != 0.0 else 0.0
                 self.spin_done_s += dt
+                self.turn_angle = turned   # exposed for turn logging
+                self.turn_error = err
                 self._set_state("TURN",
                                 "left" if self.turn_target > 0 else "right")
                 return self._finalize(-w, w, e_lat, e_front,
@@ -498,6 +568,7 @@ class CenteringController:
         right_vel = base + steer
         left_vel = max(-MAX_SPEED, min(left_vel, MAX_SPEED))
         right_vel = max(-MAX_SPEED, min(right_vel, MAX_SPEED))
+        self._from_backup = False  # driving: next block is a new obstacle
         self._set_state("FOLLOW",
                         "clear" if front_known and front_clear > FRONT_SLOW_DIST else "approach")
         return self._finalize(left_vel, right_vel, e_lat, e_front,
@@ -555,6 +626,7 @@ def on_message(client, userdata, msg):
                  if k not in ("fl", "fr", "sl", "sr", "gyro", "dt",
                               "x", "y", "th", "theta", "yaw")}
         extra["gyro_full"] = data.get("gyro")
+        in_turn = CONTROLLER.turn_active
         LOGGER.tick(
             raw=(fl, fr, sl, sr),
             filt=(CONTROLLER.fl_f, CONTROLLER.fr_f,
@@ -564,7 +636,13 @@ def on_message(client, userdata, msg):
             state=CONTROLLER.state, true_pose=true_pose, extra=extra,
             statuses=CONTROLLER.last_status,
             yaw_cmd=CONTROLLER.yaw_cmd,
-            stuck=CONTROLLER.stuck_flag)
+            stuck=CONTROLLER.stuck_flag,
+            turn={"target": CONTROLLER.turn_target if in_turn else "",
+                  "angle": CONTROLLER.turn_angle if in_turn else "",
+                  "error": CONTROLLER.turn_error if in_turn else "",
+                  "elapsed": CONTROLLER.turn_t if in_turn else "",
+                  "progress": CONTROLLER.turn_progress if in_turn else "",
+                  "abort": CONTROLLER.abort_reason})
         if _PREV_STATE is not None and CONTROLLER.state != _PREV_STATE:
             LOGGER.event(_PREV_STATE, CONTROLLER.state,
                          CONTROLLER.state_reason)

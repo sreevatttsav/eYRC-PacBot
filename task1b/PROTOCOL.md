@@ -756,3 +756,23 @@ Then Ctrl+C the controller.
   backing; any wall contact; and the standard `analyze_run.py` output.
   This run determines whether the close-ray intervention prevents the
   maze13 collision without creating repeated backing or blocking turns.
+
+- 2026-10-05 Mac→Linux: maze14 confirmed a false gateway handoff. At
+  6.76 s both front rays were still below `FRONT_STOP_DIST`, but the
+  gateway exited on its distance limit and normal escape immediately
+  chose the default-left turn because side openness was tied. Increased
+  the straight gateway approach from 0.22 m to 0.40 m and its time bound
+  from 8 s to 12 s. Approach-distance handoff now also requires at least
+  one front ray to indicate clearance; if the longer approach is still
+  blocked, the controller enters `GATEWAY_HOLD` instead of reversing and
+  turning blindly. The existing clear-ray and corridor handoffs remain.
+  Added a regression for continued straight probing and the blocked-limit
+  safe hold.
+
+  **Next run: maze15.** Use the forced-capture command above, but let the
+  simulator exit normally so its end-of-run verdict is emitted; maze14's
+  wrapper log contains no score because that run was stopped early. Check
+  the state transitions for a `GATEWAY→FOLLOW` handoff only after a front
+  ray opens, and confirm that persistent blockage produces `GATEWAY_HOLD`
+  rather than `GATEWAY→REVERSE→TURN`. Report simulator verdict, time,
+  score, collisions, gateway distance behavior, and the analyzer output.

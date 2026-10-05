@@ -160,6 +160,25 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertEqual(ctl.state, "FOLLOW")
         self.assertLess((left + right) / 2.0, 1.0)
 
+    def test_gateway_extends_straight_approach_then_holds_if_still_blocked(self):
+        ctl = CenteringController()
+        ctl.gateway_active = True
+        ctl.gateway_distance = GATEWAY_APPROACH_M * 0.8
+
+        left, right, *_ = ctl.update(0.10, 0.10, 1.14, 1.14, 0.0, 0.02)
+        self.assertEqual(ctl.state, "GATEWAY")
+        self.assertFalse(ctl.gateway_failed)
+        self.assertGreater(left + right, 0.0)
+
+        # Reaching the longer range with both front rays still blocked is
+        # not permission to fall through into the default-left escape turn.
+        ctl.gateway_distance = GATEWAY_APPROACH_M
+        left, right, *_ = ctl.update(0.10, 0.10, 1.14, 1.14, 0.0, 0.02)
+        self.assertEqual(ctl.state, "GATEWAY_HOLD")
+        self.assertTrue(ctl.gateway_failed)
+        self.assertEqual((left, right), (0.0, 0.0))
+        self.assertEqual(ctl.spin_dir, 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -149,8 +149,8 @@ GATEWAY_CORRIDOR_MAX = 0.22  # both sides inside this range = passage entered
 GATEWAY_CORRIDOR_SYM_DB = 0.06
 GATEWAY_CORRIDOR_S = 0.30  # require a stable side-wall signature
 GATEWAY_FRONT_STEER_MAX = 0.50  # bound front alignment while in the frame
-GATEWAY_APPROACH_M = 0.22  # one maze cell before normal obstacle handling
-GATEWAY_TIMEOUT = 8.0      # safety bound; timeout parks safely
+GATEWAY_APPROACH_M = 0.40  # allow a longer straight entrance before handoff
+GATEWAY_TIMEOUT = 12.0     # enough time to cover the approach at cruise speed
 
 # Heading-aware centering (Stage 3). The reference accumulates each
 # COMPLETED turn's intended target (never the measured exit angle --
@@ -781,7 +781,11 @@ class CenteringController:
 
             front_exit = self.gateway_clear_t >= GATEWAY_CLEAR_S
             corridor_exit = self.gateway_corridor_t >= GATEWAY_CORRIDOR_S
-            approach_exit = self.gateway_distance >= GATEWAY_APPROACH_M
+            approach_limit = self.gateway_distance >= GATEWAY_APPROACH_M
+            # Distance alone is not evidence that the entrance is clear.
+            # Require at least one front ray to open before handing control
+            # to normal obstacle escape; otherwise stop safely at the limit.
+            approach_exit = approach_limit and gateway_path_open
             if front_exit or corridor_exit or approach_exit:
                 self.gateway_active = False
                 self.gateway_t = 0.0
@@ -793,6 +797,12 @@ class CenteringController:
                           "gateway_approach_done")
                 self._set_state("FOLLOW", reason)
                 # Continue into FOLLOW or normal blocked/turn handling.
+            elif approach_limit:
+                self.gateway_active = False
+                self.gateway_failed = True
+                self._set_state("GATEWAY_HOLD", "gateway_no_clearance")
+                return self._finalize(0.0, 0.0, e_lat, e_front,
+                                      0.0, yaw_rate, dt)
             elif (self.gateway_t > GATEWAY_TIMEOUT
                   or any(v is not None and s in ("valid", "held")
                          and v < GATEWAY_ABORT_DIST

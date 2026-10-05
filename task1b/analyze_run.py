@@ -124,10 +124,15 @@ def analyze_turns(rep):
             tgt_note = "logged"
         turned = th_end - ticks[e0]["_th"]
         err_deg = math.degrees(turned - target)
-        # reversals: sign flips of commanded differential
+        # reversals: sign flips of commanded differential WITHIN TURN
+        # ticks only. The TURN->BRAKE brake opposition flip is the
+        # brake doing its job, not a direction reversal -- excluding
+        # BRAKE rows keeps re-trim flips countable.
         flips, flip_at = 0, []
         prev = None
         for r in seg:
+            if r.get("state") != "TURN":
+                continue
             d = (_f(r, "R", 0.0) or 0.0) - (_f(r, "L", 0.0) or 0.0)
             s = 1 if d > 0 else (-1 if d < 0 else 0)
             if s and prev and s != prev:

@@ -50,6 +50,8 @@ TOPIC_WHEEL_VEL = "pacbot/wheel_vel"
 
 BACK_TARGET = 0.299
 OPEN_SUSTAIN_S = 1.0   # unknown front this long = open space, stop backing
+GYRO_STRAIGHT_MAX = 0.15  # BACK samples yawing faster are rotation, not
+# translation: rays sweeping across walls fake the slope. Gate the fit.
 STILL_S = 0.5
 FWD_END = 0.12
 COAST_S = 2.0
@@ -126,7 +128,7 @@ def main():
     def run_phase(L, R, state, dur, stop=None, fresh_only=True):
         """One fresh sample per loop; phase clock advances per-sample dt.
         stop(vals, stats, dt) may accumulate time. Returns (outcome,
-        samples[(t, vals, stats)])."""
+        samples[(t, vals, stats, gyro)])."""
         t = 0.0
         samples = []
         pub(L, R)
@@ -136,10 +138,11 @@ def main():
             except StallTimeout:
                 return "sim_stall", samples
             vals, stats = sense(data, dt)
+            gyro = (data.get("gyro") or [0, 0, 0])[2]
             if any(v is not None and v < ABORT_DIST
                    for v in (vals["sl"], vals["sr"])):
                 return "abort", samples
-            samples.append((t, vals, stats))
+            samples.append((t, vals, stats, gyro))
             tick(data, vals, L, R, state, dt)
             if stop is not None and stop(vals, stats, dt):
                 return "stop", samples
@@ -177,14 +180,15 @@ def main():
 
             r, back = run_phase(-w, -w, "BACK", PHASE_TIMEOUT,
                                  stop=back_stop)
-            f0 = [front_min(v) for _, v, _ in back if front_min(v) is not None]
+            f0 = [front_min(v) for _, v, _, _ in back if front_min(v) is not None]
             moved = (r == "stop" and f0
                      and (max(f0) - min(f0) > BACK_SPAN_MIN
                           or max(f0) >= BACK_TARGET))
             # K_LIN from the BACK opening slope (translation along the
-            # facing axis). Opening range grows: speed = +slope.
-            bwin = [(t, front_min(v)) for t, v, _ in back
-                    if front_min(v) is not None]
+            # facing axis), using only straight samples: yawing while
+            # backing sweeps the rays and fakes the slope.
+            bwin = [(t, front_min(v)) for t, v, _, g in back
+                    if front_min(v) is not None and abs(g) < GYRO_STRAIGHT_MAX]
             bspan = (max(x for _, x in bwin) - min(x for _, x in bwin)) if bwin else 0.0
             m, r2 = slope_r2(bwin) if bspan >= BACK_SPAN_MIN else (None, None)
             if m is not None and (r2 is None or r2 < BACK_R2_MIN):
@@ -207,11 +211,13 @@ def main():
             # 4. coast
             _, coast = run_phase(0.0, 0.0, "COAST", COAST_S)
             pub(0.0, 0.0)
-            c = [front_min(v) for _, v, s in coast if front_min(v) is not None]
+            c = [front_min(v) for _, v, _, _ in coast if front_min(v) is not None]
             trials.append({
                 "w": w, "phase": r, "fwd_end": r3,
                 "n_back": len(bwin), "back_span": round(bspan, 4),
                 "back_r2": round(r2, 4) if r2 is not None else None,
+                "back_raw": sum(1 for _, v, _, _ in back
+                                if front_min(v) is not None),
                 "k_lin": k_lin,
                 "coast_m": (c[0] - c[-1]) if c else None,
             })

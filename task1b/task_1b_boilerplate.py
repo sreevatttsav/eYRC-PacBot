@@ -126,14 +126,16 @@ FOLLOW_ESTABLISH_S = 1.0  # sustained single-wall follow before gaps count
 GAP_OPEN_S = 0.5         # follow wall lost this long -> seek it (90 deg)
 BLIND_TURN_S = 15.0      # fully blind this long -> 180 deg turn-back;
 # a second consecutive blind stretch latches HOLD (stop, don't wander).
-# Gateway probe (maze2 spawn: entrance gap ahead BETWEEN the splayed
-# rays, posts reading 0.100 on both sides). Signature: symmetric close
-# fronts + open sides = frame to squeeze through, NOT a wall (a real
-# dead-end wall has close sides too). Creep centered on e_front trim;
-# abort to normal escape on contact approach, timeout, or 2nd try.
+# Gateway probe (maze2/3 spawn: entrance gap ahead BETWEEN the
+# splayed rays, posts reading 0.100 on both sides, flanking walls
+# at ~0.26). Signature: symmetric close fronts + sides NOT in wedge
+# range = narrow passage to squeeze through, NOT a wall (a real
+# dead-end wall has sides in wedge range too). Creep centered on
+# e_front trim; abort to normal escape on contact approach, timeout,
+# or 2nd try.
 GATEWAY_FRONT_MAX = 0.15  # both fronts numeric below this...
 GATEWAY_SYM_DB = 0.03     # ...symmetric within this...
-GATEWAY_SIDE_OPEN = 0.30  # ...with both sides at/above this...
+GATEWAY_SIDE_OPEN = 0.20  # ...with sides above this (not wedge)...
 GATEWAY_V_FRAC = 0.5      # ...creep at this fraction of cruise...
 GATEWAY_ABORT_DIST = 0.06  # ...abort to backout below this (no touch)...
 GATEWAY_TIMEOUT = 4.0     # ...or after this long. Max 2 attempts.

@@ -95,6 +95,20 @@ Then Ctrl+C the controller.
   above (controller `f6d2a63`). s1 (3/3 turns) and s2 analyses are
   in prior commit messages; `SIM_NOTES.md` holds binary-extracted
   sim facts. Waiting on maze1 logs + sim verdict line.
+- 2026-10-05 Mac verdict on `maze1` (251k ticks, 600 s): turns 2/2
+  PASS, stuck 2x cleared ~1.1 s each, BUT the run failed at the
+  strategy level. Trace: turn#0 left at spawn (t=0.5) → drove 1.0 m
+  north hugging the west perimeter wall (sr numeric 88%, mean
+  0.093) with the entrance gap behind/beside it → NW corner at
+  (-0.24,+1.0) → tie-break left again (west) → 9 min blind cruise
+  20 m out (all sat). Sustained sr openings at t≈23-28 (up to
+  ~2.3 s, the entrance or perimeter gaps) were driven straight
+  past: the controller turns AWAY from blockages but never INTO
+  openings. Sim stdout empty (never solved; nothing to report).
+  Proposed fix pack: (1) wall-loss gap-seek (lose follow wall with
+  front clear → 90° into it), (2) tie-break toward last-seen wall,
+  (3) anti-void (blind >15 s → 180° turn-back, then hold).
+  Awaiting go-ahead to implement.
 - 2026-10-05 Linux→Mac: `maze1` ran to controller completion/timeout
   (251,400 ticks; `task1b/logs/20261005T131606Z_maze1/`). Controller was
   at `c8019a3`, with `K_LIN=0.017`, `YAW_GAIN_K=0.0914`, `SAT_MODE=ceiling`.

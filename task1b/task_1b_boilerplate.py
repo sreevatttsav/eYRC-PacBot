@@ -64,6 +64,9 @@ WEDGE_EXIT = 0.12
 WEDGE_ENTER_T = 0.1
 WEDGE_MIN_DWELL = 0.5
 WEDGE_MAX_T = 2.0      # then hand off to stuck/give-up logic
+WEDGE_REPEAT_WINDOW_S = 15.0
+WEDGE_TURN_AFTER = 3   # repeated recoveries at one spot -> turn to more room
+WEDGE_CLEARANCE_TIE_DB = 0.015
 
 # Gyro-terminated turns (fix 3, reworked Stage 1b). Turn rate now comes
 # from the MEASURED yaw gain (step test), not wheel-size estimates.
@@ -150,8 +153,10 @@ GATEWAY_TIMEOUT = 8.0      # safety bound; timeout parks safely
 # COMPLETED turn's intended target (never the measured exit angle --
 # that would bake the ~3 deg residual in). Illustration used KP 3.0 /
 # 2.0; tuning starts low.
-KP_HEADING = 1.0       # heading trim (wheel rad/s per rad), start low
+KP_HEADING = 0.5       # reduced; local ToF steering takes priority
 STEER_HEADING_MAX = 1.0  # bound on the heading contribution
+HEADING_STEER_FADE_START = 0.15  # begin fading when local ToF correction grows
+HEADING_STEER_FADE_FULL = 0.60   # no heading hold above this ToF correction
 # Optional wall-slope re-anchor: heading ~= asin(side_rate / v).
 # Needs K_LIN (Stage 2 done). Strict gates; FOLLOW-only so turns
 # (entry-relative angles) are never disturbed.
@@ -222,6 +227,8 @@ def _controller_constants():
         "GATEWAY_APPROACH_M": GATEWAY_APPROACH_M,
         "GATEWAY_TIMEOUT": GATEWAY_TIMEOUT,
         "KP_HEADING": KP_HEADING, "STEER_HEADING_MAX": STEER_HEADING_MAX,
+        "HEADING_STEER_FADE_START": HEADING_STEER_FADE_START,
+        "HEADING_STEER_FADE_FULL": HEADING_STEER_FADE_FULL,
         "REANCHOR_ENABLE": REANCHOR_ENABLE,
         "REANCHOR_V_MIN": REANCHOR_V_MIN,
         "REANCHOR_MAX_IMPLIED": REANCHOR_MAX_IMPLIED,
@@ -231,6 +238,9 @@ def _controller_constants():
         "WEDGE_ENTER": WEDGE_ENTER, "WEDGE_EXIT": WEDGE_EXIT,
         "WEDGE_ENTER_T": WEDGE_ENTER_T, "WEDGE_MIN_DWELL": WEDGE_MIN_DWELL,
         "WEDGE_MAX_T": WEDGE_MAX_T,
+        "WEDGE_REPEAT_WINDOW_S": WEDGE_REPEAT_WINDOW_S,
+        "WEDGE_TURN_AFTER": WEDGE_TURN_AFTER,
+        "WEDGE_CLEARANCE_TIE_DB": WEDGE_CLEARANCE_TIE_DB,
         "TURN_KP": TURN_KP, "TURN_MIN_W": TURN_MIN_W,
         "TURN_EXIT_ERR": TURN_EXIT_ERR,
         "TURN_TIE_DB": TURN_TIE_DB, "DEADEND_DIST": DEADEND_DIST,
@@ -334,6 +344,7 @@ class CenteringController:
         self.wedge_active = False
         self.wedge_below_t = 0.0
         self.wedge_t = 0.0
+        self.wedge_cycles = deque()
         # Stuck recovery state (fix 2)
         self.stuck = StuckDetector(STUCK_WIN_S, STUCK_CMD_MIN, STUCK_RATIO)
         self.stuck_flag = False
@@ -670,6 +681,11 @@ class CenteringController:
                     and self.spin_dir == 0.0):
                 self.wedge_active = True
                 self.wedge_t = 0.0
+                self.wedge_cycles.append(self.t)
+                while (self.wedge_cycles
+                       and self.t - self.wedge_cycles[0]
+                       > WEDGE_REPEAT_WINDOW_S):
+                    self.wedge_cycles.popleft()
         if self.wedge_active:
             self.wedge_t += dt
             both_above = (self.sl_f is not None and self.sr_f is not None
@@ -677,6 +693,26 @@ class CenteringController:
             if both_above and self.wedge_t >= WEDGE_MIN_DWELL:
                 self.wedge_active = False
                 self.wedge_below_t = 0.0
+                while (self.wedge_cycles
+                       and self.t - self.wedge_cycles[0]
+                       > WEDGE_REPEAT_WINDOW_S):
+                    self.wedge_cycles.popleft()
+                if len(self.wedge_cycles) >= WEDGE_TURN_AFTER:
+                    # Repeatedly retrying the same narrow approach made no
+                    # route progress. We've backed out of the pinch; make a
+                    # deliberate quarter-turn toward the side with room.
+                    if (sl_num and sr_num
+                            and abs(self.sl_f - self.sr_f)
+                            > WEDGE_CLEARANCE_TIE_DB):
+                        tdir = 1.0 if self.sl_f > self.sr_f else -1.0
+                    else:
+                        tdir = self.prev_turn_dir
+                    self.wedge_cycles.clear()
+                    self._start_turn(tdir, math.pi / 2.0, "wedge")
+                    self._set_state("TURN", "wedge_" +
+                                    ("left" if tdir > 0 else "right"))
+                    return self._finalize(0.0, 0.0, e_lat, e_front,
+                                          steer, yaw_rate, dt)
                 # fall through to normal logic
             elif self.wedge_t > WEDGE_MAX_T:
                 # doesn't clear -> hand off to give-up backup + flip
@@ -1100,10 +1136,22 @@ class CenteringController:
 
         # Heading trim (Stage 3). e_heading closes heading_ref against
         # integrated gyro; bounded contribution, FOLLOW-only (turns own
-        # their wheels, maneuvers ignore it).
+        # their wheels, maneuvers ignore it). Fade it out when local ToF
+        # steering is large so a maze turn is not pulled back toward the
+        # previous corridor heading.
         self.e_heading = self._wrap(self.heading_ref - self.gyro_th)
+        local_steer = max(abs(steer_lat), abs(steer_front))
+        if local_steer <= HEADING_STEER_FADE_START:
+            heading_scale = 1.0
+        elif local_steer >= HEADING_STEER_FADE_FULL:
+            heading_scale = 0.0
+        else:
+            heading_scale = (
+                (HEADING_STEER_FADE_FULL - local_steer)
+                / (HEADING_STEER_FADE_FULL - HEADING_STEER_FADE_START)
+            )
         self.steer_heading = max(-STEER_HEADING_MAX,
-                                 min(KP_HEADING * self.e_heading,
+                                 min(KP_HEADING * self.e_heading * heading_scale,
                                      STEER_HEADING_MAX))
         steer = max(-MAX_STEER, min(steer + self.steer_heading, MAX_STEER))
         self._reanchor(dt, v_cmd)

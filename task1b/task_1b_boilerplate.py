@@ -118,6 +118,15 @@ MAX_LINEAR_MPS = 0.12      # s2c ceiling (only if scoring rewards speed)
 SENSOR_CAP_M = 0.300
 SAT_MODE = "ceiling"   # or "distance"
 
+# Exploration behaviors (maze1 post-mortem: the controller turned
+# away from blockages but never INTO openings, so it walked past the
+# entrance and cruised 20 m into the void).
+FOLLOW_WALL_MAX = 0.25   # single-side numeric below this = following it
+FOLLOW_ESTABLISH_S = 1.0  # sustained single-wall follow before gaps count
+GAP_OPEN_S = 0.5         # follow wall lost this long -> seek it (90 deg)
+BLIND_TURN_S = 15.0      # fully blind this long -> 180 deg turn-back;
+# a second consecutive blind stretch latches HOLD (stop, don't wander).
+
 # Heading-aware centering (Stage 3). The reference accumulates each
 # COMPLETED turn's intended target (never the measured exit angle --
 # that would bake the ~3 deg residual in). Illustration used KP 3.0 /
@@ -178,6 +187,9 @@ def _controller_constants():
         "K_LIN": K_LIN, "CRUISE_LINEAR_MPS": CRUISE_LINEAR_MPS,
         "MAX_LINEAR_MPS": MAX_LINEAR_MPS,
         "SENSOR_CAP_M": SENSOR_CAP_M, "SAT_MODE": SAT_MODE,
+        "FOLLOW_WALL_MAX": FOLLOW_WALL_MAX,
+        "FOLLOW_ESTABLISH_S": FOLLOW_ESTABLISH_S,
+        "GAP_OPEN_S": GAP_OPEN_S, "BLIND_TURN_S": BLIND_TURN_S,
         "KP_HEADING": KP_HEADING, "STEER_HEADING_MAX": STEER_HEADING_MAX,
         "REANCHOR_ENABLE": REANCHOR_ENABLE,
         "REANCHOR_V_MIN": REANCHOR_V_MIN,
@@ -267,6 +279,16 @@ class CenteringController:
         self.abort_reason = ""   # last turn abort: "", timeout, no_progress
         self.brake_until = None  # turn_t deadline for the BRAKE state
         self.brake_w = 0.0       # signed opposing wheel speed in BRAKE
+        self.turn_cause = ""     # why this turn: "", "gap", "lost"
+        # Exploration state (maze1 pack): wall follow + blind driving.
+        self.follow_side = 0.0   # +1 left / -1 right / 0 none latched
+        self.follow_t = 0.0
+        self.gap_t = 0.0
+        self.last_seen_l = -1e9  # last controller-t with a close left wall
+        self.last_seen_r = -1e9
+        self.blind_t = 0.0
+        self.void_count = 0      # consecutive blind stretches
+        self.hold = False        # latched HOLD (parked, see section 5)
         # Wedge hysteresis state (fix 4)
         self.wedge_active = False
         self.wedge_below_t = 0.0
@@ -295,6 +317,29 @@ class CenteringController:
     def _set_state(self, state, reason):
         self.state = state
         self.state_reason = reason
+
+    def _start_turn(self, tdir, mag, cause):
+        """Arm a turn: fresh-block, gap-seek, and lost-turn entries all
+        funnel here so target/retries/reason stay consistent. The TURN
+        P servo initializes on the next tick (turn_active False). A
+        pre-reverse is the caller's job (escape needs room, gap/lost
+        turns start from open space and skip it)."""
+        self.spin_dir = tdir
+        self.turn_target = tdir * mag
+        self.turn_orig = tdir * mag
+        self.turn_active = False
+        self.turn_retries = 0
+        self.turn_reversals = 0
+        self.turn_t = 0.0
+        self.abort_reason = ""
+        self.brake_until = None
+        self.reverse_ticks = 0
+        self.spin_done_s = 0.0
+        self.turn_cause = cause
+        self.spin_done_s = 0.0  # new escape -> new committed turn
+        self.follow_side = 0.0
+        self.follow_t = 0.0
+        self.gap_t = 0.0
 
     @staticmethod
     def _wrap(a):
@@ -463,6 +508,12 @@ class CenteringController:
         self.lat_mode = lat_mode
         if fl_num and fr_num:
             e_front = self.fl_f - self.fr_f
+        # Wall memory for the tie-break (maze1 pack): last time each
+        # side showed a close wall. Walls are information, void is not.
+        if sl_num and self.sl_f < FOLLOW_WALL_MAX:
+            self.last_seen_l = self.t
+        if sr_num and self.sr_f < FOLLOW_WALL_MAX:
+            self.last_seen_r = self.t
 
         # 3. Leaky integral (OFF by default). Same cautions as before;
         #    additionally gated on e_lat being known.
@@ -491,10 +542,18 @@ class CenteringController:
         self.e_heading = 0.0
 
         # 5. Longitudinal + escape. States: FOLLOW / REVERSE / TURN /
-        #    BACKUP / WEDGE / RECOVER. Every return goes through
+        #    BACKUP / WEDGE / RECOVER / HOLD. Every return goes through
         #    _finalize() for stuck detection.
         self.t += dt
         self.gyro_th += yaw_rate * dt
+
+        # --- HOLD latch (anti-void terminal state): parked, zeros out.
+        #     Nothing in the maze moves to us, so this never releases;
+        #     the run is over for scoring and the operator intervenes.
+        if self.hold:
+            self._set_state("HOLD", "lost_hold")
+            return self._finalize(0.0, 0.0, e_lat, e_front,
+                                  steer, yaw_rate, dt)
 
         # front_clear uses every available reading; a sat side reads the
         # cap (open). Only a NUMERIC reading below STOP blocks -- a sat
@@ -613,23 +672,21 @@ class CenteringController:
                 elif (self.sl_f is not None and self.sr_f is not None
                         and abs(self.sl_f - self.sr_f) > TURN_TIE_DB):
                     tdir = 1.0 if self.sl_f > self.sr_f else -1.0
+                elif self.last_seen_l == self.last_seen_r:
+                    tdir = self.prev_turn_dir  # never saw a wall: fixed rule
                 else:
-                    tdir = self.prev_turn_dir  # tie/unknown: fixed rule
+                    # tie: turn toward the most recently seen wall.
+                    # Walls are information, void is not (maze1: the NW
+                    # corner tie went west into the void; east had the wall).
+                    tdir = (1.0 if self.last_seen_l > self.last_seen_r
+                            else -1.0)
                 self.spin_dir = tdir
                 if self.flip_next:
                     self.spin_dir = -self.spin_dir
                     tdir = self.spin_dir
                     self.flip_next = False
-                self.turn_target = tdir * mag
-                self.turn_orig = tdir * mag
-                self.turn_active = False
-                self.turn_retries = 0
-                self.turn_reversals = 0
-                self.turn_t = 0.0
-                self.abort_reason = ""
-                self.brake_until = None
+                self._start_turn(tdir, mag, "")
                 self.reverse_ticks = max(1, int(self.REVERSE_S / dt)) if dt > 0 else 200
-                self.spin_done_s = 0.0  # new escape -> new committed turn
             if self.reverse_ticks > 0:
                 self.reverse_ticks -= 1
                 self._set_state("REVERSE", "blocked")
@@ -785,8 +842,8 @@ class CenteringController:
                 self.spin_done_s += dt
                 self.turn_angle = turned   # exposed for turn logging
                 self.turn_error = err
-                self._set_state("TURN",
-                                "left" if self.turn_target > 0 else "right")
+                side = "left" if self.turn_target > 0 else "right"
+                self._set_state("TURN", (self.turn_cause + "_" if self.turn_cause else "") + side)
                 return self._finalize(-w, w, e_lat, e_front,
                                       steer, yaw_rate, dt)
         # FOLLOW tail (also reached after a completed turn). Speed is
@@ -804,6 +861,61 @@ class CenteringController:
             v_cmd = CRUISE_LINEAR_MPS * 0.25
         v_cmd = min(v_cmd, MAX_LINEAR_MPS)
         base = v_cmd / K_LIN
+
+        # --- wall follow + gap-seek (maze1 pack): hug a single wall;
+        #     when the latched wall opens with front clear, turn INTO it
+        #     (the entrance announces itself exactly this way).
+        #     Corridors (both sides close) never trigger: drive past.
+        L_close = sl_num and self.sl_f < FOLLOW_WALL_MAX
+        R_close = sr_num and self.sr_f < FOLLOW_WALL_MAX
+        if L_close and R_close:
+            self.follow_side = 0.0
+            self.follow_t = 0.0
+            self.gap_t = 0.0
+        elif L_close != R_close:
+            side = 1.0 if L_close else -1.0
+            if side != self.follow_side:
+                self.follow_side = side
+                self.follow_t = 0.0
+                self.gap_t = 0.0
+            else:
+                self.follow_t += dt
+                self.gap_t = 0.0  # wall present this tick
+        elif self.follow_side != 0.0:
+            # both open, previously following: wall possibly lost
+            self.gap_t += dt
+            if (self.follow_t >= FOLLOW_ESTABLISH_S
+                    and self.gap_t >= GAP_OPEN_S and not blocked):
+                tdir = self.follow_side
+                self._start_turn(tdir, math.pi / 2.0, "gap")
+                self._set_state("TURN", "gap_" + ("left" if tdir > 0 else "right"))
+                return self._finalize(0.0, 0.0, e_lat, e_front,
+                                      steer, yaw_rate, dt)
+        # NOTE: no latch at all (follow_side == 0, both open) -> nothing
+        # to seek; the void logic below owns that case.
+
+        # --- anti-void (maze1 pack): fully blind driving accumulates;
+        #     at 15 s turn 180 deg back toward last readings; a second
+        #     consecutive blind stretch latches HOLD (park, don't wander).
+        #     In the FOLLOW tail blocked is always False by construction.
+        front_open = front_clear is None or front_clear > self.RESUME_DIST
+        if self.lat_mode == "blind" and front_open:
+            self.blind_t += dt
+            if self.blind_t >= BLIND_TURN_S:
+                self.blind_t = 0.0
+                self.void_count += 1
+                if self.void_count >= 2:
+                    self.hold = True
+                    self._set_state("HOLD", "lost_hold")
+                    return self._finalize(0.0, 0.0, e_lat, e_front,
+                                          steer, yaw_rate, dt)
+                self._start_turn(self.prev_turn_dir, math.pi, "lost")
+                self._set_state("TURN", "lost_" + ("left" if self.prev_turn_dir > 0 else "right"))
+                return self._finalize(0.0, 0.0, e_lat, e_front,
+                                      steer, yaw_rate, dt)
+        else:
+            self.blind_t = 0.0
+            self.void_count = 0
 
         # Heading trim (Stage 3). e_heading closes heading_ref against
         # integrated gyro; bounded contribution, FOLLOW-only (turns own

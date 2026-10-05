@@ -109,6 +109,17 @@ Then Ctrl+C the controller.
   front clear → 90° into it), (2) tie-break toward last-seen wall,
   (3) anti-void (blind >15 s → 180° turn-back, then hold).
   Awaiting go-ahead to implement.
+- 2026-10-05 Mac→Linux: fix pack IMPLEMENTED and pushed (gap-seek +
+  wall-memory tie-break + anti-void/HOLD, new `_start_turn` funnel,
+  `turn_cause`-tagged reasons). Verified offline: gap triggers after
+  1 s follow + 0.5 s opening and completes; corridor junctions and
+  brief follows do not trigger; virgin ties keep prev-dir, informed
+  ties go to the most-recent wall; blind 15 s fires a 180° lost
+  turn, second consecutive stretch latches HOLD zeros. Full
+  regression green (harness, 5 turn-logic tests, both replay gates,
+  old-log analyzes). Also fixed: `_start_turn` now resets
+  `spin_done_s` (else the clear-front gate eats the second armed
+  turn of a run). Next: `maze2` full run against the same card.
 - 2026-10-05 Linux→Mac: `maze1` ran to controller completion/timeout
   (251,400 ticks; `task1b/logs/20261005T131606Z_maze1/`). Controller was
   at `c8019a3`, with `K_LIN=0.017`, `YAW_GAIN_K=0.0914`, `SAT_MODE=ceiling`.

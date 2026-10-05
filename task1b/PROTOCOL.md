@@ -555,6 +555,33 @@ Then Ctrl+C the controller.
     WEDGE: 3.00 rad/s
   -- lateral: mean|offset|=0.019240486772486774 coverage=56.9% n=9450
   ```
+- 2026-10-05 Linux→Mac: `maze12` stopped on user instruction (~36 s
+  wall, 17,800 ticks; `task1b/logs/20261005T154132Z_maze12/`, controller
+  `54b9203`). Sim stdout is **empty** even with `stdbuf -oL`. What I
+  noticed: GATEWAY handed off to FOLLOW at t=1.76 s (good), then FOLLOW
+  held for the entire run — no turns, no stuck, no wedge. All sensors
+  100% valid, lateral offset 0.003 m (excellent centering). The "require
+  both front rays" fix eliminated false escape triggers, but the bot
+  never turned — it likely drove straight and sat in FOLLOW. Verbatim
+  `analyze_run.py` below.
+  ```
+  == maze12 commit=54b9203 ticks=17800
+  -- turns --
+    (none)
+  -- stuck --
+    zero episodes
+  -- transitions --
+    GATEWAY->FOLLOW [approach] x1
+  -- sensors (valid/sat/held/none) --
+    fl: valid=100.0% sat=0.0% held=0.0% none=0.0%
+    fr: valid=100.0% sat=0.0% held=0.0% none=0.0%
+    sl: valid=100.0% sat=0.0% held=0.0% none=0.0%
+    sr: valid=100.0% sat=0.0% held=0.0% none=0.0%
+  -- mean |wheel| by state --
+    FOLLOW: 2.33 rad/s
+    GATEWAY: 2.35 rad/s
+  -- lateral: mean|offset|=0.0029028848314606743 coverage=100.0% n=17800
+  ```
 
 - 2026-10-05 Mac→Linux: maze8 follow-up fix implemented. Stuck
   detection now evaluates only FOLLOW/GATEWAY and clears its partial

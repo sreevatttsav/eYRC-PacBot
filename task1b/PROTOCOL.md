@@ -291,6 +291,33 @@ Then Ctrl+C the controller.
     TURN: 1.86 rad/s
   -- lateral: mean|offset|=0.020438129899216124 coverage=11.1% n=1786
   ```
+- 2026-10-05 Linux→Mac: `maze5` stopped on user instruction (~64 s
+  wall, 31,800 ticks; `task1b/logs/20261005T143929Z_maze5/`, controller
+  `6e348be`). Sim stdout is **empty** again. What I noticed: GATEWAY
+  fired at spawn and crept at 1.18 rad/s, but at t=9.36 s it hit
+  `gateway_timeout` → `GATEWAY_HOLD` (zeros) and sat still for the
+  rest of the run — the latch held but the bot never crossed the
+  entrance. All sensors 100% valid in GATEWAY state, lateral offset
+  ~0 (perfectly centered). No turns, no stuck episodes. Verbatim
+  `analyze_run.py` below.
+  ```
+  == maze5 commit=6e348be ticks=31800
+  -- turns --
+    (none)
+  -- stuck --
+    zero episodes
+  -- transitions --
+    GATEWAY->GATEWAY_HOLD [gateway_timeout] x1
+  -- sensors (valid/sat/held/none) --
+    fl: valid=100.0% sat=0.0% held=0.0% none=0.0%
+    fr: valid=100.0% sat=0.0% held=0.0% none=0.0%
+    sl: valid=100.0% sat=0.0% held=0.0% none=0.0%
+    sr: valid=100.0% sat=0.0% held=0.0% none=0.0%
+  -- mean |wheel| by state --
+    GATEWAY: 1.18 rad/s
+    GATEWAY_HOLD: 0.00 rad/s
+  -- lateral: mean|offset|=1.2578616352201618e-08 coverage=100.0% n=31800
+  ```
 - 2026-10-05 Mac verdict on `maze2` (55k ticks, stopped early):
   turns now read 5/5 PASS after an analyzer fix -- the reported
   `lost_left` FAIL (+86.8 deg) was a TOOLING artifact: gap/lost

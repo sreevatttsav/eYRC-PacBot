@@ -206,6 +206,55 @@ Then Ctrl+C the controller.
     TURN: 1.96 rad/s
   -- lateral: mean|offset|=0.042101814814814814 coverage=2.5% n=1350
   ```
+- 2026-10-05 Linux→Mac: `maze3` stopped on user instruction (~112 s
+  wall, 53,499 ticks; `task1b/logs/20261005T140519Z_maze3/`, controller
+  `e40e8c5`). Sim stdout is **empty** again, so no `MAZE SOLVED` line,
+  time, score, or collisions. What I noticed: **all 6 turns PASS**
+  (including two +180° lost_left turns and one gap_left turn), 3 stuck
+  episodes all cleared in ~1.1-1.2 s, and the new gateway probe
+  (`gap_left` at t=51.4 s) completed cleanly. Sensor validity improved
+  further (fl/fr valid ~30-38%). The spawn behavior is unchanged:
+  REVERSE→TURN left at t=0.44 s, then FOLLOW. Verbatim
+  `analyze_run.py` below.
+  ```
+  == maze3 commit=e40e8d5 ticks=53499
+  -- turns --
+    #0 t=0.4s target=+90deg(logged) final_err=-2.3deg dur=3.63s exit=FOLLOW:clear rev=0[] PASS
+    #1 t=6.5s target=+90deg(logged) final_err=-3.7deg dur=3.65s exit=FOLLOW:clear rev=0[] PASS
+    #2 t=29.3s target=+180deg(logged) final_err=-3.6deg dur=5.21s exit=FOLLOW:clear rev=0[] PASS
+    #3 t=51.4s target=+90deg(logged) final_err=-0.4deg dur=3.32s exit=FOLLOW:approach rev=0[] PASS
+    #4 t=71.5s target=+180deg(logged) final_err=-0.6deg dur=5.62s exit=FOLLOW:clear rev=0[] PASS
+    #5 t=106.5s target=+180deg(logged) final_err=-3.3deg dur=5.38s exit=FOLLOW:clear rev=0[] PASS
+  -- stuck --
+    t=36.2s @RECOVER hold=1.22s
+    t=78.4s @RECOVER hold=1.11s
+    t=83.3s @RECOVER hold=1.22s
+  -- transitions --
+    BACKUP->FOLLOW [clear] x1
+    BRAKE->FOLLOW [approach] x1
+    BRAKE->FOLLOW [clear] x5
+    FOLLOW->RECOVER [stuck] x3
+    FOLLOW->REVERSE [blocked] x1
+    FOLLOW->TURN [gap_left] x1
+    FOLLOW->TURN [lost_left] x3
+    RECOVER->BACKUP [stuck_escalate] x1
+    RECOVER->FOLLOW [clear] x2
+    REVERSE->TURN [left] x2
+    TURN->BRAKE [coast] x6
+  -- sensors (valid/sat/held/none) --
+    fl: valid=30.0% sat=57.8% held=0.1% none=12.1%
+    fr: valid=37.8% sat=54.6% held=0.0% none=7.7%
+    sl: valid=28.6% sat=71.2% held=0.0% none=0.2%
+    sr: valid=24.2% sat=75.8% held=0.0% none=0.0%
+  -- mean |wheel| by state --
+    BACKUP: 3.00 rad/s
+    BRAKE: 2.00 rad/s
+    FOLLOW: 2.33 rad/s
+    RECOVER: 3.00 rad/s
+    REVERSE: 3.00 rad/s
+    TURN: 2.09 rad/s
+  -- lateral: mean|offset|=0.025216516620498616 coverage=2.7% n=1444
+  ```
 - 2026-10-05 Mac verdict on `maze2` (55k ticks, stopped early):
   turns now read 5/5 PASS after an analyzer fix -- the reported
   `lost_left` FAIL (+86.8 deg) was a TOOLING artifact: gap/lost

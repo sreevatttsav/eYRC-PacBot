@@ -126,6 +126,17 @@ FOLLOW_ESTABLISH_S = 1.0  # sustained single-wall follow before gaps count
 GAP_OPEN_S = 0.5         # follow wall lost this long -> seek it (90 deg)
 BLIND_TURN_S = 15.0      # fully blind this long -> 180 deg turn-back;
 # a second consecutive blind stretch latches HOLD (stop, don't wander).
+# Gateway probe (maze2 spawn: entrance gap ahead BETWEEN the splayed
+# rays, posts reading 0.100 on both sides). Signature: symmetric close
+# fronts + open sides = frame to squeeze through, NOT a wall (a real
+# dead-end wall has close sides too). Creep centered on e_front trim;
+# abort to normal escape on contact approach, timeout, or 2nd try.
+GATEWAY_FRONT_MAX = 0.15  # both fronts numeric below this...
+GATEWAY_SYM_DB = 0.03     # ...symmetric within this...
+GATEWAY_SIDE_OPEN = 0.30  # ...with both sides at/above this...
+GATEWAY_V_FRAC = 0.5      # ...creep at this fraction of cruise...
+GATEWAY_ABORT_DIST = 0.06  # ...abort to backout below this (no touch)...
+GATEWAY_TIMEOUT = 4.0     # ...or after this long. Max 2 attempts.
 
 # Heading-aware centering (Stage 3). The reference accumulates each
 # COMPLETED turn's intended target (never the measured exit angle --
@@ -190,6 +201,12 @@ def _controller_constants():
         "FOLLOW_WALL_MAX": FOLLOW_WALL_MAX,
         "FOLLOW_ESTABLISH_S": FOLLOW_ESTABLISH_S,
         "GAP_OPEN_S": GAP_OPEN_S, "BLIND_TURN_S": BLIND_TURN_S,
+        "GATEWAY_FRONT_MAX": GATEWAY_FRONT_MAX,
+        "GATEWAY_SYM_DB": GATEWAY_SYM_DB,
+        "GATEWAY_SIDE_OPEN": GATEWAY_SIDE_OPEN,
+        "GATEWAY_V_FRAC": GATEWAY_V_FRAC,
+        "GATEWAY_ABORT_DIST": GATEWAY_ABORT_DIST,
+        "GATEWAY_TIMEOUT": GATEWAY_TIMEOUT,
         "KP_HEADING": KP_HEADING, "STEER_HEADING_MAX": STEER_HEADING_MAX,
         "REANCHOR_ENABLE": REANCHOR_ENABLE,
         "REANCHOR_V_MIN": REANCHOR_V_MIN,
@@ -289,6 +306,10 @@ class CenteringController:
         self.blind_t = 0.0
         self.void_count = 0      # consecutive blind stretches
         self.hold = False        # latched HOLD (parked, see section 5)
+        # Gateway probe state (spawn frames).
+        self.gateway_active = False
+        self.gateway_t = 0.0
+        self.gateway_tries = 0
         # Wedge hysteresis state (fix 4)
         self.wedge_active = False
         self.wedge_below_t = 0.0
@@ -627,6 +648,50 @@ class CenteringController:
                 wr = max(-MAX_SPEED, min(-back + steer * 0.5, MAX_SPEED))
                 return self._finalize(wl, wr, e_lat, e_front,
                                       steer, yaw_rate, dt)
+
+        # --- gateway probe (maze2 spawn): symmetric close fronts with
+        #     open sides = frame to squeeze through, NOT a wall. The
+        #     splayed rays hit the posts; the gap runs between them.
+        #     Creep forward centered on e_front trim; abort to normal
+        #     escape on contact approach, timeout, or 2nd try.
+        in_maneuver_now = (self.reverse_ticks > 0 or self.backup_ticks > 0
+                           or self.wedge_active or self.spin_dir != 0.0
+                           or self.recover_active)
+        gateway_sig = (
+            fl_num and fr_num
+            and self.fl_f < GATEWAY_FRONT_MAX
+            and self.fr_f < GATEWAY_FRONT_MAX
+            and abs(self.fl_f - self.fr_f) < GATEWAY_SYM_DB
+            and (not sl_num or self.sl_f >= GATEWAY_SIDE_OPEN)
+            and (not sr_num or self.sr_f >= GATEWAY_SIDE_OPEN)
+        )
+        if not in_maneuver_now and gateway_sig:
+            if not self.gateway_active:
+                self.gateway_active = True
+                self.gateway_t = 0.0
+                self.gateway_tries += 1
+            self.gateway_t += dt
+            if self.gateway_t > GATEWAY_TIMEOUT:
+                self.gateway_active = False
+                self.gateway_t = 0.0
+                self._set_state("FOLLOW", "gateway_timeout")
+                # fall through to normal logic (will hit blocked -> escape)
+            else:
+                # creep at reduced speed, centered on e_front
+                v_gw = CRUISE_LINEAR_MPS * GATEWAY_V_FRAC
+                base_gw = v_gw / K_LIN
+                steer_gw = KP_FRONT * e_front if e_front is not None else 0.0
+                steer_gw = max(-MAX_STEER, min(steer_gw, MAX_STEER))
+                left_gw = base_gw - steer_gw
+                right_gw = base_gw + steer_gw
+                left_gw = max(-MAX_SPEED, min(left_gw, MAX_SPEED))
+                right_gw = max(-MAX_SPEED, min(right_gw, MAX_SPEED))
+                self._set_state("GATEWAY", "probe")
+                return self._finalize(left_gw, right_gw, e_lat, e_front,
+                                      steer_gw, yaw_rate, dt)
+        else:
+            self.gateway_active = False
+            self.gateway_t = 0.0
 
         # Exit escape once the front is clear again -- but NOT while a
         # reverse/backup countdown is still running (those phases create

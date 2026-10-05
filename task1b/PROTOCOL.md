@@ -217,3 +217,13 @@ Then Ctrl+C the controller.
   instant-left-turn-at-spawn question is OPEN (symmetric readings:
   fl=fr=0.100 frozen, sl=sr=1.14): awaiting eyes-on-sim -- see
   next handoff entry.
+- 2026-10-05 Mac→Linux: user confirmed spawn view = "Gap ahead,
+  posts both sides". Implemented GATEWAY probe: symmetric close
+  fronts (<0.15, within 0.03) + open sides (>=0.30) = frame to
+  squeeze through, NOT a wall. Creeps at 50% cruise centered on
+  e_front trim; exits on pass-through, timeout (4s), or falls
+  through to normal escape. Verified: fires on spawn signature,
+  passes through, times out, does NOT fire on asymmetric fronts
+  (real wall) or close sides (corridor). Full regression green.
+  Next: `maze3` full run -- expect gateway to carry the bot through
+  the entrance at t=0.

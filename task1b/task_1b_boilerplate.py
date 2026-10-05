@@ -65,7 +65,7 @@ WEDGE_ENTER_T = 0.1
 WEDGE_MIN_DWELL = 0.5
 WEDGE_MAX_T = 2.0      # then hand off to stuck/give-up logic
 WEDGE_REPEAT_WINDOW_S = 15.0
-WEDGE_TURN_AFTER = 3   # repeated recoveries at one spot -> turn to more room
+WEDGE_TURN_AFTER = 2   # repeated recoveries at one spot -> turn to more room
 WEDGE_CLEARANCE_TIE_DB = 0.015
 
 # Gyro-terminated turns (fix 3, reworked Stage 1b). Turn rate now comes
@@ -464,23 +464,20 @@ class CenteringController:
         return sum((t - mt) * (v - mv) for t, v in buf) / den
 
     def _finalize(self, L, R, e_lat, e_front, steer, yaw_rate, dt):
-        """Single exit path: runs stuck detection (fix 2) on the final
-        command. A rising stuck edge during any maneuver switches this
-        tick's output to stuck recovery (distance-driven reverse).
-        The edge is blanked during turn spin-up (turn_t < 1 window):
-        a fixed 1 s window cannot judge a step change until it fills
-        with post-step data, and the flag still logs for analysis."""
+        """Single exit path. Stuck detection only judges forward progress
+        in FOLLOW/GATEWAY. A yaw actuator cannot be classified as stuck
+        from a translational reverse/turn/brake window, and mixing those
+        modes contaminated the 1 s signed-mean detector."""
         yaw_cmd = YAW_GAIN_K * (R - L)
         self.yaw_cmd = yaw_cmd
+        if self.state not in ("FOLLOW", "GATEWAY"):
+            self.stuck.reset()
+            self.stuck_flag = False
+            self._stuck_prev = False
+            return L, R, e_lat, e_front, steer
         stuck_now = self.stuck.update(yaw_cmd, yaw_rate, dt)
         self.stuck_flag = stuck_now
-        # Blanking: fixed 1 s windows cannot judge a step change until
-        # full (turn spin-up), and BRAKE is open-loop by design (its own
-        # timeout + angle check handle a stuck brake). The flag still
-        # logs for analysis either way.
-        blanked = ((self.state == "TURN" and self.turn_t < STUCK_WIN_S)
-                   or self.state == "BRAKE")
-        if stuck_now and not self._stuck_prev and not blanked:
+        if stuck_now and not self._stuck_prev:
             L, R = self._on_stuck(L, R)
         if not stuck_now and self._stuck_prev:
             self.last_stuck_clear_t = self.t
@@ -1079,37 +1076,43 @@ class CenteringController:
                 steer_lat + steer_front_follow + KI_LAT * self.i_lat
                 - KD_YAW * yaw_rate, MAX_STEER))
 
-        # --- wall follow + gap-seek (maze1 pack): hug a single wall;
-        #     when the latched wall opens with front clear, turn INTO it
-        #     (the entrance announces itself exactly this way).
-        #     Corridors (both sides close) never trigger: drive past.
+        # --- Wall follow + junction seek: latch one wall, then treat a
+        #     sustained opening on THAT side as a branch even if the
+        #     opposite wall remains present. This catches T-junctions as
+        #     well as full-width gaps; unknown/dropout readings do not
+        #     count as an opening.
         L_close = sl_num and self.sl_f < FOLLOW_WALL_MAX
         R_close = sr_num and self.sr_f < FOLLOW_WALL_MAX
-        if L_close and R_close:
-            self.follow_side = 0.0
-            self.follow_t = 0.0
-            self.gap_t = 0.0
-        elif L_close != R_close:
-            side = 1.0 if L_close else -1.0
-            if side != self.follow_side:
-                self.follow_side = side
+        if self.follow_side == 0.0:
+            if L_close != R_close:
+                self.follow_side = 1.0 if L_close else -1.0
                 self.follow_t = 0.0
                 self.gap_t = 0.0
-            else:
+        else:
+            followed_close = L_close if self.follow_side > 0 else R_close
+            followed_status = sl_s if self.follow_side > 0 else sr_s
+            followed_range = self.sl_f if self.follow_side > 0 else self.sr_f
+            followed_open = (
+                followed_status == "sat"
+                or (_num(followed_range, followed_status)
+                    and followed_range >= FOLLOW_WALL_MAX)
+            )
+            if followed_close:
                 self.follow_t += dt
-                self.gap_t = 0.0  # wall present this tick
-        elif self.follow_side != 0.0:
-            # both open, previously following: wall possibly lost
-            self.gap_t += dt
-            if (self.follow_t >= FOLLOW_ESTABLISH_S
-                    and self.gap_t >= GAP_OPEN_S and not blocked):
-                tdir = self.follow_side
-                self._start_turn(tdir, math.pi / 2.0, "gap")
-                self._set_state("TURN", "gap_" + ("left" if tdir > 0 else "right"))
-                return self._finalize(0.0, 0.0, e_lat, e_front,
-                                      steer, yaw_rate, dt)
-        # NOTE: no latch at all (follow_side == 0, both open) -> nothing
-        # to seek; the void logic below owns that case.
+                self.gap_t = 0.0
+            elif followed_open:
+                self.gap_t += dt
+                if (self.follow_t >= FOLLOW_ESTABLISH_S
+                        and self.gap_t >= GAP_OPEN_S and not blocked):
+                    tdir = self.follow_side
+                    self._start_turn(tdir, math.pi / 2.0, "gap")
+                    self._set_state(
+                        "TURN", "gap_" + ("left" if tdir > 0 else "right"))
+                    return self._finalize(0.0, 0.0, e_lat, e_front,
+                                          steer, yaw_rate, dt)
+            else:
+                # Sensor unknown: pause the opening timer, don't infer void.
+                self.gap_t = 0.0
 
         # --- anti-void (maze1 pack): fully blind driving accumulates;
         #     at 15 s turn 180 deg back toward last readings; a second

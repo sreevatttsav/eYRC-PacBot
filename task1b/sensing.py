@@ -87,6 +87,15 @@ class StuckDetector:
         self.cmd_mean = 0.0
         self.meas_mean = 0.0
 
+    def reset(self):
+        """Discard a partial window when the controller changes modes."""
+        self.acc = 0.0
+        self.sum_cmd = 0.0
+        self.sum_meas = 0.0
+        self.stuck = False
+        self.cmd_mean = 0.0
+        self.meas_mean = 0.0
+
     def update(self, cmd_yaw, meas_yaw, dt):
         dt = dt if dt and dt > 0 else 0.0
         self.acc += dt

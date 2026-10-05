@@ -165,9 +165,11 @@ def run_turn_test(name, target_deg, plant_gain=TURN_PLANT_GAIN,
     if mag > 100:  # dead-end 180: both sides close (but above wedge)
         sl0, sr0 = 0.10, 0.10
     elif want_left:
-        sl0, sr0 = 0.35, 0.25
+        # Keep this synthetic blocked-front turn away from the distinct
+        # spawn-gateway signature (both sides >= 0.20 m).
+        sl0, sr0 = 0.18, 0.12
     else:
-        sl0, sr0 = 0.25, 0.35
+        sl0, sr0 = 0.12, 0.18
     plant = TurnPlant(gain=plant_gain, stall=stall, seed=seed)
     turned = 0.0
     aborts = []

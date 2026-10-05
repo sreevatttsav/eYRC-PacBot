@@ -423,6 +423,25 @@ Then Ctrl+C the controller.
     WEDGE: 3.00 rad/s
   -- lateral: mean|offset|=0.01214166231187291 coverage=72.6% n=19136
   ```
+
+- 2026-10-05 Mac→Linux: maze8 follow-up fix implemented. Stuck
+  detection now evaluates only FOLLOW/GATEWAY and clears its partial
+  yaw window whenever another maneuver owns the wheels; this prevents
+  reverse/turn samples from being combined into a false stuck verdict
+  that interrupts a gyro-controlled turn. Junction seeking now reacts
+  to a sustained opening on the latched follow-wall side even when the
+  opposite wall remains present. Repeated wedge recovery now commits
+  to the clearer side after 2 cycles (was 3). Regression tests cover
+  the turn/stuck interaction, a one-sided T-junction opening, and the
+  wedge side choice. Local validation: 3/3 new tests, 5/5 turn-plant
+  tests, and all 5 corridor replay scenarios pass.
+
+  **Next run: maze9** on this controller. Use the normal full-maze
+  procedure above, capture sim stdout, and let it run to `MAZE SOLVED`
+  or the 10-minute limit. Report turn results, FOLLOW→TURN reasons
+  (`gap_left/right`), wedge-cycle counts, stuck transitions, and the
+  sim verdict. This run is needed to establish whether the maze-level
+  path choice improved; offline tests cannot validate the route.
 - 2026-10-05 Mac verdict on `maze2` (55k ticks, stopped early):
   turns now read 5/5 PASS after an analyzer fix -- the reported
   `lost_left` FAIL (+86.8 deg) was a TOOLING artifact: gap/lost

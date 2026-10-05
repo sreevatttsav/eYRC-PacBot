@@ -16,7 +16,9 @@ except ImportError:
     sys.modules.update({"paho": paho, "paho.mqtt": mqtt,
                         "paho.mqtt.client": client})
 
-from task_1b_boilerplate import CenteringController, YAW_GAIN_K
+from task_1b_boilerplate import (
+    CenteringController, FRONT_BACKOUT_SPEED, YAW_GAIN_K,
+)
 from task_1b_boilerplate import GATEWAY_APPROACH_M, GATEWAY_CORRIDOR_S
 
 
@@ -114,6 +116,29 @@ class ControllerRegressionTests(unittest.TestCase):
             self.assertEqual(ctl.spin_dir, 0.0)
             self.assertEqual(ctl.reverse_ticks, 0)
             self.assertGreater(left + right, 0.0)
+
+    def test_lone_close_ray_steers_away(self):
+        ctl = CenteringController()
+        left, right, *_ = ctl.update(None, 0.10, 0.18, 0.18, 0.0, 0.02)
+
+        self.assertEqual(ctl.state, "FOLLOW")
+        self.assertGreater(right - left, 0.0)  # steer left, away from right ray
+        self.assertGreater(left + right, 0.0)
+
+    def test_lone_emergency_ray_backs_until_clear(self):
+        ctl = CenteringController()
+        left, right, *_ = ctl.update(None, 0.0436, 0.18, 0.18, 0.0, 0.02)
+
+        self.assertEqual(ctl.state, "FRONT_BACKOUT")
+        self.assertAlmostEqual(left, -FRONT_BACKOUT_SPEED)
+        self.assertAlmostEqual(right, -FRONT_BACKOUT_SPEED)
+
+        for _ in range(20):
+            left, right, *_ = ctl.update(None, 0.20, 0.18, 0.18, 0.0, 0.02)
+            if ctl.state != "FRONT_BACKOUT":
+                break
+        self.assertNotEqual(ctl.state, "FRONT_BACKOUT")
+        self.assertGreater(left + right, 0.0)
 
     def test_both_close_front_rays_still_trigger_escape(self):
         ctl = CenteringController()

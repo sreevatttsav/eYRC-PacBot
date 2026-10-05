@@ -47,6 +47,10 @@ I_DEADBAND = 0.005     # ignore |e_lat| below this (meters)
 
 FRONT_SLOW_DIST = 0.5  # below this, start slowing down (meters)
 FRONT_STOP_DIST = 0.15 # below this, spin in place
+FRONT_EMERGENCY_DIST = 0.06  # one valid ray this close -> back straight
+FRONT_EMERGENCY_RELEASE = 0.10  # keep backing until that ray clears
+FRONT_SINGLE_STEER_MAX = 0.8  # steer away from a close lone front ray
+FRONT_BACKOUT_SPEED = 1.5  # wheel rad/s; no turn while contact is imminent
 SPIN_SPEED = 3.0       # spin-in-place wheel speed
 
 MAX_RANGE = 2.0        # clip ToF readings to this (meters)
@@ -206,7 +210,12 @@ def _controller_constants():
         "KP_FRONT": KP_FRONT, "KD_YAW": KD_YAW, "KI_LAT": KI_LAT,
         "I_MAX": I_MAX, "I_LEAK": I_LEAK, "I_DEADBAND": I_DEADBAND,
         "FRONT_SLOW_DIST": FRONT_SLOW_DIST,
-        "FRONT_STOP_DIST": FRONT_STOP_DIST, "SPIN_SPEED": SPIN_SPEED,
+        "FRONT_STOP_DIST": FRONT_STOP_DIST,
+        "FRONT_EMERGENCY_DIST": FRONT_EMERGENCY_DIST,
+        "FRONT_EMERGENCY_RELEASE": FRONT_EMERGENCY_RELEASE,
+        "FRONT_SINGLE_STEER_MAX": FRONT_SINGLE_STEER_MAX,
+        "FRONT_BACKOUT_SPEED": FRONT_BACKOUT_SPEED,
+        "SPIN_SPEED": SPIN_SPEED,
         "K_LIN": K_LIN, "CRUISE_LINEAR_MPS": CRUISE_LINEAR_MPS,
         "MAX_LINEAR_MPS": MAX_LINEAR_MPS,
         "SENSOR_CAP_M": SENSOR_CAP_M, "SAT_MODE": SAT_MODE,
@@ -336,6 +345,8 @@ class CenteringController:
         self.gateway_corridor_t = 0.0
         self.gateway_tries = 0
         self.gateway_failed = False
+        self.front_backout_active = False
+        self.front_backout_side = 0.0  # +1 left ray / -1 right ray
         # Wedge hysteresis state (fix 4)
         self.wedge_active = False
         self.wedge_below_t = 0.0
@@ -579,6 +590,21 @@ class CenteringController:
             side, reading = single
             steer_lat = side * KP_LAT * (reading - WALL_TARGET)
         steer_front = KP_FRONT * e_front if e_front is not None else 0.0
+        # With only one usable front ray, use its proximity to turn away
+        # from the obstacle. Positive steer turns left; negative turns right.
+        if e_front is None:
+            lone_front = None
+            if fl_num and not fr_num:
+                lone_front = (-1.0, self.fl_f)
+            elif fr_num and not fl_num:
+                lone_front = (1.0, self.fr_f)
+            if lone_front is not None:
+                direction, distance = lone_front
+                if distance < FRONT_SLOW_DIST:
+                    fraction = ((FRONT_SLOW_DIST - distance) /
+                                (FRONT_SLOW_DIST - FRONT_EMERGENCY_DIST))
+                    fraction = max(0.0, min(1.0, fraction))
+                    steer_front = direction * FRONT_SINGLE_STEER_MAX * fraction
         steer = steer_lat + steer_front + KI_LAT * self.i_lat - KD_YAW * yaw_rate
         steer = max(-MAX_STEER, min(steer, MAX_STEER))
         self.steer_lat = steer_lat
@@ -804,6 +830,33 @@ class CenteringController:
             self.gateway_t = 0.0
             self.gateway_clear_t = 0.0
 
+        # A lone near-contact ray is ambiguous for choosing a turn, but
+        # not safe to drive toward. Back straight until that same ray has
+        # a clear margin; unknown/saturated readings do not end the escape.
+        if self.front_backout_active:
+            distance, status = (
+                (self.fl_f, fl_s) if self.front_backout_side > 0
+                else (self.fr_f, fr_s)
+            )
+            if (_num(distance, status)
+                    and distance >= FRONT_EMERGENCY_RELEASE):
+                self.front_backout_active = False
+                self.front_backout_side = 0.0
+            else:
+                self._set_state("FRONT_BACKOUT", "front_emergency")
+                return self._finalize(
+                    -FRONT_BACKOUT_SPEED, -FRONT_BACKOUT_SPEED,
+                    e_lat, e_front, steer, yaw_rate, dt)
+        emergency_l = fl_num and self.fl_f <= FRONT_EMERGENCY_DIST
+        emergency_r = fr_num and self.fr_f <= FRONT_EMERGENCY_DIST
+        if not blocked and (emergency_l != emergency_r):
+            self.front_backout_active = True
+            self.front_backout_side = 1.0 if emergency_l else -1.0
+            self._set_state("FRONT_BACKOUT", "front_emergency")
+            return self._finalize(
+                -FRONT_BACKOUT_SPEED, -FRONT_BACKOUT_SPEED,
+                e_lat, e_front, steer, yaw_rate, dt)
+
         # Exit escape once the front is clear again -- but NOT while a
         # reverse/backup countdown is still running (those phases create
         # clearance on purpose), NOT before the committed minimum turn
@@ -1010,12 +1063,13 @@ class CenteringController:
                                       steer, yaw_rate, dt)
         # FOLLOW tail (also reached after a completed turn). Speed is
         # commanded in m/s and converted with K_LIN. Slowdown ramps
-        # within [STOP, CAP-0.02]; a saturated front reads the cap, i.e.
+        # from emergency distance to CAP-0.02; a saturated front reads the cap, i.e.
         # full cruise. Unknown front -> cautious half speed.
         if front_clear is not None and not blocked:
-            span = (SENSOR_CAP_M - 0.02) - FRONT_STOP_DIST
-            scale = (front_clear - FRONT_STOP_DIST) / span if span > 0 else 1.0
-            scale = max(0.25, min(1.0, scale))
+            span = (SENSOR_CAP_M - 0.02) - FRONT_EMERGENCY_DIST
+            scale = ((front_clear - FRONT_EMERGENCY_DIST) / span
+                     if span > 0 else 1.0)
+            scale = max(0.0, min(1.0, scale))
             v_cmd = CRUISE_LINEAR_MPS * scale
         elif front_clear is None:
             v_cmd = CRUISE_LINEAR_MPS * 0.5

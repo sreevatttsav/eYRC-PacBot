@@ -45,8 +45,8 @@ that short routes never reach.
 ```
 # 1. broker
 mosquitto
-# 2. sim, capturing its score line (its stdout never reaches MQTT)
-./task_1b_launch 2>&1 | tee sim_maze1.log
+# 2. sim, force stdout/stderr into a PTY and unbuffered log
+script -q -f -c 'stdbuf -o0 -e0 ./task_1b_launch' sim_maze1.log
 # 3. controller (pull first: git pull mine main)
 python3 task_1b_boilerplate.py --label maze1
 ```
@@ -693,3 +693,31 @@ Then Ctrl+C the controller.
   when one front ray is <0.15 m and the other is open, check the bot
   slows and steers away without a blind U-turn. Report transitions and
   the sim observation/log as usual.
+
+- 2026-10-05 Mac→Linux: maze13 exposed the remaining near-contact case:
+  `fr` stayed valid near 0.044 m while `fl` was unavailable, so the
+  two-ray front error was unknown and the bot remained in FOLLOW at its
+  minimum forward-speed clamp. Added bounded single-ray steering away,
+  a zero-speed taper near contact, and a straight `FRONT_BACKOUT` latch
+  at 0.06 m that backs until the same ray clears 0.10 m. The existing
+  both-rays-blocked REVERSE/TURN behavior is unchanged. Added regressions
+  for the maze13 sensor signature and the release hysteresis.
+
+  **Next run: maze14.** Pull the controller changes, launch the broker,
+  then launch the sim with forced stdout/stderr capture (do not use a
+  pipe to `tee`; it can leave the simulator's output buffered):
+  `script -q -f -c 'stdbuf -o0 -e0 ./task_1b_launch' sim_maze14.log`
+  Start the controller separately with `python3 task_1b_boilerplate.py
+  --label maze14`. Let it run until `MAZE SOLVED` or ~10 minutes. Before
+  committing, verify `sim_maze14.log` exists and is non-empty (`test -s
+  sim_maze14.log`) and that it contains the simulator verdict, time,
+  score, and collision count. If the log is empty or lacks those lines,
+  do not report a clean run: capture the sim terminal output with a PTY
+  and rerun. Commit raw controller logs and simulator output together,
+  without bundling any code changes.
+
+  Report: simulator verdict/time/score/collisions; first and every
+  `FRONT_BACKOUT` transition; whether the close ray cleared after
+  backing; any wall contact; and the standard `analyze_run.py` output.
+  This run determines whether the close-ray intervention prevents the
+  maze13 collision without creating repeated backing or blocking turns.

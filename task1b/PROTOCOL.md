@@ -206,3 +206,14 @@ Then Ctrl+C the controller.
     TURN: 1.96 rad/s
   -- lateral: mean|offset|=0.042101814814814814 coverage=2.5% n=1350
   ```
+- 2026-10-05 Mac verdict on `maze2` (55k ticks, stopped early):
+  turns now read 5/5 PASS after an analyzer fix -- the reported
+  `lost_left` FAIL (+86.8 deg) was a TOOLING artifact: gap/lost
+  turns log one arming tick (state TURN, zeros out) before the
+  servo initializes, so `turn_target` is empty on the episode's
+  first row and analyze inferred +90 instead of the logged +180.
+  The turn actually completed 180 deg within -3.2 deg. Stuck 2x
+  cleared ~1.15 s with one escalation that also cleared. The
+  instant-left-turn-at-spawn question is OPEN (symmetric readings:
+  fl=fr=0.100 frozen, sl=sr=1.14): awaiting eyes-on-sim -- see
+  next handoff entry.

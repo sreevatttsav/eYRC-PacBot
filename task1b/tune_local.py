@@ -63,7 +63,10 @@ OMEGA_TAU = 0.12   # yaw inertia lag (s) -- makes KD_YAW meaningful
 # at w=3, i.e. k = 1.09/6 = 0.18. The CONTROLLER's YAW_GAIN_K stays at
 # the plan's conservative 0.13 until step_test replaces it -- the gap
 # between the two is exactly what the slow-plant test probes.
+# Coast tau models passive spin-down (step_test: ~10 deg coast from
+# w=3 at 0.66 rad/s -> tau ~= 0.28 s); the drive tau stays fast.
 TURN_PLANT_TAU = 0.03
+TURN_PLANT_COAST_TAU = 0.28
 TURN_PLANT_GAIN = 0.18
 
 CSV_HEADER = ["timestamp", "mode", "scenario", "kp_lat", "kp_front",
@@ -127,14 +130,18 @@ def step_pose(x, y, th, om_prev, Vl, Vr, dt):
 class TurnPlant:
     """First-order yaw plant for turn-logic tests (Stage 1c).
 
-    omega_dot = (gain*(R-L) - omega)/tau. stall=True pins omega at 0
-    (expect no_progress abort ~1.0 s into the turn, ~1.5 s from block).
+    omega_dot = (gain*(R-L) - omega)/tau, with a SLOW coast tau when
+    the command is ~zero (passive spin-down, step_test-measured) and a
+    fast drive tau otherwise. stall=True pins omega at 0 (expect
+    no_progress abort ~1.0 s into the turn, ~1.5 s from block).
     """
 
     def __init__(self, gain=TURN_PLANT_GAIN, tau=TURN_PLANT_TAU,
+                 coast_tau=TURN_PLANT_COAST_TAU,
                  stall=False, noise=0.02, seed=0):
         self.gain = gain
         self.tau = tau
+        self.coast_tau = coast_tau
         self.stall = stall
         self.noise = noise
         self.rng = random.Random(seed)
@@ -142,7 +149,8 @@ class TurnPlant:
 
     def step(self, L, R, dt):
         cmd = 0.0 if self.stall else self.gain * (R - L)
-        self.om += (cmd - self.om) * dt / (self.tau + dt)
+        tau = self.coast_tau if abs(cmd) < 0.05 else self.tau
+        self.om += (cmd - self.om) * dt / (tau + dt)
         meas = self.om + self.rng.gauss(0, self.noise)
         return self.om, meas
 
@@ -164,6 +172,7 @@ def run_turn_test(name, target_deg, plant_gain=TURN_PLANT_GAIN,
     turned = 0.0
     aborts = []
     prev_state = None
+    states_seen = set()
     n = int(T / DT)
     om_meas = 0.0
     first_abort = None
@@ -174,6 +183,7 @@ def run_turn_test(name, target_deg, plant_gain=TURN_PLANT_GAIN,
                                       om_meas, DT)
         om, om_meas = plant.step(L, R, DT)
         turned += om * DT
+        states_seen.add(ctl.state)
         if ctl.state != prev_state:
             aborts.append((i * DT, prev_state, ctl.state,
                            ctl.state_reason))
@@ -188,6 +198,7 @@ def run_turn_test(name, target_deg, plant_gain=TURN_PLANT_GAIN,
             "turned_deg": math.degrees(turned), "final_err_deg": err_deg,
             "abort_reason": ctl.abort_reason,
             "first_abort": first_abort,
+            "states": sorted(states_seen),
             "state": ctl.state, "transitions": aborts,
             "time_s": i * DT}
 
@@ -204,23 +215,24 @@ def turn_tests(plant_gain=TURN_PLANT_GAIN, seed=0):
     for name, tgt, gain, stall in cases:
         r = run_turn_test(name, tgt, plant_gain=gain, stall=stall,
                           seed=seed)
+        braked = "BRAKE" in r["states"]
         if name.startswith("stalled"):
             fa = r["first_abort"]
             r["pass"] = (fa is not None and fa[1] == "no_progress"
                          and 1.2 <= fa[0] <= 2.0)
         elif name.startswith("slow"):
             r["pass"] = (r["abort_reason"] == "" and r["state"] == "FOLLOW"
-                         and r["final_err_deg"] <= 5.0)
+                         and r["final_err_deg"] <= 5.0 and braked)
         else:
             r["pass"] = (r["abort_reason"] == "" and r["state"] == "FOLLOW"
-                         and r["final_err_deg"] <= 5.0)
+                         and r["final_err_deg"] <= 5.0 and braked)
         results.append(r)
         first = (f"first_abort={r['first_abort']}" if r["first_abort"]
                  else "no-abort")
         print(f"{r['name']:10s} turned={r['turned_deg']:+7.1f}deg "
               f"err={r['final_err_deg']:.1f}deg t={r['time_s']:.2f}s "
               f"abort={r['abort_reason'] or '-':12s} "
-              f"end={r['state']} {first} "
+              f"end={r['state']} brake={braked} {first} "
               f"{'PASS' if r['pass'] else 'FAIL'}")
     print("TURN-TESTS " +
           ("PASS" if all(r["pass"] for r in results) else "FAIL"))

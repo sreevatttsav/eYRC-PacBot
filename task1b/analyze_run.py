@@ -18,8 +18,8 @@ Report:
     lateral      (sl-sr)/2 over ticks both-valid & below cap + coverage
 
 Turn PASS/FAIL follows Stage 1d: final err within +/-5 deg, zero
-turn_timeout / no_progress / TURN->BACKUP, <=1 reversal (within 8 deg
-of target only), sign(left)=+yaw.
+turn_timeout / no_progress / overshoot / (TURN|BRAKE)->BACKUP, <=1
+reversal (within 8 deg of target only), sign(left)=+yaw.
 """
 import argparse
 import csv
@@ -61,13 +61,20 @@ def load_run(run_dir):
 
 
 def turn_episodes(rep):
-    """Contiguous state==TURN runs with entry/exit indices."""
+    """Contiguous TURN runs, extended through a trailing BRAKE (the
+    brake is part of the turn: rotation stop + angle settle). A
+    standalone BRAKE (no preceding TURN) starts its own episode."""
     ticks = rep["ticks"]
     eps, cur = [], None
     for i, r in enumerate(ticks):
-        if r.get("state") == "TURN" and cur is None:
-            cur = {"entry": i}
-        elif r.get("state") != "TURN" and cur is not None:
+        s = r.get("state")
+        if s == "TURN" and cur is None:
+            cur = {"entry": i, "brake": False}
+        elif s == "BRAKE" and cur is None:
+            cur = {"entry": i, "brake": True}
+        elif s == "BRAKE" and cur is not None:
+            cur["brake"] = True
+        elif s != "TURN" and cur is not None:
             cur["exit"] = i - 1
             eps.append(cur)
             cur = None
@@ -78,12 +85,13 @@ def turn_episodes(rep):
 
 
 def exit_reason(rep, ep):
-    """Abort reason from the events log (transition out of TURN).
+    """Abort reason from the events log (transition out of TURN/BRAKE).
     runlog stamps event.i one past the transition tick row, so the
     matching row is exit+2."""
     for e in rep["events"]:
         try:
-            if int(e["i"]) == ep["exit"] + 2 and e["from"] == "TURN":
+            if (int(e["i"]) == ep["exit"] + 2
+                    and e["from"] in ("TURN", "BRAKE")):
                 return f"{e['to']}:{e.get('reason', '')}"
         except (ValueError, KeyError):
             pass
@@ -129,7 +137,8 @@ def analyze_turns(rep):
                 prev = s
         reason = exit_reason(rep, ep)
         aborted = ("BACKUP" in reason or "timeout" in reason
-                   or "progress" in reason or "unverified" in reason)
+                   or "progress" in reason or "unverified" in reason
+                   or "overshoot" in reason or "retrim" in reason)
         ok = (abs(err_deg) <= FINAL_ERR_DEG and not aborted and flips <= 1
               and all(abs(a - math.degrees(abs(target))) <= REVERSAL_BAND_DEG
                       for a in flip_at))

@@ -76,7 +76,6 @@ TURN_MIN_W = 1.5       # minimum wheel speed in a turn (rad/s, step test sets)
 TURN_EXIT_ERR = 0.052  # 3 deg; coast adds ~1-2 deg -> final inside +/-5
 TURN_TIE_DB = 0.05     # side-openness deadband: tie -> prev turn dir
 DEADEND_DIST = 0.15    # both sides below this + blocked front = 180 deg
-TURN_VERIFY_DIST = 0.20  # front clearance required after a turn
 TURN_MAX_RETRIES = 2
 TURN_TIMEOUT_BASE = 0.5    # hard timeout = BASE + PER_RAD*|target|
 TURN_TIMEOUT_PER_RAD = 2.5  # 4.4 s per 90 deg, 8.4 s per 180 (provisional;
@@ -244,7 +243,6 @@ def _controller_constants():
         "TURN_KP": TURN_KP, "TURN_MIN_W": TURN_MIN_W,
         "TURN_EXIT_ERR": TURN_EXIT_ERR,
         "TURN_TIE_DB": TURN_TIE_DB, "DEADEND_DIST": DEADEND_DIST,
-        "TURN_VERIFY_DIST": TURN_VERIFY_DIST,
         "TURN_MAX_RETRIES": TURN_MAX_RETRIES,
         "TURN_TIMEOUT_BASE": TURN_TIMEOUT_BASE,
         "TURN_TIMEOUT_PER_RAD": TURN_TIMEOUT_PER_RAD,
@@ -609,7 +607,6 @@ class CenteringController:
         # side never blocks.
         front_vals = [v for v in (self.fl_f, self.fr_f) if v is not None]
         front_clear = min(front_vals) if front_vals else None
-        front_known = fl_num and fr_num
         front_block_l = (fl_num and self.fl_f < FRONT_STOP_DIST)
         front_block_r = (fr_num and self.fr_f < FRONT_STOP_DIST)
         blocked = front_block_l or front_block_r
@@ -668,13 +665,15 @@ class CenteringController:
                 return self._finalize(-back, -back, e_lat, e_front,
                                       steer, yaw_rate, dt)
 
-        # --- wedge hysteresis (fix 4): enter after 100 ms both-low, exit
-        #     only when both-high AND 0.5 s dwell has passed ---
+        # --- wedge hysteresis: close side walls qualify only when the
+        #     front is also blocked (a narrow straight corridor is not a
+        #     wedge). Exit only when both sides clear for the dwell. ---
         both_below = (self.sl_f is not None and self.sr_f is not None
                       and self.sl_f < WEDGE_ENTER and self.sr_f < WEDGE_ENTER)
         if not self.wedge_active:
             self.wedge_below_t = self.wedge_below_t + dt if both_below else 0.0
             if (both_below and self.wedge_below_t >= WEDGE_ENTER_T
+                    and blocked
                     and self.spin_dir == 0.0):
                 self.wedge_active = True
                 self.wedge_t = 0.0
@@ -973,70 +972,56 @@ class CenteringController:
                     return self._finalize(-w, w, e_lat, e_front,
                                           steer, yaw_rate, dt)
             if finishing:
-                verified = (front_clear is None
-                            or front_clear > TURN_VERIFY_DIST)
-                if verified:
-                    if abs(err) <= RETRIM_TOL:
-                        self.prev_turn_dir = 1.0 if self.turn_orig > 0 else -1.0
-                        self.heading_ref += self.turn_orig
+                if abs(err) <= RETRIM_TOL:
+                    # Angle is the turn-completion criterion. A close
+                    # front reading is a new obstacle decision, not a
+                    # reason to repeat the entire turn from this heading.
+                    self.prev_turn_dir = 1.0 if self.turn_orig > 0 else -1.0
+                    self.heading_ref += self.turn_orig
+                    self.spin_dir = 0.0
+                    self.turn_active = False
+                    self.retry_used = False
+                    self.retry_dir = None
+                    self._set_state(
+                        "FOLLOW", "turn_done" if front_clear is None
+                        or front_clear > FRONT_STOP_DIST
+                        else "turn_done_front_blocked")
+                    # fall through to FOLLOW; a still-blocked front gets
+                    # its own fresh reverse-and-direction decision.
+                else:
+                    # stopped off-target: re-trim the residual
+                    flipped = (err > 0) != (self.turn_orig > 0)
+                    if flipped:
+                        self.turn_reversals += 1
+                    if (self.turn_reversals > 1
+                            or (flipped and abs(err) > OVERSHOOT_MAX)):
+                        self.backup_ticks = max(1, int(self.BACKUP_S / dt)) if dt > 0 else 250
                         self.spin_dir = 0.0
                         self.turn_active = False
-                        self.retry_used = False  # completed: no flip
-                        self.retry_dir = None
-                        self._set_state("FOLLOW", "turn_done" if front_known
-                                        else "turn_done_unverified")
-                        # fall through to FOLLOW tail below
-                    else:
-                        # stopped off-target: re-trim the residual
-                        flipped = (err > 0) != (self.turn_orig > 0)
-                        if flipped:
-                            self.turn_reversals += 1
-                        if (self.turn_reversals > 1
-                                or (flipped and abs(err) > OVERSHOOT_MAX)):
-                            self.backup_ticks = max(1, int(self.BACKUP_S / dt)) if dt > 0 else 250
-                            self.spin_dir = 0.0
-                            self.turn_active = False
-                            self.flip_next = True
-                            self.abort_reason = "overshoot"
-                            self._set_state("BACKUP", "overshoot")
-                            back = BASE_SPEED * 0.5
-                            return self._finalize(-back, -back, e_lat, e_front,
-                                                  steer, yaw_rate, dt)
-                        self.turn_retries += 1
-                        if self.turn_retries > TURN_MAX_RETRIES:
-                            self.backup_ticks = max(1, int(self.BACKUP_S / dt)) if dt > 0 else 250
-                            self.spin_dir = 0.0
-                            self.turn_active = False
-                            self.flip_next = True
-                            self.abort_reason = "retrim_exhausted"
-                            self._set_state("BACKUP", "retrim_exhausted")
-                            back = BASE_SPEED * 0.5
-                            return self._finalize(-back, -back, e_lat, e_front,
-                                                  steer, yaw_rate, dt)
-                        self.turn_target = err  # residual (signed)
-                        self.turn_entry = self.gyro_th
-                        self.turn_t = 0.0
-                        self.np_t0 = 0.0
-                        self.np_a0 = 0.0
-                        self.turn_progress = 0.0
-                        # fall into the P servo below with fresh err
-                else:
+                        self.flip_next = True
+                        self.abort_reason = "overshoot"
+                        self._set_state("BACKUP", "overshoot")
+                        back = BASE_SPEED * 0.5
+                        return self._finalize(-back, -back, e_lat, e_front,
+                                              steer, yaw_rate, dt)
                     self.turn_retries += 1
                     if self.turn_retries > TURN_MAX_RETRIES:
                         self.backup_ticks = max(1, int(self.BACKUP_S / dt)) if dt > 0 else 250
                         self.spin_dir = 0.0
                         self.turn_active = False
                         self.flip_next = True
-                        self._set_state("BACKUP", "turn_unverified")
+                        self.abort_reason = "retrim_exhausted"
+                        self._set_state("BACKUP", "retrim_exhausted")
                         back = BASE_SPEED * 0.5
                         return self._finalize(-back, -back, e_lat, e_front,
                                               steer, yaw_rate, dt)
-                    self.turn_entry = self.gyro_th  # retry same target
+                    self.turn_target = err  # residual (signed)
+                    self.turn_entry = self.gyro_th
                     self.turn_t = 0.0
                     self.np_t0 = 0.0
                     self.np_a0 = 0.0
                     self.turn_progress = 0.0
-                    err = self.turn_target
+                    # fall into the P servo below with fresh err
             if self.turn_active:
                 w = TURN_KP * err
                 wmag = min(SPIN_SPEED, max(TURN_MIN_W, abs(w)))

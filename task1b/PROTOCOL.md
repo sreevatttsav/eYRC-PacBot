@@ -515,3 +515,18 @@ Then Ctrl+C the controller.
   (real wall) or close sides (corridor). Full regression green.
   Next: `maze3` full run -- expect gateway to carry the bot through
   the entrance at t=0.
+- 2026-10-05 Mac→Linux: maze9 corridor over-turn follow-up fixed.
+  WEDGE now requires sustained close readings on both sides AND a
+  blocked front, so a clear-front narrow straight corridor stays in
+  FOLLOW. Turn completion now keys on gyro angle after braking; if the
+  front remains blocked, the completed turn is accepted and the next
+  tick makes a fresh obstacle decision instead of repeating a full
+  target turn. Added regressions for both maze9 failures and for a
+  blocked-front turn handoff. Local validation: 5/5 controller
+  regressions, 5/5 turn-plant cases, and all 5 corridor replay
+  scenarios pass.
+
+  **Next run: maze10** with this commit. Specifically report whether a
+  long corridor remains in FOLLOW when side readings are both <0.08 m
+  but the front is clear; whether any turn repeats immediately after
+  reaching its gyro target; and the usual analyzer + sim verdict.

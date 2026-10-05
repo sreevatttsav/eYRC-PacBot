@@ -16,7 +16,7 @@ except ImportError:
     sys.modules.update({"paho": paho, "paho.mqtt": mqtt,
                         "paho.mqtt.client": client})
 
-from task_1b_boilerplate import CenteringController
+from task_1b_boilerplate import CenteringController, YAW_GAIN_K
 
 
 class ControllerRegressionTests(unittest.TestCase):
@@ -65,6 +65,44 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertEqual(ctl.state, "TURN")
         self.assertEqual(ctl.turn_cause, "wedge")
         self.assertLess(ctl.turn_target, 0.0)  # more clearance on the right
+
+    def test_close_side_walls_with_clear_front_are_not_a_wedge(self):
+        ctl = CenteringController()
+        for _ in range(30):
+            ctl.update(0.8, 0.8, 0.05, 0.06, 0.0, 0.02)
+        self.assertFalse(ctl.wedge_active)
+        self.assertNotEqual(ctl.state, "WEDGE")
+
+        # With a blocked front, sustained close side walls are a real pinch.
+        for _ in range(20):
+            ctl.update(0.10, 0.10, 0.05, 0.06, 0.0, 0.02)
+            if ctl.wedge_active:
+                break
+        self.assertTrue(ctl.wedge_active)
+
+    def test_blocked_front_after_completed_turn_does_not_repeat_turn(self):
+        ctl = CenteringController()
+        dt = 0.02
+        omega = 0.0
+        transitions = []
+        last_state = ctl.state
+        completed_blocked_turn = False
+
+        for _ in range(600):
+            left, right, *_ = ctl.update(0.10, 0.10, 0.18, 0.12,
+                                         omega, dt)
+            cmd_omega = 1.25 * YAW_GAIN_K * (right - left)
+            omega += (cmd_omega - omega) * dt / (0.12 + dt)
+            if ctl.state != last_state:
+                transitions.append((last_state, ctl.state))
+                last_state = ctl.state
+            if transitions[-1:] == [("BRAKE", "FOLLOW")]:
+                completed_blocked_turn = True
+                break
+
+        self.assertTrue(completed_blocked_turn)
+        self.assertIn(("FOLLOW", "REVERSE"), transitions)
+        self.assertNotEqual(transitions[-1], ("BRAKE", "TURN"))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,53 @@
+{
+  "per_speed": [
+    {
+      "w": 2.0,
+      "phase": "stop",
+      "fwd_end": "stop",
+      "n_win": 164,
+      "win_span": 0.1486,
+      "k_lin": -0.07197243057634203,
+      "coast_m": 0.01852659105111587
+    },
+    {
+      "w": 3.0,
+      "phase": "stop",
+      "fwd_end": "stop",
+      "n_win": 122,
+      "win_span": 0.1496,
+      "k_lin": 0.16788884212576927,
+      "coast_m": 0.018916679404419948
+    },
+    {
+      "w": 4.0,
+      "phase": "stop",
+      "fwd_end": "stop",
+      "n_win": 5,
+      "win_span": 0.0,
+      "k_lin": null,
+      "coast_m": -0.18490843693169381
+    },
+    {
+      "w": 6.0,
+      "phase": "stop",
+      "fwd_end": "stop",
+      "n_win": 82,
+      "win_span": 0.15,
+      "k_lin": 0.06553591306877675,
+      "coast_m": 0.018764832525587027
+    },
+    {
+      "w": 8.0,
+      "phase": "stop",
+      "fwd_end": "stop",
+      "n_win": 5,
+      "win_span": 0.0,
+      "k_lin": null,
+      "coast_m": -0.1849074399413838
+    }
+  ],
+  "k_lin_mean": 0.05381744153940133,
+  "coast_max": 0.018916679404419948,
+  "skipped": 0,
+  "note": "speed understated by cos(splay) if rays splay"
+}

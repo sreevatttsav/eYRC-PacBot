@@ -1,0 +1,28 @@
+{
+  "label": "s2_speed_v2",
+  "started_utc": "2026-10-05T12:36:23.308316+00:00",
+  "git_commit": "3264af4c90f52a1bafa65f6f475960b4de8f8e77",
+  "constants": {
+    "speeds": [
+      2.0,
+      3.0,
+      4.0,
+      6.0,
+      8.0
+    ],
+    "back_target": 0.299,
+    "window": [
+      0.15,
+      0.3
+    ],
+    "abort_dist": 0.08,
+    "fresh_samples_only": true
+  },
+  "wheel_estimates": {
+    "R_m": 0.017,
+    "track_m": 0.08,
+    "k_lin": 0.017,
+    "status": "mesh guess -- replace with speed_test K_LIN"
+  },
+  "pose_note": "x_est/y_est/th_est are dead-reckoned from gyro heading + commanded wheel speeds. They DRIFT. Label estimated in every plot."
+}

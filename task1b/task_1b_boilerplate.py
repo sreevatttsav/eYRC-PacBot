@@ -47,8 +47,9 @@ I_DEADBAND = 0.005     # ignore |e_lat| below this (meters)
 
 FRONT_SLOW_DIST = 0.5  # below this, start slowing down (meters)
 FRONT_STOP_DIST = 0.15 # below this, spin in place
-FRONT_EMERGENCY_DIST = 0.06  # one valid ray this close -> back straight
-FRONT_EMERGENCY_RELEASE = 0.10  # keep backing until that ray clears
+FRONT_SPEED_TAPER_END = 0.06  # speed remains positive above this range
+FRONT_EMERGENCY_DIST = 0.08  # back out before the taper can stall the bot
+FRONT_EMERGENCY_RELEASE = 0.12  # hysteresis: keep backing until clear
 FRONT_SINGLE_STEER_MAX = 0.8  # steer away from a close lone front ray
 FRONT_BACKOUT_SPEED = 1.5  # wheel rad/s; no turn while contact is imminent
 FOLLOW_STEER_RATIO = 0.75  # FOLLOW keeps both wheels driving forward
@@ -151,6 +152,7 @@ GATEWAY_CORRIDOR_SYM_DB = 0.06
 GATEWAY_CORRIDOR_S = 0.30  # require a stable side-wall signature
 GATEWAY_SIDE_WALL_DELTA_M = 0.25  # side range fell from spawn baseline
 GATEWAY_SIDE_WALL_DWELL_S = 0.25  # sensor persistence debounce, not mode time
+GATEWAY_REARM_CLEAR_DIST = 0.20  # require front sensor evidence to rearm
 GATEWAY_FRONT_STEER_MAX = 0.50  # bound front alignment while in the frame
 GATEWAY_APPROACH_M = 0.40  # allow a longer straight entrance before handoff
 GATEWAY_TIMEOUT = 12.0     # enough time to cover the approach at cruise speed
@@ -214,6 +216,7 @@ def _controller_constants():
         "I_MAX": I_MAX, "I_LEAK": I_LEAK, "I_DEADBAND": I_DEADBAND,
         "FRONT_SLOW_DIST": FRONT_SLOW_DIST,
         "FRONT_STOP_DIST": FRONT_STOP_DIST,
+        "FRONT_SPEED_TAPER_END": FRONT_SPEED_TAPER_END,
         "FRONT_EMERGENCY_DIST": FRONT_EMERGENCY_DIST,
         "FRONT_EMERGENCY_RELEASE": FRONT_EMERGENCY_RELEASE,
         "FRONT_SINGLE_STEER_MAX": FRONT_SINGLE_STEER_MAX,
@@ -237,6 +240,7 @@ def _controller_constants():
         "GATEWAY_CORRIDOR_S": GATEWAY_CORRIDOR_S,
         "GATEWAY_SIDE_WALL_DELTA_M": GATEWAY_SIDE_WALL_DELTA_M,
         "GATEWAY_SIDE_WALL_DWELL_S": GATEWAY_SIDE_WALL_DWELL_S,
+        "GATEWAY_REARM_CLEAR_DIST": GATEWAY_REARM_CLEAR_DIST,
         "GATEWAY_FRONT_STEER_MAX": GATEWAY_FRONT_STEER_MAX,
         "GATEWAY_APPROACH_M": GATEWAY_APPROACH_M,
         "GATEWAY_TIMEOUT": GATEWAY_TIMEOUT,
@@ -353,6 +357,7 @@ class CenteringController:
         self.gateway_start_sl = None
         self.gateway_start_sr = None
         self.gateway_wall_follow_active = False
+        self.gateway_rearm_latched = False
         self.gateway_tries = 0
         self.gateway_failed = False
         self.front_backout_active = False
@@ -776,7 +781,20 @@ class CenteringController:
             and self.sl_f >= GATEWAY_SIDE_OPEN
             and self.sr_f >= GATEWAY_SIDE_OPEN
         )
-        if not in_maneuver_now and (self.gateway_active or gateway_sig):
+        # A successful handoff must not immediately retrigger on the same
+        # persistent spawn signature. Rearm only after a front ray clears
+        # the sensor-defined passage and the original signature is gone.
+        gateway_rearm_clear = (
+            gateway_path_open
+            and (fl_s == "sat" or (fl_num and self.fl_f >= GATEWAY_REARM_CLEAR_DIST)
+                 or fr_s == "sat" or (fr_num and self.fr_f >= GATEWAY_REARM_CLEAR_DIST))
+        )
+        if (self.gateway_rearm_latched and gateway_rearm_clear
+                and not gateway_sig and not self.gateway_wall_follow_active):
+            self.gateway_rearm_latched = False
+        if not in_maneuver_now and (
+                self.gateway_active
+                or (gateway_sig and not self.gateway_rearm_latched)):
             if not self.gateway_active:
                 self.gateway_active = True
                 self.gateway_t = 0.0
@@ -832,6 +850,7 @@ class CenteringController:
                 self.gateway_wall_follow_active = (
                     side_wall_exit and not gateway_path_open
                 )
+                self.gateway_rearm_latched = True
                 if side_wall_exit:
                     if side_wall_l and side_wall_r:
                         self.follow_side = (
@@ -1136,8 +1155,8 @@ class CenteringController:
         # from emergency distance to CAP-0.02; a saturated front reads the cap, i.e.
         # full cruise. Unknown front -> cautious half speed.
         if front_clear is not None and not blocked:
-            span = (SENSOR_CAP_M - 0.02) - FRONT_EMERGENCY_DIST
-            scale = ((front_clear - FRONT_EMERGENCY_DIST) / span
+            span = (SENSOR_CAP_M - 0.02) - FRONT_SPEED_TAPER_END
+            scale = ((front_clear - FRONT_SPEED_TAPER_END) / span
                      if span > 0 else 1.0)
             scale = max(0.0, min(1.0, scale))
             v_cmd = CRUISE_LINEAR_MPS * scale

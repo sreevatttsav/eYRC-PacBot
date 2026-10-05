@@ -914,3 +914,23 @@ Then Ctrl+C the controller.
   gateway passage latch. Report wall-contact/collision evidence, turns,
   and the sim's final verdict; do not treat an intentional early stop as
   a completed maze run.
+
+- 2026-10-05 Mac→Linux: maze17 exposed two sensor/actuation edge cases.
+  The gateway signature remained asserted after handoff, so it retriggered
+  repeatedly; added a rearm latch released only by front-ray clearance
+  (no timer cooldown). The front-speed taper reached zero at 0.06 m while
+  emergency backout used the same threshold, allowing the filtered ray to
+  hover just above it and leave the bot effectively stalled. Set emergency
+  backout to 0.08 m with 0.12 m release hysteresis, while retaining 0.06 m
+  as the taper endpoint, so backout begins before forward speed vanishes.
+  Added regressions for rearm only after a clear-front signature and for
+  early backout. Validation: 15/15 controller regressions, 5/5 turn-plant
+  cases, and all 5 corridor replay scenarios pass.
+
+  **Next run: maze18.** Pull and run with the usual forced simulator-output
+  capture; allow normal simulator exit if a final verdict is required.
+  Confirm that a gateway handoff is not followed by another `GATEWAY`
+  probe until a front ray clears, and that a front ray near 0.08 m triggers
+  `FRONT_BACKOUT` before FOLLOW wheel commands collapse toward zero. Record
+  any repeated gateway transitions, minimum front readings, wheel speeds,
+  backout release, and simulator verdict.

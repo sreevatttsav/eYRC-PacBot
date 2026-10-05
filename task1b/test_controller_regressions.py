@@ -18,7 +18,7 @@ except ImportError:
 
 from task_1b_boilerplate import (
     CenteringController, FOLLOW_STEER_RATIO, FRONT_BACKOUT_SPEED,
-    YAW_GAIN_K,
+    FRONT_EMERGENCY_DIST, FRONT_SPEED_TAPER_END, YAW_GAIN_K,
 )
 from task_1b_boilerplate import GATEWAY_APPROACH_M, GATEWAY_CORRIDOR_S
 
@@ -141,6 +141,15 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertNotEqual(ctl.state, "FRONT_BACKOUT")
         self.assertGreater(left + right, 0.0)
 
+    def test_front_backout_starts_before_taper_can_stall(self):
+        self.assertGreater(FRONT_EMERGENCY_DIST, FRONT_SPEED_TAPER_END)
+        ctl = CenteringController()
+        left, right, *_ = ctl.update(0.30, 0.07, 0.18, 0.18, 0.0, 0.02)
+
+        self.assertEqual(ctl.state, "FRONT_BACKOUT")
+        self.assertAlmostEqual(left, -FRONT_BACKOUT_SPEED)
+        self.assertAlmostEqual(right, -FRONT_BACKOUT_SPEED)
+
     def test_slow_follow_steering_never_reverses_a_wheel(self):
         ctl = CenteringController()
         for _ in range(20):
@@ -217,6 +226,33 @@ class ControllerRegressionTests(unittest.TestCase):
             if not ctl.gateway_wall_follow_active:
                 break
         self.assertFalse(ctl.gateway_wall_follow_active)
+
+    def test_gateway_does_not_rearm_until_front_signature_clears(self):
+        ctl = CenteringController()
+        ctl.update(0.10, 0.10, 1.14, 1.14, 0.0, 0.02)
+        for _ in range(40):
+            ctl.update(0.10, 0.12, 0.50, 0.85, 0.0, 0.02)
+            if ctl.state == "FOLLOW":
+                break
+        self.assertEqual(ctl.state, "FOLLOW")
+        self.assertTrue(ctl.gateway_rearm_latched)
+
+        # Persistent near/symmetric fronts and open sides are the same
+        # gateway signature, not evidence of a new gateway.
+        for _ in range(20):
+            ctl.update(0.10, 0.12, 0.50, 0.85, 0.0, 0.02)
+            self.assertEqual(ctl.state, "FOLLOW")
+
+        # A front ray clearing releases the latch. A later fresh signature
+        # is then allowed to begin a new gateway probe.
+        for _ in range(30):
+            ctl.update(0.30, 0.30, 0.50, 0.85, 0.0, 0.02)
+        self.assertFalse(ctl.gateway_rearm_latched)
+        for _ in range(40):
+            ctl.update(0.10, 0.10, 0.50, 0.85, 0.0, 0.02)
+            if ctl.state == "GATEWAY":
+                break
+        self.assertEqual(ctl.state, "GATEWAY")
 
 
 if __name__ == "__main__":

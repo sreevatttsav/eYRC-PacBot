@@ -139,6 +139,10 @@ GATEWAY_SIDE_OPEN = 0.20  # ...with both side readings above this...
 GATEWAY_V_FRAC = 0.5      # ...creep at this fraction of cruise...
 GATEWAY_ABORT_DIST = 0.06  # ...park if either front approaches contact...
 GATEWAY_CLEAR_S = 0.15    # both front rays clear this long -> FOLLOW
+GATEWAY_CORRIDOR_MAX = 0.22  # both sides inside this range = passage entered
+GATEWAY_CORRIDOR_SYM_DB = 0.06
+GATEWAY_CORRIDOR_S = 0.30  # require a stable side-wall signature
+GATEWAY_FRONT_STEER_MAX = 0.50  # bound front alignment while in the frame
 GATEWAY_TIMEOUT = 8.0     # bounded crossing time; timeout parks safely
 
 # Heading-aware centering (Stage 3). The reference accumulates each
@@ -210,6 +214,10 @@ def _controller_constants():
         "GATEWAY_V_FRAC": GATEWAY_V_FRAC,
         "GATEWAY_ABORT_DIST": GATEWAY_ABORT_DIST,
         "GATEWAY_CLEAR_S": GATEWAY_CLEAR_S,
+        "GATEWAY_CORRIDOR_MAX": GATEWAY_CORRIDOR_MAX,
+        "GATEWAY_CORRIDOR_SYM_DB": GATEWAY_CORRIDOR_SYM_DB,
+        "GATEWAY_CORRIDOR_S": GATEWAY_CORRIDOR_S,
+        "GATEWAY_FRONT_STEER_MAX": GATEWAY_FRONT_STEER_MAX,
         "GATEWAY_TIMEOUT": GATEWAY_TIMEOUT,
         "KP_HEADING": KP_HEADING, "STEER_HEADING_MAX": STEER_HEADING_MAX,
         "REANCHOR_ENABLE": REANCHOR_ENABLE,
@@ -314,8 +322,11 @@ class CenteringController:
         self.gateway_active = False
         self.gateway_t = 0.0
         self.gateway_clear_t = 0.0
+        self.gateway_corridor_t = 0.0
+        self.gateway_corridor_lost_t = 0.0
         self.gateway_tries = 0
         self.gateway_failed = False
+        self.gateway_passed = False
         # Wedge hysteresis state (fix 4)
         self.wedge_active = False
         self.wedge_below_t = 0.0
@@ -588,9 +599,34 @@ class CenteringController:
         front_vals = [v for v in (self.fl_f, self.fr_f) if v is not None]
         front_clear = min(front_vals) if front_vals else None
         front_known = fl_num and fr_num
-        blocked = any(v < FRONT_STOP_DIST
-                      for v, s in ((self.fl_f, fl_s), (self.fr_f, fr_s))
-                      if v is not None and s in ("valid", "held"))
+        front_block_l = (fl_num and self.fl_f < FRONT_STOP_DIST)
+        front_block_r = (fr_num and self.fr_f < FRONT_STOP_DIST)
+        blocked = front_block_l or front_block_r
+        front_open_l = (fl_s == "sat" or
+                        (fl_num and self.fl_f > self.RESUME_DIST))
+        front_open_r = (fr_s == "sat" or
+                        (fr_num and self.fr_f > self.RESUME_DIST))
+        gateway_path_open = front_open_l or front_open_r
+        gateway_corridor = (
+            sl_num and sr_num
+            and self.sl_f < GATEWAY_CORRIDOR_MAX
+            and self.sr_f < GATEWAY_CORRIDOR_MAX
+            and abs(self.sl_f - self.sr_f) < GATEWAY_CORRIDOR_SYM_DB
+        )
+        if self.gateway_passed:
+            self.gateway_corridor_lost_t = (
+                0.0 if gateway_corridor
+                else self.gateway_corridor_lost_t + dt
+            )
+            if self.gateway_corridor_lost_t >= 0.5:
+                self.gateway_passed = False
+                self.gateway_corridor_lost_t = 0.0
+        gateway_corridor_pass = self.gateway_passed and gateway_corridor
+        if gateway_corridor_pass and gateway_path_open:
+            # A single splayed ray may still see the entrance post after
+            # the other ray sees the open corridor. Let bounded steering
+            # guide around it instead of invoking the spin-in-place escape.
+            blocked = front_block_l and front_block_r
 
         if self.gateway_failed:
             self._set_state("GATEWAY_HOLD", "gateway_abort")
@@ -663,10 +699,9 @@ class CenteringController:
         # --- gateway probe (maze2/3 spawn): symmetric close fronts with
         #     open sides = frame to squeeze through, NOT a wall. The
         #     splayed rays hit the posts; the gap runs between them.
-        #     Latch the probe once entered: one front ray can clear before
-        #     the other while the robot passes between the posts. Use side
-        #     centering + gyro damping, never front-ray difference, for
-        #     steering during this asymmetric crossing.
+        #     Latch the probe once entered. One front ray can clear before
+        #     the other; bounded front alignment plus side centering and
+        #     gyro damping guides the crossing.
         in_maneuver_now = (self.reverse_ticks > 0 or self.backup_ticks > 0
                            or self.wedge_active or self.spin_dir != 0.0
                            or self.recover_active)
@@ -694,14 +729,24 @@ class CenteringController:
                 self.gateway_clear_t += dt
             else:
                 self.gateway_clear_t = 0.0
+            if gateway_corridor and gateway_path_open:
+                self.gateway_corridor_t += dt
+            else:
+                self.gateway_corridor_t = 0.0
 
-            if (self.gateway_clear_t >= GATEWAY_CLEAR_S
-                    and not blocked):
+            front_exit = self.gateway_clear_t >= GATEWAY_CLEAR_S
+            corridor_exit = self.gateway_corridor_t >= GATEWAY_CORRIDOR_S
+            if front_exit or corridor_exit:
                 self.gateway_active = False
                 self.gateway_t = 0.0
                 self.gateway_clear_t = 0.0
-                self._set_state("FOLLOW", "gateway_clear")
-                # front is clear; continue into normal FOLLOW logic
+                self.gateway_corridor_t = 0.0
+                self.gateway_passed = corridor_exit and not front_exit
+                self.gateway_corridor_lost_t = 0.0
+                self._set_state("FOLLOW", "gateway_corridor" if
+                                self.gateway_passed else "gateway_clear")
+                # Continue into normal FOLLOW with the entrance-post
+                # exception active while the corridor signature holds.
             elif (self.gateway_t > GATEWAY_TIMEOUT
                   or any(v is not None and s in ("valid", "held")
                          and v < GATEWAY_ABORT_DIST
@@ -715,10 +760,15 @@ class CenteringController:
                 return self._finalize(0.0, 0.0, e_lat, e_front,
                                       0.0, yaw_rate, dt)
             else:
-                # Creep forward, centered by side ToF and gyro damping.
+                # Creep forward with all feedback bounded for the narrow
+                # frame; front rays can be asymmetric while clearing posts.
                 v_gw = CRUISE_LINEAR_MPS * GATEWAY_V_FRAC
                 base_gw = v_gw / K_LIN
-                steer_gw = steer_lat - KD_YAW * yaw_rate
+                steer_front_gw = max(
+                    -GATEWAY_FRONT_STEER_MAX,
+                    min(steer_front, GATEWAY_FRONT_STEER_MAX),
+                )
+                steer_gw = steer_lat + steer_front_gw - KD_YAW * yaw_rate
                 steer_gw = max(-MAX_STEER, min(steer_gw, MAX_STEER))
                 left_gw = base_gw - steer_gw
                 right_gw = base_gw + steer_gw
@@ -731,6 +781,12 @@ class CenteringController:
             self.gateway_active = False
             self.gateway_t = 0.0
             self.gateway_clear_t = 0.0
+
+        # The corridor handoff can be armed on this tick. Refresh the
+        # one-ray-open exception before generic blocked/escape handling.
+        gateway_corridor_pass = self.gateway_passed and gateway_corridor
+        if gateway_corridor_pass and gateway_path_open:
+            blocked = front_block_l and front_block_r
 
         # Exit escape once the front is clear again -- but NOT while a
         # reverse/backup countdown is still running (those phases create
@@ -955,8 +1011,11 @@ class CenteringController:
         # within [STOP, CAP-0.02]; a saturated front reads the cap, i.e.
         # full cruise. Unknown front -> cautious half speed.
         if front_clear is not None and not blocked:
+            front_for_speed = front_clear
+            if gateway_corridor_pass and gateway_path_open:
+                front_for_speed = max(front_vals)
             span = (SENSOR_CAP_M - 0.02) - FRONT_STOP_DIST
-            scale = (front_clear - FRONT_STOP_DIST) / span if span > 0 else 1.0
+            scale = (front_for_speed - FRONT_STOP_DIST) / span if span > 0 else 1.0
             scale = max(0.25, min(1.0, scale))
             v_cmd = CRUISE_LINEAR_MPS * scale
         elif front_clear is None:
@@ -965,6 +1024,15 @@ class CenteringController:
             v_cmd = CRUISE_LINEAR_MPS * 0.25
         v_cmd = min(v_cmd, MAX_LINEAR_MPS)
         base = v_cmd / K_LIN
+
+        if gateway_corridor_pass and gateway_path_open:
+            steer_front_follow = max(
+                -GATEWAY_FRONT_STEER_MAX,
+                min(steer_front, GATEWAY_FRONT_STEER_MAX),
+            )
+            steer = max(-MAX_STEER, min(
+                steer_lat + steer_front_follow + KI_LAT * self.i_lat
+                - KD_YAW * yaw_rate, MAX_STEER))
 
         # --- wall follow + gap-seek (maze1 pack): hug a single wall;
         #     when the latched wall opens with front clear, turn INTO it

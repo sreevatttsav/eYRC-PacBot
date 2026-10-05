@@ -116,12 +116,19 @@ def analyze_turns(rep):
             if (_f(r, "t_wall", 0.0) or 0.0) >= t_end:
                 break
         target = _f(seg[0], "turn_target", None)
+        tgt_note = "logged"
+        if target is None:
+            # gap/lost turns log one arming tick (state TURN, zeros out)
+            # before the servo initializes: take the first non-empty
+            # target in the episode, not the arming row.
+            for r in seg[1:]:
+                target = _f(r, "turn_target", None)
+                if target is not None:
+                    break
         if target is None:  # old log: infer magnitude, sign from motion
             target = math.copysign(math.pi / 2,
                                    (th_exit - ticks[e0]["_th"]) or 1.0)
             tgt_note = "inferred-90deg"
-        else:
-            tgt_note = "logged"
         turned = th_end - ticks[e0]["_th"]
         err_deg = math.degrees(turned - target)
         # reversals: sign flips of commanded differential WITHIN TURN

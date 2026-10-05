@@ -3,3 +3,6 @@
 __pycache__/
 **/__pycache__/
 *.pyc
+
+# run logs (per-run folders, Phase 0)
+task1b/logs/

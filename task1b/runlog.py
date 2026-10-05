@@ -36,8 +36,11 @@ TICKS_HEADER = [
     "dt_rep",      # s, simulator-reported timestep (payload "dt")
     "dt_wall",     # s, measured wall-clock between callbacks
     "fl", "fr", "sl", "sr",          # raw ToF readings
-    "fl_f", "fr_f", "sl_f", "sr_f",  # controller-filtered ToF
-    "gyro_z",      # rad/s about z
+    "fl_f", "fr_f", "sl_f", "sr_f",  # controller-filtered ToF ("" = unknown)
+    "fl_s", "fr_s", "sl_s", "sr_s",  # per-sensor status: valid/held/none
+    "gyro_z",      # rad/s about z (measured)
+    "yaw_cmd",     # rad/s commanded (from wheel outputs + estimates)
+    "stuck",       # 0/1 stuck-detector flag
     "e_lat", "e_front", "steer",
     "L", "R",     # commanded wheel velocities (rad/s)
     "state",       # controller state: FOLLOW / REVERSE / TURN / BACKUP / WEDGE
@@ -120,7 +123,8 @@ class RunLogger:
 
     # -- per-callback ----------------------------------------------------
     def tick(self, raw, filt, gyro_z, dt_rep, e_lat, e_front, steer,
-             L, R, state, true_pose=None, extra=None):
+             L, R, state, true_pose=None, extra=None,
+             statuses=("none",) * 4, yaw_cmd=0.0, stuck=False):
         now = time.monotonic()
         if self._mono0 is None:
             self._mono0 = now
@@ -145,9 +149,12 @@ class RunLogger:
             self._i, f"{now:.4f}", f"{t_wall:.4f}",
             f"{dt_rep:.4f}", f"{dt_wall:.4f}",
             *[f"{v:.4f}" for v in raw],
-            *[f"{v:.4f}" for v in filt],
-            f"{gyro_z:+.4f}",
-            f"{e_lat:+.4f}", f"{e_front:+.4f}", f"{steer:+.4f}",
+            *[(f"{v:.4f}" if v is not None else "") for v in filt],
+            *statuses,
+            f"{gyro_z:+.4f}", f"{yaw_cmd:+.4f}", int(bool(stuck)),
+            (f"{e_lat:+.4f}" if e_lat is not None else ""),
+            (f"{e_front:+.4f}" if e_front is not None else ""),
+            f"{steer:+.4f}",
             f"{L:+.3f}", f"{R:+.3f}", state,
             f"{self._x:.4f}", f"{self._y:.4f}", f"{self._th:+.4f}",
             xt, yt, tht,

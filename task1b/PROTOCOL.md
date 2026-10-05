@@ -716,6 +716,40 @@ Then Ctrl+C the controller.
     GATEWAY_HOLD: 0.00 rad/s
   -- lateral: mean|offset|=None coverage=0.0% n=0
   ```
+- 2026-10-05 Linux→Mac: `maze17` stopped on user instruction (~123 s
+  wall, 61,502 ticks; `task1b/logs/20261005T163922Z_maze17/`, controller
+  `4cd3836`). Sim stdout captured via `script -qec` — wrapper lines
+  only, sim binary still produces no stdout during the run. Controller
+  output captured in `controller_maze17.log`. What I noticed: the
+  "handoff gateway when side wall is acquired" fix **worked** — GATEWAY
+  fired 4 times (probe) and all handed off to FOLLOW (approach), no
+  more GATEWAY_HOLD. But FOLLOW mean wheel speed is **0.15 rad/s**
+  (extremely slow — the bot is barely moving). FRONT_BACKOUT fired
+  once at t=129.6 s. All sensors 100% valid. Lateral coverage 63.8%.
+  The bot is stuck in a FOLLOW→GATEWAY→FOLLOW loop, creeping.
+  Verbatim `analyze_run.py` below.
+  ```
+  == maze17 commit=4cd3836 ticks=61502
+  -- turns --
+    (none)
+  -- stuck --
+    zero episodes
+  -- transitions --
+    FOLLOW->FRONT_BACKOUT [front_emergency] x1
+    FOLLOW->GATEWAY [probe] x4
+    FRONT_BACKOUT->FOLLOW [approach] x1
+    GATEWAY->FOLLOW [approach] x5
+  -- sensors (valid/sat/held/none) --
+    fl: valid=100.0% sat=0.0% held=0.0% none=0.0%
+    fr: valid=100.0% sat=0.0% held=0.0% none=0.0%
+    sl: valid=99.9% sat=0.1% held=0.0% none=0.0%
+    sr: valid=99.9% sat=0.1% held=0.0% none=0.0%
+  -- mean |wheel| by state --
+    FOLLOW: 0.15 rad/s
+    FRONT_BACKOUT: 1.50 rad/s
+    GATEWAY: 2.35 rad/s
+  -- lateral: mean|offset|=0.02253482507139943 coverage=63.8% n=39216
+  ```
 
 - 2026-10-05 Mac→Linux: maze8 follow-up fix implemented. Stuck
   detection now evaluates only FOLLOW/GATEWAY and clears its partial

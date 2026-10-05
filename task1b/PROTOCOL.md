@@ -159,3 +159,50 @@ Then Ctrl+C the controller.
     TURN: 1.87 rad/s
   -- lateral: mean|offset|=0.009005999999999998 coverage=0.2% n=475
   ```
+- 2026-10-05 Linux→Mac: `maze2` stopped early on user instruction
+  (~134 s wall, 54,997 ticks; `task1b/logs/20261005T133931Z_maze2/`,
+  controller `77c99d1`). Sim stdout is **empty** again, so no `MAZE
+  SOLVED` line, time, score, or collisions. What I noticed: 4/5 turns
+  PASS, but the `lost_left` gap-seek turn at t=70.1 s FAILs with
+  +86.8° error against its inferred +90° target — the new gap-seek
+  path fires but does not complete the intended turn. Both stuck
+  episodes cleared in ~1.15 s; one later stuck escalated
+  RECOVER→BACKUP and then cleared. Side-sensor validity is much
+  better than maze1 (sl/sr valid ~36-38% vs ~2-6%). Verbatim
+  `analyze_run.py` below.
+  ```
+  == maze2 commit=77c99d1 ticks=54997
+  -- turns --
+    #0 t=0.4s target=+90deg(logged) final_err=-2.7deg dur=3.24s exit=FOLLOW:clear rev=0[] PASS
+    #1 t=5.8s target=+90deg(logged) final_err=-2.2deg dur=3.37s exit=FOLLOW:clear rev=0[] PASS
+    #2 t=70.1s target=+90deg(inferred-90deg) final_err=+86.8deg dur=5.14s exit=FOLLOW:clear rev=0[] FAIL
+    #3 t=115.0s target=-90deg(logged) final_err=+2.9deg dur=3.28s exit=FOLLOW:clear rev=0[] PASS
+    #4 t=130.4s target=-90deg(logged) final_err=+4.8deg dur=3.42s exit=FOLLOW:clear rev=0[] PASS
+  -- stuck --
+    t=119.9s @RECOVER hold=1.16s
+    t=123.3s @RECOVER hold=1.15s
+  -- transitions --
+    BACKUP->FOLLOW [clear] x1
+    BRAKE->FOLLOW [clear] x5
+    FOLLOW->RECOVER [stuck] x2
+    FOLLOW->REVERSE [blocked] x3
+    FOLLOW->TURN [lost_left] x1
+    RECOVER->BACKUP [stuck_escalate] x1
+    RECOVER->FOLLOW [clear] x1
+    REVERSE->TURN [left] x2
+    REVERSE->TURN [right] x2
+    TURN->BRAKE [coast] x5
+  -- sensors (valid/sat/held/none) --
+    fl: valid=20.4% sat=69.8% held=0.3% none=9.5%
+    fr: valid=6.0% sat=79.7% held=0.0% none=14.3%
+    sl: valid=37.8% sat=57.1% held=1.4% none=3.7%
+    sr: valid=36.1% sat=58.2% held=2.5% none=3.1%
+  -- mean |wheel| by state --
+    BACKUP: 3.00 rad/s
+    BRAKE: 2.00 rad/s
+    FOLLOW: 2.36 rad/s
+    RECOVER: 3.00 rad/s
+    REVERSE: 3.00 rad/s
+    TURN: 1.96 rad/s
+  -- lateral: mean|offset|=0.042101814814814814 coverage=2.5% n=1350
+  ```

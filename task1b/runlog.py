@@ -50,6 +50,7 @@ TICKS_HEADER = [
     "turn_elapsed",  # s since turn start
     "turn_progress",  # rad gained in current 1 s no-progress window
     "abort_reason",  # "", hard_timeout, no_progress (+ event reasons)
+    "lat_mode",    # both / left_only / right_only / blind (Stage 2)
     "x_est", "y_est", "th_est",  # dead-reckoned pose (ESTIMATED, drifts)
     "x_true", "y_true", "th_true",  # sim ground truth if available, else empty
     "extra",       # JSON of unrecognized payload keys (future pose/topics)
@@ -78,10 +79,10 @@ def _sanitize_label(label):
 
 class RunLogger:
     def __init__(self, log_dir, label, constants,
-                 wheel_r=0.017, wheel_track=0.08):
+                 wheel_r=0.017, wheel_track=0.08, k_lin=None):
         """constants: dict of gains/limits recorded verbatim into meta.json.
-        wheel_r/track: ESTIMATES (mesh guess) for dead-reckoning until the
-        Phase-1 step test calibrates them; recorded in meta.json as such."""
+        k_lin (m/s per wheel rad/s) drives dead-reckoning; defaults to
+        wheel_r for old callers. Replace with the speed_test value."""
         self.label = _sanitize_label(label)
         self.started_utc = datetime.now(timezone.utc)
         stamp = self.started_utc.strftime("%Y%m%dT%H%M%SZ")
@@ -90,6 +91,7 @@ class RunLogger:
 
         self.wheel_r = wheel_r
         self.wheel_track = wheel_track
+        self.k_lin = k_lin if k_lin else wheel_r
         meta = {
             "label": label,
             "started_utc": self.started_utc.isoformat(),
@@ -98,7 +100,8 @@ class RunLogger:
             "wheel_estimates": {
                 "R_m": wheel_r,
                 "track_m": wheel_track,
-                "status": "mesh guess -- replace with Phase-1 step-test values",
+                "k_lin": self.k_lin,
+                "status": "mesh guess -- replace with speed_test K_LIN",
             },
             "pose_note": ("x_est/y_est/th_est are dead-reckoned from gyro "
                           "heading + commanded wheel speeds. They DRIFT. "
@@ -131,7 +134,7 @@ class RunLogger:
     def tick(self, raw, filt, gyro_z, dt_rep, e_lat, e_front, steer,
              L, R, state, true_pose=None, extra=None,
              statuses=("none",) * 4, yaw_cmd=0.0, stuck=False,
-             turn=None):
+             turn=None, lat_mode=""):
         """turn: None or dict(target, angle, error, elapsed, progress,
         abort) -- missing keys log as empty (old callers unaffected)."""
         now = time.monotonic()
@@ -145,7 +148,7 @@ class RunLogger:
 
         # dead-reckon: heading from gyro, speed from commanded wheels
         self._th += gyro_z * dt_wall
-        v = self.wheel_r * (L + R) / 2.0
+        v = self.k_lin * (L + R) / 2.0
         self._x += v * math.cos(self._th) * dt_wall
         self._y += v * math.sin(self._th) * dt_wall
 
@@ -178,6 +181,7 @@ class RunLogger:
             tcol("target", "%+.4f"), tcol("angle", "%+.4f"),
             tcol("error", "%+.4f"), tcol("elapsed", "%.3f"),
             tcol("progress", "%+.4f"), str(turn.get("abort", "")),
+            str(lat_mode),
             f"{self._x:.4f}", f"{self._y:.4f}", f"{self._th:+.4f}",
             xt, yt, tht,
             json.dumps(extra or {}, separators=(",", ":")),

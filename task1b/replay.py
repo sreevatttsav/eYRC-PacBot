@@ -8,6 +8,10 @@ Sensing only: the replay cannot react to what the robot would have
 done, so closed-loop behavior is NOT validated here -- record a sim
 run for that. Use --t0/--t1 to window on t_wall (e.g. a clean straight).
 
+SAT_MODE is read from meta.json next to ticks.csv (Stage 2): with
+"ceiling", cap readings replay as sat bounds through the same code
+path as the controller, and lat_mode fractions are reported.
+
 Usage:
     python3 replay.py logs/20250101T000000Z_baseline/ticks.csv
     python3 replay.py logs/<run>/ticks.csv --t0 3 --t1 12
@@ -26,6 +30,7 @@ StuckDetector over the whole log, then asserts:
 """
 import argparse
 import csv
+import json
 import statistics
 import sys
 import types
@@ -73,11 +78,23 @@ def main():
                          "(1 s post-entry excluded)")
     a = ap.parse_args()
 
-    tofs = {k: Tof(B.MAX_RANGE, B.TOF_HOLD_S, B.FILTER_TAU)
+    import os
+    sat_cap = None
+    try:
+        meta = json.load(open(os.path.join(os.path.dirname(
+            os.path.abspath(a.ticks_csv)), "meta.json")))
+        if meta.get("constants", {}).get("SAT_MODE", "ceiling") == "ceiling":
+            sat_cap = meta["constants"].get("SENSOR_CAP_M", 0.300)
+    except (OSError, ValueError, KeyError):
+        sat_cap = B.SENSOR_CAP_M  # default: ceiling interpretation
+    print(f"SAT_MODE cap: {sat_cap} (None = distance interpretation)")
+
+    tofs = {k: Tof(B.MAX_RANGE, B.TOF_HOLD_S, B.FILTER_TAU, sat_cap)
             for k in ("fl", "fr", "sl", "sr")}
     n = 0
-    status_counts = {k: {"valid": 0, "held": 0, "none": 0}
+    status_counts = {k: {"valid": 0, "sat": 0, "held": 0, "none": 0}
                      for k in tofs}
+    lat_modes = {"both": 0, "left_only": 0, "right_only": 0, "blind": 0}
     old_front, new_front, old_lat, new_lat = [], [], [], []
     leg = {k: None for k in tofs}
 
@@ -100,11 +117,21 @@ def main():
                 leg[k] = legacy_ema(leg[k], c, dt)
             old_front.append(leg["fl"] - leg["fr"])
             old_lat.append(leg["sl"] - leg["sr"])
-            # new validity-gated rules (mirror controller logic)
-            if vals["fl"] is not None and vals["fr"] is not None:
+            # new validity-gated rules (mirror controller logic, Stage 2:
+            # sat is a bound -- both-numeric diffs, else single-hold/blind)
+            num = {k: vals[k] is not None and stats[k] in ("valid", "held")
+                   for k in tofs}
+            if num["fl"] and num["fr"]:
                 new_front.append(vals["fl"] - vals["fr"])
-            if vals["sl"] is not None and vals["sr"] is not None:
+            if num["sl"] and num["sr"]:
                 new_lat.append(vals["sl"] - vals["sr"])
+                lat_modes["both"] += 1
+            elif num["sl"]:
+                lat_modes["left_only"] += 1
+            elif num["sr"]:
+                lat_modes["right_only"] += 1
+            else:
+                lat_modes["blind"] += 1
             n += 1
 
     print(f"rows: {n}" +
@@ -112,8 +139,12 @@ def main():
     for k in tofs:
         c = status_counts[k]
         tot = max(1, sum(c.values()))
-        print(f"{k}: valid {c['valid']/tot:.1%} "
+        print(f"{k}: valid {c['valid']/tot:.1%} sat {c['sat']/tot:.1%} "
               f"held {c['held']/tot:.1%} none {c['none']/tot:.1%}")
+    if n:
+        print("lat_mode: " + " ".join(
+            f"{k}={lat_modes[k]/n:.1%}" for k in
+            ("both", "left_only", "right_only", "blind")))
 
     def show(name, xs):
         if not xs:

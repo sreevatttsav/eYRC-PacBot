@@ -176,7 +176,7 @@ def analyze_sensors(rep):
             continue
         tot = len(ticks)
         out[s] = {st: sum(1 for r in ticks if r.get(col) == st) / tot
-                  for st in ("valid", "held", "none")}
+                  for st in ("valid", "sat", "held", "none")}
     return out
 
 
@@ -208,13 +208,15 @@ def analyze_transitions(rep):
 def analyze_lateral(rep):
     ticks = rep["ticks"]
     keys = ticks[0].keys() if ticks else []
+    has_status = "sl_s" in keys
     vals = []
     for r in ticks:
         sl, sr = _f(r, "sl_f"), _f(r, "sr_f")
         if sl is None or sr is None or sl >= CAP_M or sr >= CAP_M:
             continue
-        if "sl_s" in keys and (r.get("sl_s") != "valid" or r.get("sr_s") != "valid"):
-            continue
+        if has_status and (r.get("sl_s") not in ("valid", "held")
+                           or r.get("sr_s") not in ("valid", "held")):
+            continue  # sat/unknown sides are not centerable
         vals.append((sl - sr) / 2.0)
     if not vals:
         return {"mean_abs": None, "coverage": 0.0, "n": 0}
@@ -258,10 +260,10 @@ def print_report(r):
     print("-- transitions --")
     for (f, t, why), n in sorted(r["trans"].items()):
         print(f"  {f}->{t} [{why}] x{n}")
-    print("-- sensors (valid/held/none) --")
+    print("-- sensors (valid/sat/held/none) --")
     for s, v in r["sens"].items():
         print(f"  {s}: {v}" if isinstance(v, str) else
-              f"  {s}: " + " ".join(f"{k}={v[k]:.1%}" for k in ("valid", "held", "none")))
+              f"  {s}: " + " ".join(f"{k}={v[k]:.1%}" for k in ("valid", "sat", "held", "none")))
     print("-- mean |wheel| by state --")
     for s, v in sorted(r["wheels"].items()):
         print(f"  {s}: {v:.2f} rad/s")

@@ -87,8 +87,20 @@ STUCK_RATIO = 0.25     # |measured| below this fraction of commanded
 STUCK_ESCALATE_S = 3.0  # re-flag within this -> escalate
 RECOVER_DIST = 0.10    # back-out distance per recovery (m, estimated)
 
-# Wheel-size ESTIMATES for runlog dead-reckoning (mesh guess -- Phase 1
-# step test replaces these with measured values).
+# Linear-speed layer (Stage 2). Cruise is commanded in m/s and
+# converted with the MEASURED K_LIN (speed_test); wheel-space maneuver
+# speeds below are unchanged.
+K_LIN = 0.017          # m/s per wheel rad/s; mesh guess until speed_test
+CRUISE_LINEAR_MPS = 0.04   # s2a cruise (refactor at explicit speed)
+MAX_LINEAR_MPS = 0.12      # s2c ceiling (only if scoring rewards speed)
+
+# Saturation model (Stage 2). SAT_MODE="ceiling": a reading at the cap
+# is a lower bound ("at least 0.3"), never a distance. "distance":
+# legacy numeric interpretation (s2b comparison run).
+SENSOR_CAP_M = 0.300
+SAT_MODE = "ceiling"   # or "distance"
+
+# Superseded by K_LIN/YAW_GAIN_K (kept for meta compat only).
 WHEEL_R_EST = 0.017    # m
 WHEEL_TRACK_EST = 0.08  # m
 
@@ -131,6 +143,9 @@ def _controller_constants():
         "I_MAX": I_MAX, "I_LEAK": I_LEAK, "I_DEADBAND": I_DEADBAND,
         "FRONT_SLOW_DIST": FRONT_SLOW_DIST,
         "FRONT_STOP_DIST": FRONT_STOP_DIST, "SPIN_SPEED": SPIN_SPEED,
+        "K_LIN": K_LIN, "CRUISE_LINEAR_MPS": CRUISE_LINEAR_MPS,
+        "MAX_LINEAR_MPS": MAX_LINEAR_MPS,
+        "SENSOR_CAP_M": SENSOR_CAP_M, "SAT_MODE": SAT_MODE,
         "MAX_RANGE": MAX_RANGE, "FILTER_TAU": FILTER_TAU,
         "TOF_HOLD_S": TOF_HOLD_S, "WALL_TARGET": WALL_TARGET,
         "WEDGE_ENTER": WEDGE_ENTER, "WEDGE_EXIT": WEDGE_EXIT,
@@ -160,11 +175,14 @@ class CenteringController:
     """PD lateral + front-alignment P + gyro D. No raw I by default."""
 
     def __init__(self):
-        # Validity-filtered sensors (fix 1). Values are None = unknown.
-        self.tof_fl = Tof(MAX_RANGE, TOF_HOLD_S, FILTER_TAU)
-        self.tof_fr = Tof(MAX_RANGE, TOF_HOLD_S, FILTER_TAU)
-        self.tof_sl = Tof(MAX_RANGE, TOF_HOLD_S, FILTER_TAU)
-        self.tof_sr = Tof(MAX_RANGE, TOF_HOLD_S, FILTER_TAU)
+        # Validity-filtered sensors (fix 1 + Stage 2 sat). Values are
+        # None = unknown; status "sat" = lower bound, never differenced.
+        cap = SENSOR_CAP_M if SAT_MODE == "ceiling" else None
+        self.tof_fl = Tof(MAX_RANGE, TOF_HOLD_S, FILTER_TAU, cap)
+        self.tof_fr = Tof(MAX_RANGE, TOF_HOLD_S, FILTER_TAU, cap)
+        self.tof_sl = Tof(MAX_RANGE, TOF_HOLD_S, FILTER_TAU, cap)
+        self.tof_sr = Tof(MAX_RANGE, TOF_HOLD_S, FILTER_TAU, cap)
+        self.lat_mode = ""
         self.fl_f = None
         self.fr_f = None
         self.sl_f = None
@@ -287,19 +305,34 @@ class CenteringController:
         self.sr_f, sr_s = self.tof_sr.update(sr, dt)
         self.last_status = (fl_s, fr_s, sl_s, sr_s)
 
-        # 2. Errors, validity-gated. e_front needs both front sensors;
-        #    e_lat needs both sides. One side only -> hold WALL_TARGET
-        #    from the good wall. Nothing -> steer 0, drive straight.
+        # 2. Errors, validity-gated (Stage 2 sat rules). "numeric" =
+        #    valid/held; "sat" is a bound, never differenced. Both sides
+        #    numeric -> e_lat. One numeric side -> hold WALL_TARGET from
+        #    it. Both sat -> blind (NOT centered): steer 0. e_front needs
+        #    both front numeric.
+        def _num(v, s):
+            return v is not None and s in ("valid", "held")
+
+        sl_num = _num(self.sl_f, sl_s)
+        sr_num = _num(self.sr_f, sr_s)
+        fl_num = _num(self.fl_f, fl_s)
+        fr_num = _num(self.fr_f, fr_s)
         e_lat = None
         e_front = None
         single = None  # (+1 side sign, reading) for single-wall hold
-        if self.sl_f is not None and self.sr_f is not None:
+        if sl_num and sr_num:
             e_lat = self.sl_f - self.sr_f
-        elif self.sl_f is not None:
+            lat_mode = "both"
+        elif sl_num:
             single = (1.0, self.sl_f)
-        elif self.sr_f is not None:
+            lat_mode = "left_only"
+        elif sr_num:
             single = (-1.0, self.sr_f)
-        if self.fl_f is not None and self.fr_f is not None:
+            lat_mode = "right_only"
+        else:
+            lat_mode = "blind"
+        self.lat_mode = lat_mode
+        if fl_num and fr_num:
             e_front = self.fl_f - self.fr_f
 
         # 3. Leaky integral (OFF by default). Same cautions as before;
@@ -329,14 +362,20 @@ class CenteringController:
         self.t += dt
         self.gyro_th += yaw_rate * dt
 
-        front_known = self.fl_f is not None and self.fr_f is not None
-        front_clear = min(self.fl_f, self.fr_f) if front_known else None
-        blocked = front_known and front_clear < FRONT_STOP_DIST
+        # front_clear uses every available reading; a sat side reads the
+        # cap (open). Only a NUMERIC reading below STOP blocks -- a sat
+        # side never blocks.
+        front_vals = [v for v in (self.fl_f, self.fr_f) if v is not None]
+        front_clear = min(front_vals) if front_vals else None
+        front_known = fl_num and fr_num
+        blocked = any(v < FRONT_STOP_DIST
+                      for v, s in ((self.fl_f, fl_s), (self.fr_f, fr_s))
+                      if v is not None and s in ("valid", "held"))
 
         # --- stuck recovery finishes first (distance-driven backout) ---
         if self.recover_active:
             back = BASE_SPEED * 0.5
-            self.recover_done += abs(WHEEL_R_EST * back) * dt
+            self.recover_done += abs(K_LIN * back) * dt
             if self.recover_done >= self.recover_target:
                 self.recover_active = False
                 if self.recover_then_backup:
@@ -407,7 +446,7 @@ class CenteringController:
                        or self.wedge_active)
         spin_committed = (self.spin_dir != 0.0
                           and self.spin_done_s < self.MIN_SPIN_S)
-        if (front_known and front_clear > self.RESUME_DIST
+        if (front_clear is not None and front_clear > self.RESUME_DIST
                 and not in_maneuver and not spin_committed
                 and not self.turn_active):
             self.spin_dir = 0.0
@@ -430,8 +469,7 @@ class CenteringController:
                     self.retry_dir = None
                     self.retry_used = False
                 self._from_backup = False
-                deadend = (front_known and self.sl_f is not None
-                           and self.sr_f is not None
+                deadend = (blocked and sl_num and sr_num
                            and self.sl_f < DEADEND_DIST
                            and self.sr_f < DEADEND_DIST)
                 mag = math.pi if deadend else math.pi / 2.0
@@ -513,7 +551,8 @@ class CenteringController:
                     self.np_t0 = self.turn_t
                     self.np_a0 = turned
             if abs(err) <= TURN_EXIT_ERR:
-                verified = (not front_known) or (front_clear > TURN_VERIFY_DIST)
+                verified = (front_clear is None
+                            or front_clear > TURN_VERIFY_DIST)
                 verified = (not front_known) or (front_clear > TURN_VERIFY_DIST)
                 if verified:
                     self.prev_turn_dir = 1.0 if self.turn_target > 0 else -1.0
@@ -552,25 +591,30 @@ class CenteringController:
                                 "left" if self.turn_target > 0 else "right")
                 return self._finalize(-w, w, e_lat, e_front,
                                       steer, yaw_rate, dt)
-        # FOLLOW tail (also reached after a completed turn). Unknown
-        # front -> cautious half speed since clearance is unverified.
-        if front_known and not blocked:
-            span = FRONT_SLOW_DIST - FRONT_STOP_DIST
+        # FOLLOW tail (also reached after a completed turn). Speed is
+        # commanded in m/s and converted with K_LIN. Slowdown ramps
+        # within [STOP, CAP-0.02]; a saturated front reads the cap, i.e.
+        # full cruise. Unknown front -> cautious half speed.
+        if front_clear is not None and not blocked:
+            span = (SENSOR_CAP_M - 0.02) - FRONT_STOP_DIST
             scale = (front_clear - FRONT_STOP_DIST) / span if span > 0 else 1.0
             scale = max(0.25, min(1.0, scale))
-            base = BASE_SPEED * scale
-        elif not front_known:
-            base = BASE_SPEED * 0.5
+            v_cmd = CRUISE_LINEAR_MPS * scale
+        elif front_clear is None:
+            v_cmd = CRUISE_LINEAR_MPS * 0.5
         else:
-            base = BASE_SPEED * 0.25
+            v_cmd = CRUISE_LINEAR_MPS * 0.25
+        v_cmd = min(v_cmd, MAX_LINEAR_MPS)
+        base = v_cmd / K_LIN
 
         left_vel = base - steer
         right_vel = base + steer
         left_vel = max(-MAX_SPEED, min(left_vel, MAX_SPEED))
         right_vel = max(-MAX_SPEED, min(right_vel, MAX_SPEED))
         self._from_backup = False  # driving: next block is a new obstacle
-        self._set_state("FOLLOW",
-                        "clear" if front_known and front_clear > FRONT_SLOW_DIST else "approach")
+        self._set_state("FOLLOW", "clear" if (
+            front_clear is not None
+            and front_clear > SENSOR_CAP_M - 0.02) else "approach")
         return self._finalize(left_vel, right_vel, e_lat, e_front,
                               steer, yaw_rate, dt)
 
@@ -642,7 +686,8 @@ def on_message(client, userdata, msg):
                   "error": CONTROLLER.turn_error if in_turn else "",
                   "elapsed": CONTROLLER.turn_t if in_turn else "",
                   "progress": CONTROLLER.turn_progress if in_turn else "",
-                  "abort": CONTROLLER.abort_reason})
+                  "abort": CONTROLLER.abort_reason},
+            lat_mode=CONTROLLER.lat_mode)
         if _PREV_STATE is not None and CONTROLLER.state != _PREV_STATE:
             LOGGER.event(_PREV_STATE, CONTROLLER.state,
                          CONTROLLER.state_reason)
@@ -672,7 +717,8 @@ def main():
         LOGGER = RunLogger(base, label=args.label,
                            constants=_controller_constants(),
                            wheel_r=WHEEL_R_EST,
-                           wheel_track=WHEEL_TRACK_EST)
+                           wheel_track=WHEEL_TRACK_EST,
+                           k_lin=K_LIN)
 
     client = _mqtt_client()
     client.on_message = on_message

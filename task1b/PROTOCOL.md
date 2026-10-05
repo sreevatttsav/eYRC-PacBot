@@ -614,6 +614,41 @@ Then Ctrl+C the controller.
     TURN: 2.04 rad/s
   -- lateral: mean|offset|=0.009430193900054092 coverage=75.6% n=24033
   ```
+- 2026-10-05 Linux→Mac: `maze14` stopped on user instruction (~50 s
+  wall, 24,949 ticks; `task1b/logs/20261005T160551Z_maze14/`, controller
+  `5f698e3`). Sim stdout captured via `script -qec` — the wrapper
+  lines appear (`Script started/done`) but the sim binary itself
+  produces **no stdout during the run**; it only prints at exit
+  (MAZE SOLVED/score), which is lost on SIGTERM. Controller output
+  captured in `controller_maze14.log`. What I noticed: GATEWAY fired
+  but exited via `GATEWAY→REVERSE [blocked]` at t=6.8 s. One turn PASS
+  (−1.8°). FOLLOW held the rest. Sensor validity mixed (fl 17% valid /
+  76% sat, fr/sl/sr 100% valid). Lateral coverage 86.6% (best yet).
+  Verbatim `analyze_run.py` below.
+  ```
+  == maze14 commit=5f698e3 ticks=24949
+  -- turns --
+    #0 t=7.2s target=+90deg(logged) final_err=-1.8deg dur=3.54s exit=FOLLOW:clear rev=0[] PASS
+  -- stuck --
+    zero episodes
+  -- transitions --
+    BRAKE->FOLLOW [clear] x1
+    GATEWAY->REVERSE [blocked] x1
+    REVERSE->TURN [left] x1
+    TURN->BRAKE [coast] x1
+  -- sensors (valid/sat/held/none) --
+    fl: valid=16.8% sat=75.9% held=0.2% none=7.0%
+    fr: valid=100.0% sat=0.0% held=0.0% none=0.0%
+    sl: valid=100.0% sat=0.0% held=0.0% none=0.0%
+    sr: valid=100.0% sat=0.0% held=0.0% none=0.0%
+  -- mean |wheel| by state --
+    BRAKE: 2.00 rad/s
+    FOLLOW: 2.35 rad/s
+    GATEWAY: 2.35 rad/s
+    REVERSE: 3.00 rad/s
+    TURN: 1.86 rad/s
+  -- lateral: mean|offset|=0.001545055097694231 coverage=86.6% n=21598
+  ```
 
 - 2026-10-05 Mac→Linux: maze8 follow-up fix implemented. Stuck
   detection now evaluates only FOLLOW/GATEWAY and clears its partial

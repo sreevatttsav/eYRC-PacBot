@@ -497,7 +497,7 @@ class CenteringController:
             if self.turn_t >= NO_PROGRESS_START:
                 if self.turn_t - self.np_t0 >= NO_PROGRESS_WIN:
                     self.turn_progress = turned - self.np_a0
-                    if self.turn_progress < NO_PROGRESS_MIN:
+                    if abs(self.turn_progress) < NO_PROGRESS_MIN:
                         # pinned side: reverse out and flip direction
                         self.backup_ticks = max(1, int(self.BACKUP_S / dt)) if dt > 0 else 250
                         self.spin_dir = 0.0

@@ -375,6 +375,54 @@ Then Ctrl+C the controller.
     WEDGE: 3.00 rad/s
   -- lateral: mean|offset|=0.012178204663212436 coverage=100.0% n=19300
   ```
+- 2026-10-05 Linux→Mac: `maze8` stopped on user instruction (~55 s
+  wall, 26,350 ticks; `task1b/logs/20261005T151254Z_maze8/`, controller
+  `4070951`). Sim stdout is **empty** again. What I noticed: GATEWAY
+  handed off to FOLLOW at t=2.3 s (good), but then 4 wedge cycles,
+  and **all 5 turns FAIL** (errors −5.7° to −68.8°, two exiting via
+  RECOVER:stuck). The "prioritize ToF steering" fix made turns worse,
+  not better. Sensor validity excellent (83–95% valid), lateral
+  coverage 72.6% (best yet). Two stuck episodes cleared. Verbatim
+  `analyze_run.py` below.
+  ```
+  == maze8 commit=4070951 ticks=26350
+  -- turns --
+    #0 t=21.8s target=+90deg(logged) final_err=-6.5deg dur=4.34s exit=RECOVER:stuck rev=0[] FAIL
+    #1 t=28.7s target=-90deg(logged) final_err=-25.7deg dur=5.12s exit=RECOVER:stuck rev=0[] FAIL
+    #2 t=36.5s target=+90deg(logged) final_err=-5.7deg dur=3.21s exit=FOLLOW:approach rev=0[] FAIL
+    #3 t=42.3s target=-90deg(logged) final_err=-68.8deg dur=7.20s exit=FOLLOW:approach rev=0[] FAIL
+    #4 t=54.7s target=-180deg(logged) final_err=+12.5deg dur=5.21s exit=END:(no-event-row) rev=0[] FAIL
+  -- stuck --
+    t=26.1s @RECOVER hold=1.11s
+    t=33.8s @RECOVER hold=1.12s
+  -- transitions --
+    BRAKE->FOLLOW [approach] x2
+    BRAKE->TURN [right] x2
+    FOLLOW->REVERSE [blocked] x2
+    FOLLOW->WEDGE [wedge_enter] x4
+    GATEWAY->FOLLOW [approach] x1
+    RECOVER->REVERSE [blocked] x2
+    REVERSE->TURN [left] x1
+    REVERSE->TURN [right] x3
+    TURN->BRAKE [coast] x4
+    TURN->RECOVER [stuck] x2
+    WEDGE->FOLLOW [approach] x3
+    WEDGE->TURN [wedge_left] x1
+  -- sensors (valid/sat/held/none) --
+    fl: valid=83.4% sat=13.5% held=0.2% none=2.9%
+    fr: valid=87.2% sat=9.3% held=0.2% none=3.4%
+    sl: valid=93.9% sat=5.9% held=0.0% none=0.2%
+    sr: valid=94.9% sat=5.1% held=0.0% none=0.0%
+  -- mean |wheel| by state --
+    BRAKE: 2.00 rad/s
+    FOLLOW: 2.02 rad/s
+    GATEWAY: 2.35 rad/s
+    RECOVER: 3.00 rad/s
+    REVERSE: 3.00 rad/s
+    TURN: 1.97 rad/s
+    WEDGE: 3.00 rad/s
+  -- lateral: mean|offset|=0.01214166231187291 coverage=72.6% n=19136
+  ```
 - 2026-10-05 Mac verdict on `maze2` (55k ticks, stopped early):
   turns now read 5/5 PASS after an analyzer fix -- the reported
   `lost_left` FAIL (+86.8 deg) was a TOOLING artifact: gap/lost

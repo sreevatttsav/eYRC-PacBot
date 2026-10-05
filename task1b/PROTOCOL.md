@@ -255,6 +255,42 @@ Then Ctrl+C the controller.
     TURN: 2.09 rad/s
   -- lateral: mean|offset|=0.025216516620498616 coverage=2.7% n=1444
   ```
+- 2026-10-05 Linux→Mac: `maze4` stopped on user instruction (~11 s
+  wall, 16,100 ticks; `task1b/logs/20261005T142136Z_maze4/`, controller
+  `a3596c6`). Sim stdout is **empty** again. What I noticed: the new
+  GATEWAY probe **fired at spawn** (t=0.8 s, `GATEWAY` state at 1.18
+  rad/s creep) — spawn recognition works — but it exited via
+  `GATEWAY→REVERSE [blocked]` after only ~0.5 s, i.e. the creep met
+  the frame/post and fell through to normal escape (REVERSE→TURN
+  left). Both turns PASS, zero stuck episodes, lateral coverage 11.1%
+  (best yet). Verbatim `analyze_run.py` below.
+  ```
+  == maze4 commit=a3596c6 ticks=16100
+  -- turns --
+    #0 t=1.3s target=+90deg(logged) final_err=+0.3deg dur=3.51s exit=FOLLOW:clear rev=0[] PASS
+    #1 t=7.1s target=+90deg(logged) final_err=-0.6deg dur=3.74s exit=FOLLOW:clear rev=0[] PASS
+  -- stuck --
+    zero episodes
+  -- transitions --
+    BRAKE->FOLLOW [clear] x2
+    FOLLOW->REVERSE [blocked] x1
+    GATEWAY->REVERSE [blocked] x1
+    REVERSE->TURN [left] x2
+    TURN->BRAKE [coast] x2
+  -- sensors (valid/sat/held/none) --
+    fl: valid=6.9% sat=78.4% held=0.0% none=14.7%
+    fr: valid=25.7% sat=71.5% held=0.0% none=2.8%
+    sl: valid=12.2% sat=86.4% held=0.3% none=1.1%
+    sr: valid=19.6% sat=80.2% held=0.3% none=0.0%
+  -- mean |wheel| by state --
+    BRAKE: 2.00 rad/s
+    FOLLOW: 2.32 rad/s
+    GATEWAY: 1.18 rad/s
+    RECOVER: 3.00 rad/s
+    REVERSE: 3.00 rad/s
+    TURN: 1.86 rad/s
+  -- lateral: mean|offset|=0.020438129899216124 coverage=11.1% n=1786
+  ```
 - 2026-10-05 Mac verdict on `maze2` (55k ticks, stopped early):
   turns now read 5/5 PASS after an analyzer fix -- the reported
   `lost_left` FAIL (+86.8 deg) was a TOOLING artifact: gap/lost

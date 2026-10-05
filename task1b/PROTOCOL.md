@@ -475,6 +475,86 @@ Then Ctrl+C the controller.
     WEDGE: 3.00 rad/s
   -- lateral: mean|offset|=0.023056939994804744 coverage=60.0% n=11549
   ```
+- 2026-10-05 Linux→Mac: `maze10` stopped on user instruction (~17 s
+  wall, 8,400 ticks; `task1b/logs/20261005T153053Z_maze10/`, controller
+  `78ec850`). Sim stdout is **empty** even with `stdbuf -oL` — the sim
+  binary appears to fully buffer or only print at exit. What I noticed:
+  GATEWAY fired but exited via `GATEWAY→REVERSE [blocked]` at t=6.7 s.
+  1/2 turns PASS (the second truncated by the stop). 2 wedge cycles.
+  Sensor validity good (67–99% valid). Verbatim `analyze_run.py` below.
+  ```
+  == maze10 commit=78ec850 ticks=8400
+  -- turns --
+    #0 t=7.2s target=+90deg(logged) final_err=-3.7deg dur=3.56s exit=FOLLOW:clear rev=0[] PASS
+    #1 t=15.6s target=+90deg(logged) final_err=+15.0deg dur=4.58s exit=END:(no-event-row) rev=0[] FAIL
+  -- stuck --
+    zero episodes
+  -- transitions --
+    BRAKE->FOLLOW [clear] x1
+    BRAKE->TURN [wedge_left] x1
+    FOLLOW->WEDGE [wedge_enter] x2
+    GATEWAY->REVERSE [blocked] x1
+    REVERSE->TURN [left] x1
+    TURN->BRAKE [coast] x2
+    WEDGE->FOLLOW [clear] x1
+    WEDGE->TURN [wedge_left] x1
+  -- sensors (valid/sat/held/none) --
+    fl: valid=67.4% sat=26.2% held=0.6% none=5.8%
+    fr: valid=99.9% sat=0.1% held=0.0% none=0.0%
+    sl: valid=87.3% sat=12.7% held=0.0% none=0.0%
+    sr: valid=87.7% sat=12.1% held=0.0% none=0.2%
+  -- mean |wheel| by state --
+    BRAKE: 2.00 rad/s
+    FOLLOW: 2.35 rad/s
+    GATEWAY: 2.35 rad/s
+    REVERSE: 3.00 rad/s
+    TURN: 1.98 rad/s
+    WEDGE: 3.00 rad/s
+  -- lateral: mean|offset|=0.012544009648887697 coverage=44.4% n=3731
+  ```
+- 2026-10-05 Linux→Mac: `maze11` stopped on user instruction (~33 s
+  wall, 16,600 ticks; `task1b/logs/20261005T153431Z_maze11/`, controller
+  `f11e7ee`). Sim stdout is **empty** even with `stdbuf -oL`. What I
+  noticed: **5/6 turns PASS** (including four +180° turns), a big
+  improvement over maze9's 1/5. The "prevent corridor wedge triggers
+  and turn repeats" fix worked. GATEWAY fired but exited via
+  `GATEWAY→REVERSE [blocked]` at t=6.6 s. One wedge cycle. Sensor
+  validity excellent (81–91% valid), lateral coverage 56.9%. Verbatim
+  `analyze_run.py` below.
+  ```
+  == maze11 commit=f11e7ee ticks=16600
+  -- turns --
+    #0 t=7.1s target=+90deg(logged) final_err=-4.4deg dur=3.50s exit=FOLLOW:clear rev=0[] PASS
+    #1 t=16.0s target=+180deg(logged) final_err=-2.5deg dur=5.24s exit=FOLLOW:approach rev=0[] PASS
+    #2 t=21.7s target=+180deg(logged) final_err=-0.6deg dur=4.85s exit=FOLLOW:approach rev=0[] PASS
+    #3 t=27.0s target=+180deg(logged) final_err=-3.0deg dur=4.85s exit=FOLLOW:approach rev=0[] PASS
+    #4 t=32.3s target=+180deg(logged) final_err=-2.3deg dur=5.18s exit=FOLLOW:approach rev=0[] PASS
+    #5 t=38.0s target=+180deg(logged) final_err=-138.3deg dur=0.80s exit=END:(no-event-row) rev=0[] FAIL
+  -- stuck --
+    zero episodes
+  -- transitions --
+    BRAKE->FOLLOW [approach] x4
+    BRAKE->FOLLOW [clear] x1
+    FOLLOW->REVERSE [blocked] x5
+    FOLLOW->WEDGE [wedge_enter] x1
+    GATEWAY->REVERSE [blocked] x1
+    REVERSE->TURN [left] x6
+    TURN->BRAKE [coast] x5
+    WEDGE->FOLLOW [clear] x1
+  -- sensors (valid/sat/held/none) --
+    fl: valid=81.1% sat=11.0% held=0.7% none=7.2%
+    fr: valid=86.5% sat=9.7% held=0.3% none=3.5%
+    sl: valid=91.0% sat=9.0% held=0.0% none=0.0%
+    sr: valid=87.7% sat=12.3% held=0.0% none=0.0%
+  -- mean |wheel| by state --
+    BRAKE: 2.00 rad/s
+    FOLLOW: 2.02 rad/s
+    GATEWAY: 2.35 rad/s
+    REVERSE: 3.00 rad/s
+    TURN: 2.22 rad/s
+    WEDGE: 3.00 rad/s
+  -- lateral: mean|offset|=0.019240486772486774 coverage=56.9% n=9450
+  ```
 
 - 2026-10-05 Mac→Linux: maze8 follow-up fix implemented. Stuck
   detection now evaluates only FOLLOW/GATEWAY and clears its partial

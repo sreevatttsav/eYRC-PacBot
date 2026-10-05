@@ -26,11 +26,10 @@ import json
 import math
 import os
 import statistics
-import sys
-import time
 
 import paho.mqtt.client as mqtt
 
+from phaser import Sampler, StallTimeout
 from runlog import RunLogger
 from sensing import Tof
 
@@ -48,16 +47,19 @@ MAX_RANGE = 2.0
 
 
 def summarize(trials):
-    """Per-speed rollup over repeats and directions (sign-normalized)."""
+    """Per-speed rollup over repeats and directions (sign-normalized).
+    Aborted trials (sum None) are skipped, never crash the summary."""
     by_w = {}
-    for t in trials:
-        by_w.setdefault(t["w"], []).append(t)
-    low_ks = [s["k"] for w in (1.0, 1.5, 2.0)
-              for t in by_w.get(w, []) for s in [t["sum"]] if s["k"]]
+    for w in {t["w"] for t in trials}:
+        vals = [t["sum"] for t in trials
+                if t["w"] == w and t["sum"] is not None]
+        by_w[w] = vals
+    low_ks = [s["k"] for w in (1.0, 1.5, 2.0) for s in by_w.get(w, [])
+              if s["k"]]
     low_mean = statistics.mean(low_ks) if low_ks else None
     out = {}
-    for w, ts in sorted(by_w.items()):
-        ok = [t["sum"] for t in ts if t["sum"] and not t["aborted"]]
+    for w in sorted(by_w):
+        ok = by_w[w]
         if not ok:
             out[w] = {"n": 0, "note": "all aborted"}
             continue
@@ -108,50 +110,60 @@ def main():
     })
 
     tofs = {k: Tof(MAX_RANGE, 0.1, 0.05) for k in ("fl", "fr", "sl", "sr")}
-    latest = {}
-    got = False
-
-    def on_message(client, userdata, msg):
-        nonlocal got
-        latest.clear()
-        latest.update(json.loads(msg.payload.decode()))
-        got = True
+    sampler = Sampler()
 
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-    client.on_message = on_message
+    client.on_message = sampler.on_message
     client.connect(MQTT_HOST, MQTT_PORT)
     client.subscribe(TOPIC_SENSORS)
     client.loop_start()
-
-    def wait_for_first():
-        while not got:
-            time.sleep(0.005)
 
     def pub(L, R):
         client.publish(TOPIC_WHEEL_VEL,
                        json.dumps({"left": float(L), "right": float(R)}))
 
-    def sense(dt):
-        d = latest
+    def sense(data, dt):
         vals = {}
         for k in tofs:
-            vals[k], _ = tofs[k].update(d.get(k), dt)
-        gyro = (d.get("gyro") or [0, 0, 0])[2]
+            vals[k], _ = tofs[k].update(data.get(k), dt)
+        gyro = (data.get("gyro") or [0, 0, 0])[2]
         return vals, gyro
 
-    def log_tick(vals, gyro, dt, L, R, state):
-        raw = tuple(latest.get(k, 0.0) for k in ("fl", "fr", "sl", "sr"))
+    def log_tick(data, vals, gyro, dt, L, R, state):
+        raw = tuple(data.get(k, 0.0) for k in ("fl", "fr", "sl", "sr"))
         logger.tick(raw=raw,
                     filt=tuple(vals[k] for k in ("fl", "fr", "sl", "sr")),
                     gyro_z=gyro, dt_rep=dt, e_lat=float("nan"),
                     e_front=float("nan"), steer=0.0, L=L, R=R,
                     state=state, extra={"trial": trial_tag[0]})
 
+    def run_phase(L, R, state, dur, collect, fresh_only=True):
+        """Fresh samples only (STILL/SETTLE pace on wall when parked).
+        Appends (t, gyro, yaw_int, vals) to collect; returns outcome."""
+        t = 0.0
+        pub(L, R)
+        while t < dur:
+            try:
+                data, dt, _ = sampler.next(fresh_only=fresh_only)
+            except StallTimeout:
+                return "sim_stall"
+            vals, gyro = sense(data, dt)
+            if any(v is not None and v < ABORT_DIST
+                   for v in vals.values()):
+                return "abort"
+            collect["yaw"] += gyro * dt
+            collect["rows"].append((t, state, gyro, collect["yaw"]))
+            if state == "STILL":
+                collect["bias"].append(gyro)
+            log_tick(data, vals, gyro, dt, L, R, state)
+            t += dt
+            pub(L, R)
+        return "done"
+
     trials = []
     trial_tag = [""]
     try:
-        wait_for_first()
-        dt = float(latest.get("dt", 0.02)) or 0.02
+        sampler.next(fresh_only=True)  # drain: first fresh sample
         for w in speeds:
             for direction in ("left", "right"):
                 sgn = 1.0 if direction == "left" else -1.0
@@ -160,39 +172,27 @@ def main():
                     logger.event("IDLE", "TRIAL", trial_tag[0])
                     trial = {"w": w, "dir": direction, "rep": rep,
                              "aborted": False, "sum": None}
-                    # phases: (name, duration, L, R)
-                    phases = [("STILL", STILL_S, 0.0, 0.0),
-                              ("STEP", STEP_S, -sgn * w, sgn * w),
-                              ("COAST", COAST_S, 0.0, 0.0)]
-                    samples = []  # (t, gyro, yaw_int)
-                    yaw_int, t = 0.0, 0.0
-                    bias_s = []
-                    aborted = False
-                    for name, dur, L, R in phases:
-                        tph = 0.0
-                        while tph < dur:
-                            pub(L, R)
-                            vals, gyro = sense(dt)
-                            if any(v is not None and v < ABORT_DIST
-                                   for v in vals.values()):
-                                aborted = True
-                                break
-                            yaw_int += gyro * dt
-                            samples.append((t, name, gyro, yaw_int))
-                            if name == "STILL":
-                                bias_s.append(gyro)
-                            log_tick(vals, gyro, dt, L, R, name)
-                            tph += dt
-                            t += dt
-                            time.sleep(max(0.0, dt - 0.002))
-                        if aborted:
+                    collect = {"yaw": 0.0, "rows": [], "bias": []}
+                    outcome = None
+                    for name, dur, L, R in [
+                            ("STILL", STILL_S, 0.0, 0.0),
+                            ("STEP", STEP_S, -sgn * w, sgn * w),
+                            ("COAST", COAST_S, 0.0, 0.0)]:
+                        outcome = run_phase(
+                            L, R, name, dur, collect,
+                            fresh_only=(name == "STEP" or name == "COAST"))
+                        if outcome != "done":
                             break
                     pub(0.0, 0.0)
-                    if aborted:
+                    samples = collect["rows"]
+                    if outcome != "done":
                         trial["aborted"] = True
-                        logger.event("TRIAL", "IDLE", trial_tag[0] + ":abort<0.08")
+                        trial["abort_why"] = outcome
+                        logger.event("TRIAL", "IDLE",
+                                     trial_tag[0] + f":{outcome}")
                     else:
-                        bias = statistics.mean(bias_s) if bias_s else 0.0
+                        bias = (statistics.mean(collect["bias"])
+                                if collect["bias"] else 0.0)
                         step = [(tt, g - bias, y) for tt, n, g, y in samples
                                 if n == "STEP"]
                         coast = [(tt, g - bias, y) for tt, n, g, y in samples
@@ -217,14 +217,10 @@ def main():
                         }
                         logger.event("TRIAL", "IDLE", trial_tag[0] + ":done")
                     trials.append(trial)
-                    # settle between trials
-                    tph = 0.0
-                    while tph < SETTLE_S:
-                        pub(0.0, 0.0)
-                        vals, gyro = sense(dt)
-                        log_tick(vals, gyro, dt, 0.0, 0.0, "SETTLE")
-                        tph += dt
-                        time.sleep(max(0.0, dt - 0.002))
+                    # settle between trials (static: wall-paced is fine)
+                    run_phase(0.0, 0.0, "SETTLE", SETTLE_S,
+                              {"yaw": 0.0, "rows": [], "bias": []},
+                              fresh_only=False)
     finally:
         pub(0.0, 0.0)
         client.loop_stop()

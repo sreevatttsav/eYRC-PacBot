@@ -423,6 +423,58 @@ Then Ctrl+C the controller.
     WEDGE: 3.00 rad/s
   -- lateral: mean|offset|=0.01214166231187291 coverage=72.6% n=19136
   ```
+- 2026-10-05 Linux→Mac: `maze9` stopped on user instruction (~39 s
+  wall, 19,249 ticks; `task1b/logs/20261005T152444Z_maze9/`, controller
+  `5abb2b7`). Sim stdout is **empty** again. What I noticed: GATEWAY
+  fired but exited via `GATEWAY→REVERSE [blocked]` at t=6.8 s (no
+  handoff to FOLLOW this time). Then a long sequence of failed turns:
+  **4/5 turns FAIL** (errors +21.5°, −15.0°, −95.2°, +96.6°), with
+  `TURN→BACKUP [no_progress]` ×2 and `TURN→BACKUP [turn_timeout]` ×1.
+  The "fix turn recovery" commit made turns worse. Sensor validity
+  good (77–88% valid), lateral coverage 60%. Zero stuck episodes.
+  Verbatim `analyze_run.py` below.
+  ```
+  == maze9 commit=5abb2b7 ticks=19249
+  -- turns --
+    #0 t=7.3s target=+90deg(logged) final_err=-3.8deg dur=3.59s exit=FOLLOW:clear rev=0[] PASS
+    #1 t=16.5s target=+90deg(logged) final_err=+21.5deg dur=6.11s exit=BACKUP:no_progress rev=0[] FAIL
+    #2 t=23.8s target=+90deg(logged) final_err=-15.0deg dur=5.45s exit=BACKUP:turn_timeout rev=0[] FAIL
+    #3 t=34.3s target=+180deg(logged) final_err=-95.2deg dur=3.40s exit=BACKUP:no_progress rev=0[] FAIL
+    #4 t=38.7s target=+90deg(logged) final_err=+96.6deg dur=7.03s exit=END:(no-event-row) rev=0[] FAIL
+  -- stuck --
+    zero episodes
+  -- transitions --
+    BACKUP->FOLLOW [clear] x1
+    BACKUP->REVERSE [blocked] x2
+    BACKUP->WEDGE [wedge_enter] x1
+    BRAKE->FOLLOW [clear] x1
+    BRAKE->TURN [left] x2
+    BRAKE->TURN [wedge_left] x1
+    FOLLOW->REVERSE [blocked] x1
+    FOLLOW->WEDGE [wedge_enter] x2
+    GATEWAY->REVERSE [blocked] x1
+    REVERSE->TURN [left] x4
+    TURN->BACKUP [no_progress] x2
+    TURN->BACKUP [turn_timeout] x1
+    TURN->BRAKE [coast] x4
+    WEDGE->BACKUP [giveup] x1
+    WEDGE->FOLLOW [clear] x1
+    WEDGE->TURN [wedge_left] x1
+  -- sensors (valid/sat/held/none) --
+    fl: valid=77.3% sat=14.4% held=0.5% none=7.8%
+    fr: valid=82.5% sat=15.6% held=0.2% none=1.6%
+    sl: valid=87.6% sat=12.4% held=0.0% none=0.0%
+    sr: valid=84.1% sat=14.1% held=0.0% none=1.8%
+  -- mean |wheel| by state --
+    BACKUP: 3.00 rad/s
+    BRAKE: 2.00 rad/s
+    FOLLOW: 2.15 rad/s
+    GATEWAY: 2.35 rad/s
+    REVERSE: 3.00 rad/s
+    TURN: 2.13 rad/s
+    WEDGE: 3.00 rad/s
+  -- lateral: mean|offset|=0.023056939994804744 coverage=60.0% n=11549
+  ```
 
 - 2026-10-05 Mac→Linux: maze8 follow-up fix implemented. Stuck
   detection now evaluates only FOLLOW/GATEWAY and clears its partial

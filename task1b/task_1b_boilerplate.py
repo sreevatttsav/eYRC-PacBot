@@ -63,6 +63,7 @@ class CenteringController:
         self.reverse_ticks = 0
         self.flip_next = False   # after a give-up, try the other way first
         self.wedge_ticks = 0     # reversing out of a corner that hugs both sides
+        self.spin_done_s = 0.0   # committed turn executed this escape
 
     # escape-maneuver tuning
     SPIN_FLIP_S = 2.0      # hold one spin direction before flipping
@@ -70,6 +71,7 @@ class CenteringController:
     BACKUP_S = 0.5         # how long to reverse before retrying
     REVERSE_S = 0.4        # reverse before rotating once blocked
     RESUME_DIST = 0.20     # front clearance needed to exit escape
+    MIN_SPIN_S = 0.6       # committed turn before a clear front may exit spin
 
 
     @staticmethod
@@ -131,23 +133,29 @@ class CenteringController:
         # Wedged into a corner: both side walls at sensor minimum ->
         # straight-line drive in place is what got us here; reverse out.
         wedged = self.sl_f < 0.08 and self.sr_f < 0.08
-        if wedged and self.wedge_ticks == 0 and self.spin_dir == 0.0:
+        if not wedged:
+            self.wedge_ticks = 0  # must come first: cancels countdown
+        elif self.wedge_ticks == 0 and self.spin_dir == 0.0:
             self.wedge_ticks = max(1, int(0.6 / dt)) if dt > 0 else 300
         if self.wedge_ticks > 0:
             self.wedge_ticks -= 1
             return -BASE_SPEED * 0.5, -BASE_SPEED * 0.5, e_lat, e_front, steer
-        if not wedged:
-            self.wedge_ticks = 0
 
-        # Exit escape as soon as the front is clear again.
-        if not blocked and front_clear > self.RESUME_DIST and self.spin_dir == 0.0:
-            pass  # fully recovered
-        if front_clear > self.RESUME_DIST:
+        # Exit escape once the front is clear again -- but NOT while a
+        # reverse/backup countdown is still running (those phases create
+        # clearance on purpose), and NOT before the committed minimum turn
+        # has executed (else a reverse that cleared the front cancels the
+        # very spin it was making room for -> forward/back shuttle).
+        # A spinning robot past MIN_SPIN_S still exits early on clear.
+        in_maneuver = (self.reverse_ticks > 0 or self.backup_ticks > 0
+                       or self.wedge_ticks > 0)
+        spin_committed = (self.spin_dir != 0.0
+                          and self.spin_done_s < self.MIN_SPIN_S)
+        if (front_clear > self.RESUME_DIST
+                and not in_maneuver and not spin_committed):
             self.spin_dir = 0.0
             self.spin_ticks = 0
             self.total_spin_ticks = 0
-            self.backup_ticks = 0
-            self.reverse_ticks = 0
 
         if self.backup_ticks > 0:
             self.backup_ticks -= 1
@@ -164,6 +172,7 @@ class CenteringController:
                 self.spin_ticks = 0
                 self.total_spin_ticks = 0
                 self.reverse_ticks = max(1, int(self.REVERSE_S / dt)) if dt > 0 else 200
+                self.spin_done_s = 0.0  # new escape -> new committed turn
             if self.reverse_ticks > 0:
                 self.reverse_ticks -= 1
                 return -BASE_SPEED * 0.5, -BASE_SPEED * 0.5, e_lat, e_front, steer
@@ -183,6 +192,8 @@ class CenteringController:
                 self.spin_dir = -self.spin_dir  # flip and try the other way
                 self.spin_ticks = 0
             side = self.spin_dir  # +1 = turn left, -1 = turn right
+            if dt > 0:
+                self.spin_done_s += dt
             return -side * SPIN_SPEED, side * SPIN_SPEED, e_lat, e_front, steer
         span = FRONT_SLOW_DIST - FRONT_STOP_DIST
         scale = (front_clear - FRONT_STOP_DIST) / span if span > 0 else 1.0

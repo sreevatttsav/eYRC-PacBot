@@ -750,6 +750,38 @@ Then Ctrl+C the controller.
     GATEWAY: 2.35 rad/s
   -- lateral: mean|offset|=0.02253482507139943 coverage=63.8% n=39216
   ```
+- 2026-10-05 Linux→Mac: `maze18` stopped on user instruction (~67 s
+  wall, 33,700 ticks; `task1b/logs/20261005T165154Z_maze18/`, controller
+  `4627172`). Sim stdout captured via `script -qec` — wrapper lines
+  only, sim binary still produces no stdout during the run. Controller
+  output captured in `controller_maze18.log`. What I noticed: GATEWAY
+  handed off to FOLLOW at t=2.1 s (good, no retriggers — the fix
+  worked). But then **6× FRONT_BACKOUT** (front_emergency) cycles
+  from t=18.7 s to t=75.7 s — the bot keeps hitting front emergencies
+  and backing out. FOLLOW mean wheel 0.49 rad/s (slow). All sensors
+  100% valid, lateral coverage 100%. No turns, no stuck episodes.
+  Verbatim `analyze_run.py` below.
+  ```
+  == maze18 commit=4627172 ticks=33700
+  -- turns --
+    (none)
+  -- stuck --
+    zero episodes
+  -- transitions --
+    FOLLOW->FRONT_BACKOUT [front_emergency] x6
+    FRONT_BACKOUT->FOLLOW [approach] x6
+    GATEWAY->FOLLOW [approach] x1
+  -- sensors (valid/sat/held/none) --
+    fl: valid=100.0% sat=0.0% held=0.0% none=0.0%
+    fr: valid=99.8% sat=0.2% held=0.0% none=0.0%
+    sl: valid=100.0% sat=0.0% held=0.0% none=0.0%
+    sr: valid=100.0% sat=0.0% held=0.0% none=0.0%
+  -- mean |wheel| by state --
+    FOLLOW: 0.49 rad/s
+    FRONT_BACKOUT: 1.50 rad/s
+    GATEWAY: 2.35 rad/s
+  -- lateral: mean|offset|=0.02692095103857567 coverage=100.0% n=33700
+  ```
 
 - 2026-10-05 Mac→Linux: maze8 follow-up fix implemented. Stuck
   detection now evaluates only FOLLOW/GATEWAY and clears its partial

@@ -142,7 +142,8 @@ def main():
             if any(v is not None and v < ABORT_DIST
                    for v in (vals["sl"], vals["sr"])):
                 return "abort", samples
-            samples.append((t, vals, stats, gyro))
+            raw = (data.get("fl"), data.get("fr"))
+            samples.append((t, vals, stats, gyro, raw))
             tick(data, vals, L, R, state, dt)
             if stop is not None and stop(vals, stats, dt):
                 return "stop", samples
@@ -180,15 +181,20 @@ def main():
 
             r, back = run_phase(-w, -w, "BACK", PHASE_TIMEOUT,
                                  stop=back_stop)
-            f0 = [front_min(v) for _, v, _, _ in back if front_min(v) is not None]
+            f0 = [front_min(v) for _, v, _, _, _ in back if front_min(v) is not None]
             moved = (r == "stop" and f0
                      and (max(f0) - min(f0) > BACK_SPAN_MIN
                           or max(f0) >= BACK_TARGET))
-            # K_LIN from the BACK opening slope (translation along the
-            # facing axis), using only straight samples: yawing while
-            # backing sweeps the rays and fakes the slope.
-            bwin = [(t, front_min(v)) for t, v, _, g in back
-                    if front_min(v) is not None and abs(g) < GYRO_STRAIGHT_MAX]
+            # K_LIN from the BACK opening slope on RAW samples (not the
+            # EMA-filtered values: the filter slews smoothly through
+            # ray flicker and fabricates high-r2 ramps out of a pinned
+            # robot). Straight samples only (rotation sweeps rays).
+            def raw_min(rr):
+                xs = [x for x in rr if x is not None and x == x
+                      and 0.0 < x <= MAX_RANGE]
+                return min(xs) if xs else None
+            bwin = [(t, raw_min(rr)) for t, _, _, g, rr in back
+                    if raw_min(rr) is not None and abs(g) < GYRO_STRAIGHT_MAX]
             bspan = (max(x for _, x in bwin) - min(x for _, x in bwin)) if bwin else 0.0
             m, r2 = slope_r2(bwin) if bspan >= BACK_SPAN_MIN else (None, None)
             if m is not None and (r2 is None or r2 < BACK_R2_MIN):
@@ -211,12 +217,12 @@ def main():
             # 4. coast
             _, coast = run_phase(0.0, 0.0, "COAST", COAST_S)
             pub(0.0, 0.0)
-            c = [front_min(v) for _, v, _, _ in coast if front_min(v) is not None]
+            c = [front_min(v) for _, v, _, _, _ in coast if front_min(v) is not None]
             trials.append({
                 "w": w, "phase": r, "fwd_end": r3,
                 "n_back": len(bwin), "back_span": round(bspan, 4),
                 "back_r2": round(r2, 4) if r2 is not None else None,
-                "back_raw": sum(1 for _, v, _, _ in back
+                "back_raw": sum(1 for _, v, _, _, _ in back
                                 if front_min(v) is not None),
                 "k_lin": k_lin,
                 "coast_m": (c[0] - c[-1]) if c else None,

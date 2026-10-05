@@ -6,11 +6,15 @@ a wheel velocity command back. Fill in your control logic where marked.
 Run (three terminals):
     mosquitto
     ./task_1b_launch
-    python3 task_1b_boilerplate.py
+    python3 task_1b_boilerplate.py --label baseline
 """
+import argparse
 import json
+import os
 
 import paho.mqtt.client as mqtt
+
+from runlog import RunLogger
 
 MQTT_HOST = "localhost"
 MQTT_PORT = 1883
@@ -45,6 +49,33 @@ SPIN_SPEED = 3.0       # spin-in-place wheel speed
 MAX_RANGE = 2.0        # clip ToF readings to this (meters)
 FILTER_TAU = 0.05      # low-pass time constant for ToF (seconds)
 
+# Wheel-size ESTIMATES for runlog dead-reckoning (mesh guess -- Phase 1
+# step test replaces these with measured values).
+WHEEL_R_EST = 0.017    # m
+WHEEL_TRACK_EST = 0.08  # m
+
+# Set by main(); None with --no-log.
+LOGGER = None
+_PREV_STATE = None
+_FIRST_MSG = True
+
+
+def _controller_constants():
+    c = CenteringController
+    return {
+        "BASE_SPEED": BASE_SPEED, "MAX_SPEED": MAX_SPEED,
+        "MAX_STEER": MAX_STEER, "KP_LAT": KP_LAT,
+        "KP_FRONT": KP_FRONT, "KD_YAW": KD_YAW, "KI_LAT": KI_LAT,
+        "I_MAX": I_MAX, "I_LEAK": I_LEAK, "I_DEADBAND": I_DEADBAND,
+        "FRONT_SLOW_DIST": FRONT_SLOW_DIST,
+        "FRONT_STOP_DIST": FRONT_STOP_DIST, "SPIN_SPEED": SPIN_SPEED,
+        "MAX_RANGE": MAX_RANGE, "FILTER_TAU": FILTER_TAU,
+        "SPIN_FLIP_S": c.SPIN_FLIP_S, "SPIN_GIVEUP_S": c.SPIN_GIVEUP_S,
+        "BACKUP_S": c.BACKUP_S, "REVERSE_S": c.REVERSE_S,
+        "RESUME_DIST": c.RESUME_DIST, "MIN_SPIN_S": c.MIN_SPIN_S,
+        "WHEEL_R_EST": WHEEL_R_EST, "WHEEL_TRACK_EST": WHEEL_TRACK_EST,
+    }
+
 
 class CenteringController:
     """PD lateral + front-alignment P + gyro D. No raw I by default."""
@@ -64,6 +95,8 @@ class CenteringController:
         self.flip_next = False   # after a give-up, try the other way first
         self.wedge_ticks = 0     # reversing out of a corner that hugs both sides
         self.spin_done_s = 0.0   # committed turn executed this escape
+        self.state = "FOLLOW"    # exposed for runlog.py event logging
+        self.state_reason = "init"
 
     # escape-maneuver tuning
     SPIN_FLIP_S = 2.0      # hold one spin direction before flipping
@@ -73,6 +106,10 @@ class CenteringController:
     RESUME_DIST = 0.20     # front clearance needed to exit escape
     MIN_SPIN_S = 0.6       # committed turn before a clear front may exit spin
 
+
+    def _set_state(self, state, reason):
+        self.state = state
+        self.state_reason = reason
 
     @staticmethod
     def _clip_range(v):
@@ -139,6 +176,7 @@ class CenteringController:
             self.wedge_ticks = max(1, int(0.6 / dt)) if dt > 0 else 300
         if self.wedge_ticks > 0:
             self.wedge_ticks -= 1
+            self._set_state("WEDGE", "wedge_enter")
             return -BASE_SPEED * 0.5, -BASE_SPEED * 0.5, e_lat, e_front, steer
 
         # Exit escape once the front is clear again -- but NOT while a
@@ -159,6 +197,7 @@ class CenteringController:
 
         if self.backup_ticks > 0:
             self.backup_ticks -= 1
+            self._set_state("BACKUP", "giveup")
             return -BASE_SPEED * 0.5, -BASE_SPEED * 0.5, e_lat, e_front, steer
 
         if blocked or self.spin_dir != 0.0:
@@ -175,6 +214,7 @@ class CenteringController:
                 self.spin_done_s = 0.0  # new escape -> new committed turn
             if self.reverse_ticks > 0:
                 self.reverse_ticks -= 1
+                self._set_state("REVERSE", "blocked")
                 return -BASE_SPEED * 0.5, -BASE_SPEED * 0.5, e_lat, e_front, steer
             self.spin_ticks += 1
             self.total_spin_ticks += 1
@@ -187,6 +227,7 @@ class CenteringController:
                 self.spin_ticks = 0
                 self.total_spin_ticks = 0
                 self.flip_next = True  # try the opposite way around this time
+                self._set_state("BACKUP", "giveup_timeout")
                 return -BASE_SPEED * 0.5, -BASE_SPEED * 0.5, e_lat, e_front, steer
             if spin_elapsed > self.SPIN_FLIP_S:
                 self.spin_dir = -self.spin_dir  # flip and try the other way
@@ -194,6 +235,7 @@ class CenteringController:
             side = self.spin_dir  # +1 = turn left, -1 = turn right
             if dt > 0:
                 self.spin_done_s += dt
+            self._set_state("TURN", "left" if side > 0 else "right")
             return -side * SPIN_SPEED, side * SPIN_SPEED, e_lat, e_front, steer
         span = FRONT_SLOW_DIST - FRONT_STOP_DIST
         scale = (front_clear - FRONT_STOP_DIST) / span if span > 0 else 1.0
@@ -204,6 +246,8 @@ class CenteringController:
         right_vel = base + steer
         left_vel = max(-MAX_SPEED, min(left_vel, MAX_SPEED))
         right_vel = max(-MAX_SPEED, min(right_vel, MAX_SPEED))
+        self._set_state("FOLLOW",
+                        "clear" if front_clear > FRONT_SLOW_DIST else "approach")
         return left_vel, right_vel, e_lat, e_front, steer
 
 
@@ -219,7 +263,14 @@ def _mqtt_client():
 
 
 def on_message(client, userdata, msg):
+    global _PREV_STATE, _FIRST_MSG
     data = json.loads(msg.payload.decode())
+
+    if _FIRST_MSG:
+        _FIRST_MSG = False
+        print(f"[runlog] sensor keys: {sorted(data.keys())}")
+        print("[runlog] tip: run `mosquitto_sub -t '#' -v` alongside "
+              "to catch pose/encoder topics the controller ignores")
 
     fl = data["fl"]            # Front-left ToF distance readings
     fr = data["fr"]            # Front-right ToF distance readings
@@ -237,17 +288,63 @@ def on_message(client, userdata, msg):
     print(f"  e_lat={e_lat:+.3f} e_front={e_front:+.3f} "
           f"steer={steer:+.3f} -> L={left_vel:+.2f} R={right_vel:+.2f}")
 
+    if LOGGER is not None:
+        # Ground truth if the sim ever publishes it; else dead-reckoned
+        # estimate only (labeled estimated in every plot).
+        true_pose = None
+        if "x" in data and "y" in data:
+            th = data.get("theta", data.get("th", data.get("yaw", "")))
+            true_pose = (data["x"], data["y"], th)
+        extra = {k: v for k, v in data.items()
+                 if k not in ("fl", "fr", "sl", "sr", "gyro", "dt",
+                              "x", "y", "th", "theta", "yaw")}
+        extra["gyro_full"] = data.get("gyro")
+        LOGGER.tick(
+            raw=(fl, fr, sl, sr),
+            filt=(CONTROLLER.fl_f, CONTROLLER.fr_f,
+                  CONTROLLER.sl_f, CONTROLLER.sr_f),
+            gyro_z=yaw_rate, dt_rep=dt, e_lat=e_lat, e_front=e_front,
+            steer=steer, L=left_vel, R=right_vel,
+            state=CONTROLLER.state, true_pose=true_pose, extra=extra)
+        if _PREV_STATE is not None and CONTROLLER.state != _PREV_STATE:
+            LOGGER.event(_PREV_STATE, CONTROLLER.state,
+                         CONTROLLER.state_reason)
+        _PREV_STATE = CONTROLLER.state
+
     client.publish(TOPIC_WHEEL_VEL, json.dumps({
         "left": float(left_vel), "right": float(right_vel),
     }))
 
 
 def main():
+    global LOGGER
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--label", default="run",
+                    help="run label; folder is logs/<UTC-timestamp>_<label>/")
+    ap.add_argument("--log-dir", default=None,
+                    help="parent dir for runs (default: task1b/logs/)")
+    ap.add_argument("--no-log", action="store_true",
+                    help="disable file logging")
+    args = ap.parse_args()
+
+    if not args.no_log:
+        base = (args.log_dir or
+                os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             "logs"))
+        LOGGER = RunLogger(base, label=args.label,
+                           constants=_controller_constants(),
+                           wheel_r=WHEEL_R_EST,
+                           wheel_track=WHEEL_TRACK_EST)
+
     client = _mqtt_client()
     client.on_message = on_message
     client.connect(MQTT_HOST, MQTT_PORT)
     client.subscribe(TOPIC_SENSORS)
-    client.loop_forever()
+    try:
+        client.loop_forever()
+    finally:
+        if LOGGER is not None:
+            LOGGER.close()
 
 
 if __name__ == "__main__":

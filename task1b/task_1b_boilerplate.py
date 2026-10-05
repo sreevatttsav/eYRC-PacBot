@@ -602,14 +602,14 @@ class CenteringController:
             return self._finalize(0.0, 0.0, e_lat, e_front,
                                   steer, yaw_rate, dt)
 
-        # front_clear uses every available reading; a sat side reads the
-        # cap (open). Only a NUMERIC reading below STOP blocks -- a sat
-        # side never blocks.
+        # Use the nearest front ray for cautious speed/steering, but only
+        # call it a blocked path when BOTH front rays are close. A single
+        # splayed ray can graze a corridor wall and must not trigger escape.
         front_vals = [v for v in (self.fl_f, self.fr_f) if v is not None]
         front_clear = min(front_vals) if front_vals else None
         front_block_l = (fl_num and self.fl_f < FRONT_STOP_DIST)
         front_block_r = (fr_num and self.fr_f < FRONT_STOP_DIST)
-        blocked = front_block_l or front_block_r
+        blocked = front_block_l and front_block_r
         front_open_l = (fl_s == "sat" or
                         (fl_num and self.fl_f > self.RESUME_DIST))
         front_open_r = (fr_s == "sat" or
@@ -630,12 +630,6 @@ class CenteringController:
                 self.gateway_passed = False
                 self.gateway_corridor_lost_t = 0.0
         gateway_corridor_pass = self.gateway_passed and gateway_corridor
-        if gateway_corridor_pass and gateway_path_open:
-            # A single splayed ray may still see the entrance post after
-            # the other ray sees the open corridor. Let bounded steering
-            # guide around it instead of invoking the spin-in-place escape.
-            blocked = front_block_l and front_block_r
-
         if self.gateway_failed:
             self._set_state("GATEWAY_HOLD", "gateway_abort")
             return self._finalize(0.0, 0.0, e_lat, e_front,

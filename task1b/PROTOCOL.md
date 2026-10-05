@@ -610,3 +610,15 @@ Then Ctrl+C the controller.
   long corridor remains in FOLLOW when side readings are both <0.08 m
   but the front is clear; whether any turn repeats immediately after
   reaching its gyro target; and the usual analyzer + sim verdict.
+- 2026-10-05 Mac→Linux: single-front-ray escape trigger simplified.
+  The nearest front ray still controls cautious speed and front PD, but
+  obstacle escape now requires BOTH front sensors below FRONT_STOP_DIST.
+  Thus one splayed ray grazing a side wall cannot trigger reverse or a
+  180° dead-end turn. Added regressions for one-ray continuation and
+  two-ray escape. Validation: 7/7 controller tests, 5/5 turn-plant
+  tests, and all 5 corridor replay scenarios pass.
+
+  **Next run: maze12** with this change. Watch for single-ray readings
+  below 0.15 m: the bot should remain in FOLLOW and steer/slow; only
+  simultaneous close readings should enter REVERSE/TURN. Record all
+  escape transitions and whether 180° turns still repeat.

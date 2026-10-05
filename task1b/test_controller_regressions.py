@@ -104,6 +104,22 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertIn(("FOLLOW", "REVERSE"), transitions)
         self.assertNotEqual(transitions[-1], ("BRAKE", "TURN"))
 
+    def test_single_close_front_ray_does_not_trigger_escape(self):
+        ctl = CenteringController()
+        for _ in range(20):
+            left, right, *_ = ctl.update(0.10, 0.60, 0.18, 0.18,
+                                         0.0, 0.02)
+            self.assertEqual(ctl.state, "FOLLOW")
+            self.assertEqual(ctl.spin_dir, 0.0)
+            self.assertEqual(ctl.reverse_ticks, 0)
+            self.assertGreater(left + right, 0.0)
+
+    def test_both_close_front_rays_still_trigger_escape(self):
+        ctl = CenteringController()
+        ctl.update(0.10, 0.10, 0.18, 0.18, 0.0, 0.02)
+        self.assertEqual(ctl.state, "REVERSE")
+        self.assertNotEqual(ctl.spin_dir, 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -814,3 +814,20 @@ Then Ctrl+C the controller.
   ray opens, and confirm that persistent blockage produces `GATEWAY_HOLD`
   rather than `GATEWAY→REVERSE→TURN`. Report simulator verdict, time,
   score, collisions, gateway distance behavior, and the analyzer output.
+
+- 2026-10-05 Mac→Linux: maze15 showed that FOLLOW could pivot in place
+  under front slowdown: the forward base command shrank near an obstacle
+  while unrestricted PD steering remained large enough to reverse one
+  wheel. Added `FOLLOW_STEER_RATIO=0.75`, limiting FOLLOW steering to 75%
+  of its forward base so both wheels stay forward; explicit REVERSE/TURN/
+  FRONT_BACKOUT maneuvers remain unchanged. Added a near-wall regression
+  that verifies the limiting case. Local validation: 12/12 controller
+  regressions, 5/5 turn-plant cases, and all 5 corridor replay scenarios
+  pass.
+
+  **Next run: maze16.** Complete a full run if possible. During FOLLOW,
+  confirm neither commanded wheel goes negative and check the robot keeps
+  advancing while correcting against the wall. Explicit REVERSE/TURN and
+  FRONT_BACKOUT may still reverse/pivot by design. Report any visible
+  circling, the FOLLOW wheel-sign counts, transitions, collision/solve
+  verdict, and analyzer output.

@@ -17,7 +17,8 @@ except ImportError:
                         "paho.mqtt.client": client})
 
 from task_1b_boilerplate import (
-    CenteringController, FRONT_BACKOUT_SPEED, YAW_GAIN_K,
+    CenteringController, FOLLOW_STEER_RATIO, FRONT_BACKOUT_SPEED,
+    YAW_GAIN_K,
 )
 from task_1b_boilerplate import GATEWAY_APPROACH_M, GATEWAY_CORRIDOR_S
 
@@ -139,6 +140,17 @@ class ControllerRegressionTests(unittest.TestCase):
                 break
         self.assertNotEqual(ctl.state, "FRONT_BACKOUT")
         self.assertGreater(left + right, 0.0)
+
+    def test_slow_follow_steering_never_reverses_a_wheel(self):
+        ctl = CenteringController()
+        for _ in range(20):
+            left, right, *_ = ctl.update(0.30, 0.08, 0.12, 0.07,
+                                         0.0, 0.02)
+            if ctl.state == "FOLLOW":
+                self.assertGreaterEqual(min(left, right), -1e-9)
+                self.assertAlmostEqual(
+                    abs(right - left) / (left + right),
+                    FOLLOW_STEER_RATIO, delta=0.251)
 
     def test_both_close_front_rays_still_trigger_escape(self):
         ctl = CenteringController()

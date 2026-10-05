@@ -51,6 +51,7 @@ FRONT_EMERGENCY_DIST = 0.06  # one valid ray this close -> back straight
 FRONT_EMERGENCY_RELEASE = 0.10  # keep backing until that ray clears
 FRONT_SINGLE_STEER_MAX = 0.8  # steer away from a close lone front ray
 FRONT_BACKOUT_SPEED = 1.5  # wheel rad/s; no turn while contact is imminent
+FOLLOW_STEER_RATIO = 0.75  # FOLLOW keeps both wheels driving forward
 SPIN_SPEED = 3.0       # spin-in-place wheel speed
 
 MAX_RANGE = 2.0        # clip ToF readings to this (meters)
@@ -215,6 +216,7 @@ def _controller_constants():
         "FRONT_EMERGENCY_RELEASE": FRONT_EMERGENCY_RELEASE,
         "FRONT_SINGLE_STEER_MAX": FRONT_SINGLE_STEER_MAX,
         "FRONT_BACKOUT_SPEED": FRONT_BACKOUT_SPEED,
+        "FOLLOW_STEER_RATIO": FOLLOW_STEER_RATIO,
         "SPIN_SPEED": SPIN_SPEED,
         "K_LIN": K_LIN, "CRUISE_LINEAR_MPS": CRUISE_LINEAR_MPS,
         "MAX_LINEAR_MPS": MAX_LINEAR_MPS,
@@ -1169,6 +1171,14 @@ class CenteringController:
                                  min(KP_HEADING * self.e_heading * heading_scale,
                                      STEER_HEADING_MAX))
         steer = max(-MAX_STEER, min(steer + self.steer_heading, MAX_STEER))
+        # FOLLOW is for forward corridor tracking, not pivoting. When front
+        # slowdown makes base small, unrestricted wall PD can overpower it
+        # and command one wheel backward (the maze15 in-place-spin failure).
+        # Reserve at least 25% of base on the slower wheel; explicit escape
+        # and TURN states above retain their independent pivot commands.
+        follow_steer_limit = FOLLOW_STEER_RATIO * max(0.0, base)
+        steer = max(-follow_steer_limit,
+                    min(steer, follow_steer_limit))
         self._reanchor(dt, v_cmd)
 
         left_vel = base - steer

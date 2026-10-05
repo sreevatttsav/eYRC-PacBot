@@ -67,7 +67,7 @@ WEDGE_MAX_T = 2.0      # then hand off to stuck/give-up logic
 
 # Gyro-terminated turns (fix 3, reworked Stage 1b). Turn rate now comes
 # from the MEASURED yaw gain (step test), not wheel-size estimates.
-YAW_GAIN_K = 0.13        # yaw/(R-L); from log until step_test replaces it
+YAW_GAIN_K = 0.0914   # from step_test s1_step summary.json
 TURN_KP = 2.0          # P gain on angle error (rad/s per rad)
 TURN_MIN_W = 1.5       # minimum wheel speed in a turn (rad/s, step test sets)
 TURN_EXIT_ERR = 0.052  # 3 deg; coast adds ~1-2 deg -> final inside +/-5

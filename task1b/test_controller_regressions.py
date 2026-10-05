@@ -191,6 +191,33 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertEqual((left, right), (0.0, 0.0))
         self.assertEqual(ctl.spin_dir, 0.0)
 
+    def test_gateway_hands_off_on_acquired_side_wall_not_elapsed_time(self):
+        ctl = CenteringController()
+        ctl.update(0.10, 0.10, 1.14, 1.14, 0.0, 0.02)
+        self.assertTrue(ctl.gateway_active)
+
+        # Maze16 signature: front rays remain near the posts, but both side
+        # ranges move inward enough to prove the corridor walls are arriving.
+        for _ in range(40):
+            left, right, *_ = ctl.update(0.10, 0.12, 0.50, 0.85,
+                                         0.0, 0.02)
+            if ctl.state == "FOLLOW":
+                break
+
+        self.assertEqual(ctl.state, "FOLLOW")
+        self.assertFalse(ctl.gateway_active)
+        self.assertTrue(ctl.gateway_wall_follow_active)
+        self.assertEqual(ctl.follow_side, 1.0)
+        self.assertGreaterEqual(min(left, right), -1e-9)
+        self.assertEqual(ctl.spin_dir, 0.0)
+
+        # The passage override is sensor-released once a front ray clears.
+        for _ in range(30):
+            ctl.update(0.30, 0.30, 0.50, 0.85, 0.0, 0.02)
+            if not ctl.gateway_wall_follow_active:
+                break
+        self.assertFalse(ctl.gateway_wall_follow_active)
+
 
 if __name__ == "__main__":
     unittest.main()

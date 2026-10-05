@@ -860,3 +860,23 @@ Then Ctrl+C the controller.
   FRONT_BACKOUT may still reverse/pivot by design. Report any visible
   circling, the FOLLOW wheel-sign counts, transitions, collision/solve
   verdict, and analyzer output.
+
+- 2026-10-05 Mac→Linux: maze16 showed the gateway exit was not observing
+  the walls: front rays stayed at 0.08–0.12 m while side ranges moved
+  from 1.14 m at spawn to 0.49/0.86 m, then the travel guard parked the
+  bot without ever entering FOLLOW. Added a sensor-based side-wall
+  acquisition handoff: if either valid side ray moves inward at least
+  0.25 m from its spawn baseline and persists for 0.25 s, hand off to
+  FOLLOW and latch that wall side. While that acquired passage is active,
+  close gateway front rays no longer trigger a blind escape turn; this
+  latch releases when a front ray clears. Distance and timeout remain
+  fail-safe holds only, not success criteria. Added a maze16-signature
+  regression. Validation: 13/13 controller regressions, 5/5 turn-plant
+  cases, and all 5 corridor replay scenarios pass.
+
+  **Next run: maze17.** Verify that changing side-wall ranges hand off to
+  FOLLOW before the distance guard, that the bot continues forward with
+  both wheel commands nonnegative, and that front clearance releases the
+  gateway passage latch. Report wall-contact/collision evidence, turns,
+  and the sim's final verdict; do not treat an intentional early stop as
+  a completed maze run.

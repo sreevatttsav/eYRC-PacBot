@@ -149,6 +149,8 @@ GATEWAY_CLEAR_S = 0.15    # both front rays clear this long -> FOLLOW
 GATEWAY_CORRIDOR_MAX = 0.22  # both sides inside this range = passage entered
 GATEWAY_CORRIDOR_SYM_DB = 0.06
 GATEWAY_CORRIDOR_S = 0.30  # require a stable side-wall signature
+GATEWAY_SIDE_WALL_DELTA_M = 0.25  # side range fell from spawn baseline
+GATEWAY_SIDE_WALL_DWELL_S = 0.25  # sensor persistence debounce, not mode time
 GATEWAY_FRONT_STEER_MAX = 0.50  # bound front alignment while in the frame
 GATEWAY_APPROACH_M = 0.40  # allow a longer straight entrance before handoff
 GATEWAY_TIMEOUT = 12.0     # enough time to cover the approach at cruise speed
@@ -233,6 +235,8 @@ def _controller_constants():
         "GATEWAY_CORRIDOR_MAX": GATEWAY_CORRIDOR_MAX,
         "GATEWAY_CORRIDOR_SYM_DB": GATEWAY_CORRIDOR_SYM_DB,
         "GATEWAY_CORRIDOR_S": GATEWAY_CORRIDOR_S,
+        "GATEWAY_SIDE_WALL_DELTA_M": GATEWAY_SIDE_WALL_DELTA_M,
+        "GATEWAY_SIDE_WALL_DWELL_S": GATEWAY_SIDE_WALL_DWELL_S,
         "GATEWAY_FRONT_STEER_MAX": GATEWAY_FRONT_STEER_MAX,
         "GATEWAY_APPROACH_M": GATEWAY_APPROACH_M,
         "GATEWAY_TIMEOUT": GATEWAY_TIMEOUT,
@@ -345,6 +349,10 @@ class CenteringController:
         self.gateway_distance = 0.0
         self.gateway_clear_t = 0.0
         self.gateway_corridor_t = 0.0
+        self.gateway_side_wall_t = 0.0
+        self.gateway_start_sl = None
+        self.gateway_start_sr = None
+        self.gateway_wall_follow_active = False
         self.gateway_tries = 0
         self.gateway_failed = False
         self.front_backout_active = False
@@ -641,6 +649,14 @@ class CenteringController:
         front_open_r = (fr_s == "sat" or
                         (fr_num and self.fr_f > self.RESUME_DIST))
         gateway_path_open = front_open_l or front_open_r
+        # Once a side wall has emerged from the open gateway frame, treat
+        # the close splayed front rays as entrance geometry until a front
+        # ray actually clears. Otherwise FOLLOW immediately re-enters the
+        # blocked-front turn loop before it can track the acquired wall.
+        if self.gateway_wall_follow_active and gateway_path_open:
+            self.gateway_wall_follow_active = False
+        blocked = (front_block_l and front_block_r
+                   and not self.gateway_wall_follow_active)
         gateway_corridor = (
             sl_num and sr_num
             and self.sl_f < GATEWAY_CORRIDOR_MAX
@@ -766,6 +782,9 @@ class CenteringController:
                 self.gateway_t = 0.0
                 self.gateway_distance = 0.0
                 self.gateway_clear_t = 0.0
+                self.gateway_side_wall_t = 0.0
+                self.gateway_start_sl = self.sl_f if sl_num else None
+                self.gateway_start_sr = self.sr_f if sr_num else None
                 self.gateway_tries += 1
             self.gateway_t += dt
             front_clear_l = (fl_s == "sat" or
@@ -781,23 +800,62 @@ class CenteringController:
             else:
                 self.gateway_corridor_t = 0.0
 
+            side_wall_l = (
+                sl_num and self.gateway_start_sl is not None
+                and self.gateway_start_sl - self.sl_f
+                >= GATEWAY_SIDE_WALL_DELTA_M
+            )
+            side_wall_r = (
+                sr_num and self.gateway_start_sr is not None
+                and self.gateway_start_sr - self.sr_f
+                >= GATEWAY_SIDE_WALL_DELTA_M
+            )
+            if side_wall_l or side_wall_r:
+                self.gateway_side_wall_t += dt
+            else:
+                self.gateway_side_wall_t = 0.0
+
             front_exit = self.gateway_clear_t >= GATEWAY_CLEAR_S
             corridor_exit = self.gateway_corridor_t >= GATEWAY_CORRIDOR_S
+            side_wall_exit = (
+                self.gateway_side_wall_t >= GATEWAY_SIDE_WALL_DWELL_S
+            )
             approach_limit = self.gateway_distance >= GATEWAY_APPROACH_M
             # Distance alone is not evidence that the entrance is clear.
             # Require at least one front ray to open before handing control
             # to normal obstacle escape; otherwise stop safely at the limit.
             approach_exit = approach_limit and gateway_path_open
-            if front_exit or corridor_exit or approach_exit:
+            if front_exit or corridor_exit or side_wall_exit or approach_exit:
+                # Keep the entrance interpretation active through FOLLOW
+                # while front rays remain blocked; side-wall acquisition
+                # is the evidence that this is a passage, not a dead end.
+                self.gateway_wall_follow_active = (
+                    side_wall_exit and not gateway_path_open
+                )
+                if side_wall_exit:
+                    if side_wall_l and side_wall_r:
+                        self.follow_side = (
+                            1.0 if self.sl_f <= self.sr_f else -1.0
+                        )
+                    elif side_wall_l:
+                        self.follow_side = 1.0
+                    else:
+                        self.follow_side = -1.0
+                    self.follow_t = 0.0
+                    self.gap_t = 0.0
                 self.gateway_active = False
                 self.gateway_t = 0.0
                 self.gateway_distance = 0.0
                 self.gateway_clear_t = 0.0
                 self.gateway_corridor_t = 0.0
-                reason = ("gateway_corridor" if corridor_exit and not front_exit else
-                          "gateway_clear" if front_exit else
+                self.gateway_side_wall_t = 0.0
+                reason = ("gateway_clear" if front_exit else
+                          "gateway_corridor" if corridor_exit else
+                          "gateway_side_wall" if side_wall_exit else
                           "gateway_approach_done")
                 self._set_state("FOLLOW", reason)
+                blocked = (front_block_l and front_block_r
+                           and not self.gateway_wall_follow_active)
                 # Continue into FOLLOW or normal blocked/turn handling.
             elif approach_limit:
                 self.gateway_active = False

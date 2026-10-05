@@ -55,6 +55,22 @@ class CenteringController:
         self.sl_f = None
         self.sr_f = None
         self.i_lat = 0.0
+        # Spin-to-escape state
+        self.spin_ticks = 0
+        self.spin_dir = 0.0
+        self.backup_ticks = 0
+        self.total_spin_ticks = 0
+        self.reverse_ticks = 0
+        self.flip_next = False   # after a give-up, try the other way first
+        self.wedge_ticks = 0     # reversing out of a corner that hugs both sides
+
+    # escape-maneuver tuning
+    SPIN_FLIP_S = 2.0      # hold one spin direction before flipping
+    SPIN_GIVEUP_S = 4.5    # give up spinning -> reverse briefly
+    BACKUP_S = 0.5         # how long to reverse before retrying
+    REVERSE_S = 0.4        # reverse before rotating once blocked
+    RESUME_DIST = 0.20     # front clearance needed to exit escape
+
 
     @staticmethod
     def _clip_range(v):
@@ -106,11 +122,67 @@ class CenteringController:
                  - KD_YAW * yaw_rate)
         steer = max(-MAX_STEER, min(steer, MAX_STEER))
 
-        # 5. Longitudinal: slow near front walls, spin if blocked.
+        # 5. Longitudinal: slow near front walls; if blocked, escape
+        #    (spin toward the open side, flipping if it keeps failing,
+        #    then reverse) instead of spinning in one spot forever.
         front_clear = min(self.fl_f, self.fr_f)
-        if front_clear < FRONT_STOP_DIST:
-            # Turn toward the more open side, in place.
-            side = 1.0 if self.sl_f > self.sr_f else -1.0  # +1 = left
+        blocked = front_clear < FRONT_STOP_DIST
+
+        # Wedged into a corner: both side walls at sensor minimum ->
+        # straight-line drive in place is what got us here; reverse out.
+        wedged = self.sl_f < 0.08 and self.sr_f < 0.08
+        if wedged and self.wedge_ticks == 0 and self.spin_dir == 0.0:
+            self.wedge_ticks = max(1, int(0.6 / dt)) if dt > 0 else 300
+        if self.wedge_ticks > 0:
+            self.wedge_ticks -= 1
+            return -BASE_SPEED * 0.5, -BASE_SPEED * 0.5, e_lat, e_front, steer
+        if not wedged:
+            self.wedge_ticks = 0
+
+        # Exit escape as soon as the front is clear again.
+        if not blocked and front_clear > self.RESUME_DIST and self.spin_dir == 0.0:
+            pass  # fully recovered
+        if front_clear > self.RESUME_DIST:
+            self.spin_dir = 0.0
+            self.spin_ticks = 0
+            self.total_spin_ticks = 0
+            self.backup_ticks = 0
+            self.reverse_ticks = 0
+
+        if self.backup_ticks > 0:
+            self.backup_ticks -= 1
+            return -BASE_SPEED * 0.5, -BASE_SPEED * 0.5, e_lat, e_front, steer
+
+        if blocked or self.spin_dir != 0.0:
+            if self.spin_dir == 0.0 and self.reverse_ticks == 0:
+                # fresh block: reverse first so the rotation has room,
+                # then turn toward the more open side
+                self.spin_dir = 1.0 if self.sl_f > self.sr_f else -1.0
+                if self.flip_next:
+                    self.spin_dir = -self.spin_dir
+                    self.flip_next = False
+                self.spin_ticks = 0
+                self.total_spin_ticks = 0
+                self.reverse_ticks = max(1, int(self.REVERSE_S / dt)) if dt > 0 else 200
+            if self.reverse_ticks > 0:
+                self.reverse_ticks -= 1
+                return -BASE_SPEED * 0.5, -BASE_SPEED * 0.5, e_lat, e_front, steer
+            self.spin_ticks += 1
+            self.total_spin_ticks += 1
+            spin_elapsed = self.spin_ticks * dt if dt > 0 else 0.0
+            total_elapsed = self.total_spin_ticks * dt if dt > 0 else 0.0
+            if total_elapsed > self.SPIN_GIVEUP_S:
+                # keep failing -> back up, then retry escape from scratch
+                self.backup_ticks = max(1, int(self.BACKUP_S / dt)) if dt > 0 else 250
+                self.spin_dir = 0.0
+                self.spin_ticks = 0
+                self.total_spin_ticks = 0
+                self.flip_next = True  # try the opposite way around this time
+                return -BASE_SPEED * 0.5, -BASE_SPEED * 0.5, e_lat, e_front, steer
+            if spin_elapsed > self.SPIN_FLIP_S:
+                self.spin_dir = -self.spin_dir  # flip and try the other way
+                self.spin_ticks = 0
+            side = self.spin_dir  # +1 = turn left, -1 = turn right
             return -side * SPIN_SPEED, side * SPIN_SPEED, e_lat, e_front, steer
         span = FRONT_SLOW_DIST - FRONT_STOP_DIST
         scale = (front_clear - FRONT_STOP_DIST) / span if span > 0 else 1.0

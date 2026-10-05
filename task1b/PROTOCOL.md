@@ -687,6 +687,35 @@ Then Ctrl+C the controller.
     TURN: 1.88 rad/s
   -- lateral: mean|offset|=0.028556816046407123 coverage=84.6% n=24479
   ```
+- 2026-10-05 Linux→Mac: `maze16` stopped on user instruction (~26 s
+  wall, 12,800 ticks; `task1b/logs/20261005T162808Z_maze16/`, controller
+  `4c38565`). Sim stdout captured via `script -qec` — wrapper lines
+  only, sim binary still produces no stdout during the run. Controller
+  output captured in `controller_maze16.log`. What I noticed: GATEWAY
+  fired, crept at 2.35 rad/s, then at t=12.0 s hit
+  `gateway_no_clearance` → `GATEWAY_HOLD` (zeros), sat still for the
+  rest of the run — same as maze5/6. The "keep wall-follow wheels
+  driving forward" fix did not change the gateway outcome. All sensors
+  100% valid. No turns, no stuck episodes. Verbatim `analyze_run.py`
+  below.
+  ```
+  == maze16 commit=4c38565 ticks=12800
+  -- turns --
+    (none)
+  -- stuck --
+    zero episodes
+  -- transitions --
+    GATEWAY->GATEWAY_HOLD [gateway_no_clearance] x1
+  -- sensors (valid/sat/held/none) --
+    fl: valid=100.0% sat=0.0% held=0.0% none=0.0%
+    fr: valid=100.0% sat=0.0% held=0.0% none=0.0%
+    sl: valid=100.0% sat=0.0% held=0.0% none=0.0%
+    sr: valid=100.0% sat=0.0% held=0.0% none=0.0%
+  -- mean |wheel| by state --
+    GATEWAY: 2.35 rad/s
+    GATEWAY_HOLD: 0.00 rad/s
+  -- lateral: mean|offset|=None coverage=0.0% n=0
+  ```
 
 - 2026-10-05 Mac→Linux: maze8 follow-up fix implemented. Stuck
   detection now evaluates only FOLLOW/GATEWAY and clears its partial

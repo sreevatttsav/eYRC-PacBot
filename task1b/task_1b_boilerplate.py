@@ -136,14 +136,15 @@ BLIND_TURN_S = 15.0      # fully blind this long -> 180 deg turn-back;
 GATEWAY_FRONT_MAX = 0.15  # both fronts numeric below this...
 GATEWAY_SYM_DB = 0.03     # ...symmetric within this...
 GATEWAY_SIDE_OPEN = 0.20  # ...with both side readings above this...
-GATEWAY_V_FRAC = 0.5      # ...creep at this fraction of cruise...
+GATEWAY_V_FRAC = 1.0      # approach at normal cruise speed...
 GATEWAY_ABORT_DIST = 0.06  # ...park if either front approaches contact...
 GATEWAY_CLEAR_S = 0.15    # both front rays clear this long -> FOLLOW
 GATEWAY_CORRIDOR_MAX = 0.22  # both sides inside this range = passage entered
 GATEWAY_CORRIDOR_SYM_DB = 0.06
 GATEWAY_CORRIDOR_S = 0.30  # require a stable side-wall signature
 GATEWAY_FRONT_STEER_MAX = 0.50  # bound front alignment while in the frame
-GATEWAY_TIMEOUT = 8.0     # bounded crossing time; timeout parks safely
+GATEWAY_APPROACH_M = 0.22  # one maze cell before normal obstacle handling
+GATEWAY_TIMEOUT = 8.0      # safety bound; timeout parks safely
 
 # Heading-aware centering (Stage 3). The reference accumulates each
 # COMPLETED turn's intended target (never the measured exit angle --
@@ -218,6 +219,7 @@ def _controller_constants():
         "GATEWAY_CORRIDOR_SYM_DB": GATEWAY_CORRIDOR_SYM_DB,
         "GATEWAY_CORRIDOR_S": GATEWAY_CORRIDOR_S,
         "GATEWAY_FRONT_STEER_MAX": GATEWAY_FRONT_STEER_MAX,
+        "GATEWAY_APPROACH_M": GATEWAY_APPROACH_M,
         "GATEWAY_TIMEOUT": GATEWAY_TIMEOUT,
         "KP_HEADING": KP_HEADING, "STEER_HEADING_MAX": STEER_HEADING_MAX,
         "REANCHOR_ENABLE": REANCHOR_ENABLE,
@@ -321,6 +323,7 @@ class CenteringController:
         # Gateway probe state (spawn frames).
         self.gateway_active = False
         self.gateway_t = 0.0
+        self.gateway_distance = 0.0
         self.gateway_clear_t = 0.0
         self.gateway_corridor_t = 0.0
         self.gateway_corridor_lost_t = 0.0
@@ -718,6 +721,7 @@ class CenteringController:
             if not self.gateway_active:
                 self.gateway_active = True
                 self.gateway_t = 0.0
+                self.gateway_distance = 0.0
                 self.gateway_clear_t = 0.0
                 self.gateway_tries += 1
             self.gateway_t += dt
@@ -736,17 +740,20 @@ class CenteringController:
 
             front_exit = self.gateway_clear_t >= GATEWAY_CLEAR_S
             corridor_exit = self.gateway_corridor_t >= GATEWAY_CORRIDOR_S
-            if front_exit or corridor_exit:
+            approach_exit = self.gateway_distance >= GATEWAY_APPROACH_M
+            if front_exit or corridor_exit or approach_exit:
                 self.gateway_active = False
                 self.gateway_t = 0.0
+                self.gateway_distance = 0.0
                 self.gateway_clear_t = 0.0
                 self.gateway_corridor_t = 0.0
                 self.gateway_passed = corridor_exit and not front_exit
                 self.gateway_corridor_lost_t = 0.0
-                self._set_state("FOLLOW", "gateway_corridor" if
-                                self.gateway_passed else "gateway_clear")
-                # Continue into normal FOLLOW with the entrance-post
-                # exception active while the corridor signature holds.
+                reason = ("gateway_corridor" if self.gateway_passed else
+                          "gateway_clear" if front_exit else
+                          "gateway_approach_done")
+                self._set_state("FOLLOW", reason)
+                # Continue into FOLLOW or normal blocked/turn handling.
             elif (self.gateway_t > GATEWAY_TIMEOUT
                   or any(v is not None and s in ("valid", "held")
                          and v < GATEWAY_ABORT_DIST
@@ -774,6 +781,8 @@ class CenteringController:
                 right_gw = base_gw + steer_gw
                 left_gw = max(-MAX_SPEED, min(left_gw, MAX_SPEED))
                 right_gw = max(-MAX_SPEED, min(right_gw, MAX_SPEED))
+                self.gateway_distance += max(
+                    0.0, K_LIN * (left_gw + right_gw) * 0.5 * dt)
                 self._set_state("GATEWAY", "probe")
                 return self._finalize(left_gw, right_gw, e_lat, e_front,
                                       steer_gw, yaw_rate, dt)

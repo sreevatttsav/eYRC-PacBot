@@ -52,6 +52,7 @@ FRONT_SPEED_TAPER_END = 0.06  # speed remains positive above this range
 FRONT_EMERGENCY_DIST = 0.08  # back out before the taper can stall the bot
 FRONT_EMERGENCY_RELEASE = 0.12  # hysteresis: keep backing until clear
 FRONT_BACKOUT_SPEED = 1.5  # wheel rad/s; no turn while contact is imminent
+FRONT_BACKOUT_MAX_S = 1.5  # never reverse indefinitely on a persistent wall
 FOLLOW_STEER_RATIO = 0.75  # FOLLOW keeps both wheels driving forward
 SPIN_SPEED = 3.0       # spin-in-place wheel speed
 FRONT_RAY_ANGLE = math.radians(20.0)
@@ -229,6 +230,7 @@ def _controller_constants():
         "FRONT_EMERGENCY_DIST": FRONT_EMERGENCY_DIST,
         "FRONT_EMERGENCY_RELEASE": FRONT_EMERGENCY_RELEASE,
         "FRONT_BACKOUT_SPEED": FRONT_BACKOUT_SPEED,
+        "FRONT_BACKOUT_MAX_S": FRONT_BACKOUT_MAX_S,
         "FRONT_RAY_ANGLE_DEG": math.degrees(FRONT_RAY_ANGLE),
         "FRONT_ALIGN_MAX_DIST": FRONT_ALIGN_MAX_DIST,
         "FRONT_ALIGN_SYM_DB": FRONT_ALIGN_SYM_DB,
@@ -392,6 +394,7 @@ class CenteringController:
         self.gateway_failed = False
         self.front_backout_active = False
         self.front_backout_side = 0.0  # +1 left ray / -1 right ray
+        self.front_backout_t = 0.0
         self.front_check_t = 0.0
         self.backout_signature = None
         self.backout_signature_count = 0
@@ -593,6 +596,16 @@ class CenteringController:
     def update(self, fl, fr, sl, sr, yaw_rate, dt):
         dt = dt if dt and dt > 0 else 0.0
         self.t += dt
+        backout_limit_reached = False
+        if self.front_backout_active:
+            self.front_backout_t += dt
+            if self.front_backout_t >= FRONT_BACKOUT_MAX_S:
+                self.front_backout_active = False
+                self.front_backout_side = 0.0
+                self.front_backout_t = 0.0
+                self.backout_loop_latched = False
+                self.backout_signature_count = 0
+                backout_limit_reached = True
         self.gyro_th += yaw_rate * dt
         # 1. Validity filter: finite measurements through 2 m are distances.
         #    Held samples preserve control continuity but cannot confirm an
@@ -700,7 +713,7 @@ class CenteringController:
         # --- HOLD latch (anti-void terminal state): parked, zeros out.
         #     Nothing in the maze moves to us, so this never releases;
         #     the run is over for scoring and the operator intervenes.
-        if self.backout_loop_latched:
+        if self.backout_loop_latched and not backout_limit_reached:
             self._set_state("BACKOUT_HOLD", "repeat_front_backout")
             return self._finalize(0.0, 0.0, e_lat, e_front,
                                   0.0, yaw_rate, dt)
@@ -997,6 +1010,7 @@ class CenteringController:
                     and distance >= FRONT_EMERGENCY_RELEASE):
                 self.front_backout_active = False
                 self.front_backout_side = 0.0
+                self.front_backout_t = 0.0
             else:
                 self._set_state("FRONT_BACKOUT", "front_emergency")
                 return self._finalize(
@@ -1019,6 +1033,11 @@ class CenteringController:
         )
         if degraded_front_block:
             blocked = True
+        if backout_limit_reached:
+            # We have already created the configured clearance; do not issue
+            # another reverse command. Let the normal blocked-front policy
+            # choose a route turn from the available side readings.
+            blocked = True
 
         # A committed gyro turn owns the wheel commands until it reaches its
         # target. Letting a single splayed ray interrupt that turn leaves the
@@ -1039,6 +1058,7 @@ class CenteringController:
             self.brake_until = None
             self.front_backout_active = True
             self.front_backout_side = 1.0 if emergency_l else -1.0
+            self.front_backout_t = 0.0
             self._record_backout_signature(
                 (fl_forward, fr_forward, self.sl_f, self.sr_f))
             self._set_state("FRONT_BACKOUT", "front_emergency")
@@ -1052,6 +1072,7 @@ class CenteringController:
                 and not blocked and (emergency_l != emergency_r)):
             self.front_backout_active = True
             self.front_backout_side = 1.0 if emergency_l else -1.0
+            self.front_backout_t = 0.0
             self._record_backout_signature(
                 (fl_forward, fr_forward, self.sl_f, self.sr_f))
             self._set_state("FRONT_BACKOUT", "front_emergency")
@@ -1073,6 +1094,7 @@ class CenteringController:
                 self.front_backout_side = (
                     1.0 if fl_forward is not None and fl_forward < 0.12
                     else -1.0)
+                self.front_backout_t = 0.0
                 self._record_backout_signature(
                     (fl_forward, fr_forward, self.sl_f, self.sr_f))
                 self._set_state("FRONT_BACKOUT", "single_ray_check")

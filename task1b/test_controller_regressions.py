@@ -198,6 +198,13 @@ class ControllerRegressionTests(unittest.TestCase):
                 break
         self.assertEqual(ctl.state, "TURN")
 
+    def test_front_backout_has_a_maximum_duration(self):
+        ctl = CenteringController()
+        for _ in range(120):
+            ctl.update(0.047, 0.047, 0.18, 0.18, 0.0, 0.02)
+        self.assertNotEqual(ctl.state, "FRONT_BACKOUT")
+        self.assertNotEqual(ctl.state, "BACKOUT_HOLD")
+
     def test_lone_close_splayed_ray_does_not_steer(self):
         ctl = CenteringController()
         left, right, *_ = ctl.update(None, 0.10, 0.18, 0.18, 0.0, 0.02)

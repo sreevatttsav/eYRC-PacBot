@@ -56,6 +56,9 @@ TICKS_HEADER = [
     "x_est", "y_est", "th_est",  # dead-reckoned pose (ESTIMATED, drifts)
     "x_true", "y_true", "th_true",  # sim ground truth if available, else empty
     "extra",       # JSON of unrecognized payload keys (future pose/topics)
+    "wall_left", "wall_right", "front_path", "front_hazard",
+    "follow_side", "wall_target", "junction_stage", "turn_outcome",
+    "commanded_travel_est_m",
 ]
 
 EVENTS_HEADER = ["i", "t_mono", "t_wall", "from", "to", "reason"]
@@ -133,6 +136,7 @@ class RunLogger:
         self._x = 0.0
         self._y = 0.0
         self._th = 0.0
+        self._travel_est = 0.0
         print(f"[runlog] logging to {self.run_dir}")
 
     def _write_result(self, status):
@@ -140,8 +144,7 @@ class RunLogger:
             "status": status,
             "messages": self._result_messages,
             "note": ("No wheel encoders or simulator pose stream are available; "
-                     "the progress watchdog compares ToF signatures and cannot "
-                     "distinguish a uniform straight corridor from no motion."),
+                     "commanded travel is an estimate and cannot prove motion."),
         }
         with open(self._result_path, "w") as f:
             json.dump(payload, f, indent=2)
@@ -165,7 +168,7 @@ class RunLogger:
     def tick(self, raw, filt, gyro_z, dt_rep, e_lat, e_front, steer,
              L, R, state, true_pose=None, extra=None,
              statuses=("none",) * 4, yaw_cmd=0.0, stuck=False,
-             turn=None, lat_mode="", heading=None):
+             turn=None, lat_mode="", heading=None, navigation=None):
         """turn: None or dict(target, angle, error, elapsed, progress,
         abort) -- missing keys log as empty (old callers unaffected).
         heading: None or dict(e, lat, front, heading) components."""
@@ -181,6 +184,7 @@ class RunLogger:
         # dead-reckon: heading from gyro, speed from commanded wheels
         self._th += gyro_z * dt_wall
         v = self.k_lin * (L + R) / 2.0
+        self._travel_est += max(0.0, v) * (dt_rep or 0.0)
         self._x += v * math.cos(self._th) * dt_wall
         self._y += v * math.sin(self._th) * dt_wall
 
@@ -199,6 +203,7 @@ class RunLogger:
             except (ValueError, TypeError):
                 return str(v)
 
+        navigation = navigation or {}
         self._tick_buf.append([
             self._i, f"{now:.4f}", f"{t_wall:.4f}",
             f"{dt_rep:.4f}", f"{dt_wall:.4f}",
@@ -219,6 +224,10 @@ class RunLogger:
             f"{self._x:.4f}", f"{self._y:.4f}", f"{self._th:+.4f}",
             xt, yt, tht,
             json.dumps(extra or {}, separators=(",", ":")),
+            *(navigation.get(k, "") for k in ("wall_left", "wall_right",
+              "front_path", "front_hazard", "follow_side", "wall_target",
+              "junction_stage", "turn_outcome")),
+            f"{self._travel_est:.4f}",
         ])
         self._i += 1
         if len(self._tick_buf) >= FLUSH_EVERY:

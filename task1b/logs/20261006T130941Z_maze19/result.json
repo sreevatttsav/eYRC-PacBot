@@ -1,0 +1,5 @@
+{
+  "status": "pending",
+  "messages": [],
+  "note": "No wheel encoders or simulator pose stream are available; the progress watchdog compares ToF signatures and cannot distinguish a uniform straight corridor from no motion."
+}

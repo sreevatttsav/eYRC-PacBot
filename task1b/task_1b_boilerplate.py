@@ -1304,6 +1304,15 @@ class CenteringController:
             v_cmd = CRUISE_LINEAR_MPS * 0.5
         else:
             v_cmd = CRUISE_LINEAR_MPS * 0.25
+
+        # In a confirmed corridor, one close splayed ray usually sees the
+        # adjacent wall rather than an obstacle in the travel path. Keep the
+        # single-ray safety classification, but do not let that ray pin the
+        # robot at FRONT_MIN_SPEED_MPS for the entire corridor.
+        if (self.observation.hazard == "single_ray"
+                and self.observation.left == "wall"
+                and self.observation.right == "wall"):
+            v_cmd = max(v_cmd, CRUISE_LINEAR_MPS)
         v_cmd = min(v_cmd, MAX_LINEAR_MPS)
         base = v_cmd / K_LIN
 

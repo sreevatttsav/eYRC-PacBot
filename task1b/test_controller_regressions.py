@@ -166,6 +166,17 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertGreater(right, 0.0)
         self.assertFalse(ctl.front_backout_active)
 
+    def test_single_ray_in_corridor_does_not_hold_minimum_speed(self):
+        ctl = CenteringController()
+        ctl.gateway_wall_follow_active = True
+        for _ in range(20):
+            left, right, *_ = ctl.update(0.11 / FRONT_RAY_COS, 0.32,
+                                         0.051, 0.051, 0.0, 0.02)
+
+        self.assertEqual(ctl.state, "FOLLOW")
+        self.assertEqual(ctl.observation.hazard, "single_ray")
+        self.assertGreater((left + right) * 0.5, 1.5)
+
     def test_lone_close_splayed_ray_does_not_steer(self):
         ctl = CenteringController()
         left, right, *_ = ctl.update(None, 0.10, 0.18, 0.18, 0.0, 0.02)

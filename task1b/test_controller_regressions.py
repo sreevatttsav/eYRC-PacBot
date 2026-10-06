@@ -21,7 +21,7 @@ from task_1b_boilerplate import (
     CenteringController, FOLLOW_STEER_RATIO, FRONT_BACKOUT_SPEED,
     FRONT_EMERGENCY_DIST, FRONT_MIN_SPEED_MPS, FRONT_RAY_COS,
     FRONT_SPEED_TAPER_END, HEADING_PIVOT_THRESHOLD, K_LIN,
-    PROGRESS_WATCHDOG_S, YAW_GAIN_K,
+    YAW_GAIN_K,
 )
 from task_1b_boilerplate import GATEWAY_APPROACH_M, GATEWAY_CORRIDOR_S
 
@@ -48,17 +48,17 @@ class ControllerRegressionTests(unittest.TestCase):
 
         # Establish a left-hand wall-follow reference.
         for _ in range(70):
-            ctl.update(0.8, 0.8, 0.20, 0.28, 0.0, 0.02)
+            ctl.update(0.8, 0.8, 0.051, 0.30, 0.0, 0.02)
         self.assertEqual(ctl.follow_side, 1.0)
 
         # Left opens into a branch while the right wall remains present.
-        for _ in range(80):
-            ctl.update(0.8, 0.8, 0.30, 0.20, 0.0, 0.02)
+        for _ in range(160):
+            ctl.update(0.8, 0.8, 0.30, 0.051, 0.0, 0.02)
             if ctl.state == "TURN":
                 break
 
         self.assertEqual(ctl.state, "TURN")
-        self.assertEqual(ctl.turn_cause, "gap")
+        self.assertEqual(ctl.turn_cause, "junction")
         self.assertGreater(ctl.turn_target, 0.0)
 
     def test_two_wall_corridor_arms_junction_detector(self):
@@ -67,16 +67,16 @@ class ControllerRegressionTests(unittest.TestCase):
         # A normal narrow corridor has both side ranges below FOLLOW_WALL_MAX.
         # It must still latch a wall so that its later loss can mean a branch.
         for _ in range(70):
-            ctl.update(0.8, 0.8, 0.20, 0.22, 0.0, 0.02)
+            ctl.update(0.8, 0.8, 0.051, 0.051, 0.0, 0.02)
         self.assertEqual(ctl.follow_side, 1.0)
 
-        for _ in range(80):
-            ctl.update(0.8, 0.8, 0.30, 0.22, 0.0, 0.02)
+        for _ in range(160):
+            ctl.update(0.8, 0.8, 0.30, 0.051, 0.0, 0.02)
             if ctl.state == "TURN":
                 break
 
         self.assertEqual(ctl.state, "TURN")
-        self.assertEqual(ctl.turn_cause, "gap")
+        self.assertEqual(ctl.turn_cause, "junction")
         self.assertGreater(ctl.turn_target, 0.0)
 
     def test_second_wedge_cycle_commits_to_open_side(self):
@@ -183,54 +183,25 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertGreaterEqual((left + right) * 0.5 * K_LIN,
                                 FRONT_MIN_SPEED_MPS - 1e-6)
 
-    def test_large_heading_error_uses_gyro_pivot_not_wall_steering(self):
+    def test_large_heading_error_does_not_pivot_in_corridor(self):
         ctl = CenteringController()
         ctl.gyro_th = -math.radians(25)
         left, right, *_ = ctl.update(0.8, 0.8, 0.12, 0.22, 0.0, 0.02)
 
-        self.assertEqual(ctl.state, "TURN")
-        self.assertEqual(ctl.turn_cause, "heading_recenter")
-        self.assertAlmostEqual(ctl.turn_target, math.radians(25), places=3)
-        self.assertEqual((left, right), (0.0, 0.0))
-        self.assertEqual(ctl.steer_lat, 0.0)
-        self.assertEqual(ctl.steer_front, 0.0)
-        self.assertGreater(HEADING_PIVOT_THRESHOLD, math.radians(14))
-
-        omega = 0.0
-        for _ in range(500):
-            cmd_omega = 1.25 * YAW_GAIN_K * (right - left)
-            omega += (cmd_omega - omega) * 0.02 / 0.14
-            left, right, *_ = ctl.update(
-                0.8, 0.8, 0.12, 0.22, omega, 0.02)
-            if ctl.state == "FOLLOW" and not ctl.turn_active:
-                break
         self.assertEqual(ctl.state, "FOLLOW")
-        self.assertAlmostEqual(ctl.heading_ref, 0.0)
-        self.assertLess(abs(ctl.e_heading), HEADING_PIVOT_THRESHOLD)
+        self.assertGreater(left + right, 0.0)
 
     def test_progress_watchdog_flags_three_matching_backouts(self):
         ctl = CenteringController()
         signature = (0.07, 0.20, 0.10, 0.12)
         for _ in range(3):
             ctl._record_backout_signature(signature)
-        self.assertTrue(ctl.watchdog_pending)
-        self.assertEqual(ctl.watchdog_reason, "repeat_front_backout")
+        self.assertTrue(ctl.backout_loop_latched)
 
-        # Escalate only once the close-front condition has cleared.
+        # A repeated signature alone is not evidence of a safe route turn.
         left, right, *_ = ctl.update(0.8, 0.8, 0.18, 0.18, 0.0, 0.02)
-        self.assertEqual(ctl.state, "TURN")
-        self.assertEqual(ctl.turn_cause, "progress_route")
+        self.assertEqual(ctl.state, "BACKOUT_HOLD")
         self.assertEqual((left, right), (0.0, 0.0))
-
-    def test_progress_watchdog_uses_fifteen_seconds_without_change(self):
-        ctl = CenteringController()
-        signature = (0.20, 0.20, 0.10, 0.10)
-        ctl._update_progress_watchdog(0.02, signature)
-        for _ in range(int(PROGRESS_WATCHDOG_S / 0.02) + 1):
-            ctl.t += 0.02
-            ctl._update_progress_watchdog(0.02, signature)
-        self.assertTrue(ctl.watchdog_pending)
-        self.assertEqual(ctl.watchdog_reason, "no_progress_15s")
 
     def test_lone_emergency_ray_backs_until_clear(self):
         ctl = CenteringController()
@@ -269,14 +240,16 @@ class ControllerRegressionTests(unittest.TestCase):
 
     def test_both_close_front_rays_still_trigger_escape(self):
         ctl = CenteringController()
-        ctl.update(0.10, 0.10, 0.18, 0.18, 0.0, 0.02)
+        for _ in range(15):
+            ctl.update(0.10, 0.10, 0.18, 0.18, 0.0, 0.02)
         self.assertEqual(ctl.state, "REVERSE")
         self.assertNotEqual(ctl.spin_dir, 0.0)
         self.assertAlmostEqual(abs(ctl.turn_target), 3.141592653589793)
 
     def test_blocked_front_turns_toward_classified_open_side(self):
         ctl = CenteringController()
-        ctl.update(0.10, 0.10, 0.10, 0.30, 0.0, 0.02)
+        for _ in range(15):
+            ctl.update(0.10, 0.10, 0.10, 0.30, 0.0, 0.02)
 
         self.assertEqual(ctl.state, "REVERSE")
         self.assertLess(ctl.spin_dir, 0.0)
@@ -359,16 +332,15 @@ class ControllerRegressionTests(unittest.TestCase):
             ctl.update(0.10, 0.12, 0.50, 0.85, 0.0, 0.02)
             self.assertEqual(ctl.state, "FOLLOW")
 
-        # A front ray clearing releases the latch. A later fresh signature
-        # is then allowed to begin a new gateway probe.
+        # The gateway is a one-time entrance passage.
         for _ in range(30):
             ctl.update(0.30, 0.30, 0.50, 0.85, 0.0, 0.02)
-        self.assertFalse(ctl.gateway_rearm_latched)
+        self.assertTrue(ctl.gateway_rearm_latched)
         for _ in range(40):
             ctl.update(0.10, 0.10, 0.50, 0.85, 0.0, 0.02)
             if ctl.state == "GATEWAY":
                 break
-        self.assertEqual(ctl.state, "GATEWAY")
+        self.assertNotEqual(ctl.state, "GATEWAY")
 
 
 if __name__ == "__main__":

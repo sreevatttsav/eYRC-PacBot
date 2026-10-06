@@ -157,9 +157,12 @@ def analyze_turns(rep):
             if s:
                 prev = s
         reason = exit_reason(rep, ep)
-        aborted = ("BACKUP" in reason or "timeout" in reason
+        aborted = ("BACKUP" in reason or "FRONT_BACKOUT" in reason
+                   or "timeout" in reason
                    or "progress" in reason or "unverified" in reason
-                   or "overshoot" in reason or "retrim" in reason)
+                   or "overshoot" in reason or "retrim" in reason
+                   or (e1 + 1 < len(ticks) and
+                       ticks[e1 + 1].get("turn_outcome") == "aborted"))
         ok = (abs(err_deg) <= FINAL_ERR_DEG and not aborted and flips <= 1
               and all(abs(a - math.degrees(abs(target))) <= REVERSAL_BAND_DEG
                       for a in flip_at))
@@ -262,7 +265,10 @@ def analyze_heading_drift(rep):
     for r in ticks:
         e = _f(r, "e_heading")
         dt = _f(r, "dt_rep", 0.0) or 0.0
-        if e is not None and abs(e) > HEADING_FLAG_RAD:
+        stable = (r.get("state") == "FOLLOW" and
+                  r.get("junction_stage", "none") in ("", "none") and
+                  r.get("turn_outcome", "none") != "active")
+        if stable and e is not None and abs(e) > HEADING_FLAG_RAD:
             if start is None:
                 start = _f(r, "t_wall", 0.0) or 0.0
                 elapsed = 0.0
@@ -351,10 +357,38 @@ def report(rep):
     heading = analyze_heading_drift(rep)
     steer_cancel = analyze_steer_cancellation(rep)
     cycles = analyze_repeated_state_signatures(rep)
+    ticks = rep["ticks"]
+    crawl_s = sum((_f(x, "dt_rep", 0.0) or 0.0) for x in ticks
+                  if x.get("state") == "FOLLOW"
+                  and min((_f(x, "fl_f", 2.0) or 2.0),
+                          (_f(x, "fr_f", 2.0) or 2.0)) < 0.16
+                  and abs((_f(x, "L", 0.0) or 0.0) +
+                          (_f(x, "R", 0.0) or 0.0)) < 1.0)
+    clearances = [abs((_f(x, "sl_f") if x.get("follow_side") == "1.0"
+                       else _f(x, "sr_f")) - _f(x, "wall_target"))
+                  for x in ticks if x.get("state") == "FOLLOW"
+                  and x.get("follow_side") in ("1.0", "-1.0")
+                  and _f(x, "wall_target") is not None
+                  and _f(x, "sl_f" if x.get("follow_side") == "1.0"
+                         else "sr_f") is not None]
+    openings = sum(1 for i, x in enumerate(ticks)
+                   if x.get("junction_stage") == "advance"
+                   and (i == 0 or ticks[i-1].get("junction_stage") != "advance"))
+    aborted = sum(1 for i, x in enumerate(ticks)
+                  if x.get("turn_outcome") == "aborted"
+                  and (i == 0 or ticks[i-1].get("turn_outcome") != "aborted"))
+    result = rep.get("result") or {}
+    payloads = [m.get("payload") for m in result.get("messages", [])]
+    solved = any(isinstance(p, dict) and p.get("solved") is True
+                 for p in payloads)
     return {"turns": turns, "stuck": stuck, "trans": trans,
             "sens": sens, "wheels": wheels, "lat": lat,
             "heading": heading, "steer_cancel": steer_cancel,
             "cycles": cycles, "result": rep.get("result"),
+            "verdict": "solved" if solved else "pending" if not payloads else "failed",
+            "crawl_s": crawl_s,
+            "clearance_error_m": statistics.mean(clearances) if clearances else None,
+            "opening_decisions": openings, "interrupted_turns": aborted,
             "nticks": len(rep["ticks"]),
             "label": rep["meta"].get("label", "?"),
             "commit": (rep["meta"].get("git_commit") or "?")[:7]}
@@ -393,11 +427,15 @@ def print_report(r):
     print(f"-- lateral: mean|offset|={lat['mean_abs']} "
           f"coverage={lat['coverage']:.1%} n={lat['n']}")
     result = r.get("result")
+    print(f"-- route -- near-front crawl={r['crawl_s']:.2f}s "
+          f"clearance_error={r['clearance_error_m']}m "
+          f"opening_decisions={r['opening_decisions']} "
+          f"interrupted_turns={r['interrupted_turns']}")
     if result is None:
         print("-- simulator verdict -- n/a (no result.json)")
     else:
         payloads = [m.get("payload") for m in result.get("messages", [])]
-        print(f"-- simulator verdict -- {result.get('status')}"
+        print(f"-- simulator verdict -- {r['verdict']} ({result.get('status')})"
               + (f" payload={payloads[-1]}" if payloads else ""))
     heading = r.get("heading")
     if heading is None:

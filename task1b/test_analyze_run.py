@@ -10,10 +10,19 @@ from analyze_run import (
 class AnalyzeRunRegressionTests(unittest.TestCase):
     def test_heading_error_over_twenty_degrees_for_five_seconds_flags(self):
         ticks = [{"e_heading": "0.4", "dt_rep": "0.1",
+                  "state": "FOLLOW", "junction_stage": "none",
                   "t_wall": f"{i * 0.1:.1f}"} for i in range(60)]
         result = analyze_heading_drift({"ticks": ticks})
         self.assertEqual(len(result["flagged"]), 1)
         self.assertGreater(result["flagged"][0]["duration_s"], 5.0)
+
+    def test_turn_and_brake_heading_error_is_excluded(self):
+        ticks = [{"e_heading": "0.8", "dt_rep": "0.1",
+                  "t_wall": f"{i * 0.1:.1f}",
+                  "state": "TURN" if i < 40 else "BRAKE"}
+                 for i in range(80)]
+        result = analyze_heading_drift({"ticks": ticks})
+        self.assertEqual(result["max_duration_s"], 0.0)
 
     def test_large_opposing_steer_components_with_zero_total_flag(self):
         row = {

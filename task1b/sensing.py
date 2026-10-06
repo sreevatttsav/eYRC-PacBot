@@ -25,6 +25,68 @@ truth for both).
 """
 import math
 from collections import deque
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class WallObservation:
+    left: str
+    right: str
+    front: str
+    hazard: str
+    entrance: bool
+
+    def wall(self, side):
+        return self.left == "wall" if side > 0 else self.right == "wall"
+
+    def opening(self, side):
+        return self.left == "open" if side > 0 else self.right == "open"
+
+
+class WallPerception:
+    """Debounced wall and front-path classifications from fresh measurements."""
+
+    def __init__(self, wall_max=0.14, open_min=0.20, dwell=0.12):
+        self.wall_max, self.open_min, self.dwell = wall_max, open_min, dwell
+        self.side = ["uncertain", "uncertain"]
+        self.candidate = [None, None]
+        self.elapsed = [0.0, 0.0]
+        self.blocked_t = 0.0
+
+    def update(self, ranges, statuses, dt, front_cos=1.0):
+        fl, fr, sl, sr = ranges
+        fs_l, fs_r, ss_l, ss_r = statuses
+        for i, (v, status) in enumerate(((sl, ss_l), (sr, ss_r))):
+            proposal = ("wall" if v <= self.wall_max else
+                        "open" if v >= self.open_min else None) if (
+                            v is not None and status == "valid") else None
+            if proposal is None:
+                self.candidate[i], self.elapsed[i] = None, 0.0
+            elif proposal == self.side[i]:
+                self.candidate[i], self.elapsed[i] = None, 0.0
+            else:
+                self.elapsed[i] = self.elapsed[i] + dt if self.candidate[i] == proposal else dt
+                self.candidate[i] = proposal
+                if self.elapsed[i] >= self.dwell:
+                    self.side[i] = proposal
+                    self.candidate[i], self.elapsed[i] = None, 0.0
+        l = fl * front_cos if fs_l == "valid" and fl is not None else None
+        r = fr * front_cos if fs_r == "valid" and fr is not None else None
+        emergency = any(v is not None and v <= 0.08 for v in (l, r))
+        both_close = l is not None and r is not None and l < 0.15 and r < 0.15
+        self.blocked_t = self.blocked_t + dt if both_close else 0.0
+        front = "blocked" if self.blocked_t >= self.dwell else (
+            "clear" if l is not None and r is not None and min(l, r) >= 0.20
+            else "uncertain")
+        hazard = "emergency" if emergency else (
+            "blocked_pair" if front == "blocked" else
+            "single_ray" if (l is not None and l < 0.15) or
+            (r is not None and r < 0.15) else "none")
+        observed = [self.side[i] if status == "valid" else "uncertain"
+                    for i, status in enumerate((ss_l, ss_r))]
+        entrance = (l is not None and r is not None and l < 0.15 and r < 0.15
+                    and abs(l-r) < 0.03 and observed == ["open", "open"])
+        return WallObservation(*observed, front, hazard, entrance)
 
 
 class Tof:

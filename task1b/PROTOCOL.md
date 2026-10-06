@@ -1029,3 +1029,17 @@ Then Ctrl+C the controller.
   capture the simulator verdict. Verify that no `TURN→FRONT_BACKOUT`
   transition occurs while a committed turn is active, that progress-route
   turns reach their gyro targets, and report the standard analyzer output.
+- 2026-10-06 Mac→Linux: reliability refactor after maze17–19. Side readings
+  are now measured through 2 m (including 0.300), wall/opening decisions
+  require fresh persistent samples, the initial clearance target is 0.051 m,
+  and two-wall samples can learn a 0.04–0.09 m target. Left openings have an
+  advance stage before turning; unchanged ToF and accumulated heading can no
+  longer command a route pivot. A turn interrupted by a front emergency is
+  recorded as aborted; three similar backouts park in `BACKOUT_HOLD` for
+  diagnosis. Logs and analyzer expose these decisions. Local suite: 35 tests
+  passed, including a small geometric corridor and left-branch turn test.
+  Maze17–19 replays stop at their first changed decision. No solved verdict is
+  claimed. The Mac cannot run the Linux x86-64 simulator, and its Docker
+  daemon is unavailable. Next Linux work: straight corridor, single junction,
+  then ten independent random 6×6 mazes to verdict or ten minutes each,
+  following `VALIDATION.md`. Preserve every run's logs and verdict.

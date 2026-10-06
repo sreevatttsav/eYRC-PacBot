@@ -48,6 +48,7 @@ I_DEADBAND = 0.005     # ignore |e_lat| below this (meters)
 
 FRONT_SLOW_DIST = 0.5  # below this, start slowing down (meters)
 FRONT_STOP_DIST = 0.15 # below this, spin in place
+FRONT_JUNCTION_DIST = 0.18  # near front + open side: commit route turn
 FRONT_SPEED_TAPER_END = 0.06  # speed remains positive above this range
 FRONT_EMERGENCY_DIST = 0.08  # back out before the taper can stall the bot
 FRONT_EMERGENCY_RELEASE = 0.12  # hysteresis: keep backing until clear
@@ -227,6 +228,7 @@ def _controller_constants():
         "I_MAX": I_MAX, "I_LEAK": I_LEAK, "I_DEADBAND": I_DEADBAND,
         "FRONT_SLOW_DIST": FRONT_SLOW_DIST,
         "FRONT_STOP_DIST": FRONT_STOP_DIST,
+        "FRONT_JUNCTION_DIST": FRONT_JUNCTION_DIST,
         "FRONT_SPEED_TAPER_END": FRONT_SPEED_TAPER_END,
         "FRONT_EMERGENCY_DIST": FRONT_EMERGENCY_DIST,
         "FRONT_EMERGENCY_RELEASE": FRONT_EMERGENCY_RELEASE,
@@ -1058,6 +1060,20 @@ class CenteringController:
         if tight_corridor_front_block:
             # A close ray between two established side walls is the end of
             # the corridor, even if the opposite splayed ray is still clear.
+            blocked = True
+        near_front_junction = (
+            ((fl_num and fl_forward < FRONT_JUNCTION_DIST)
+             != (fr_num and fr_forward < FRONT_JUNCTION_DIST))
+            and front_clear is not None
+            and front_clear < FRONT_JUNCTION_DIST
+            and (self.observation.left == "open"
+                 or self.observation.right == "open")
+            and not self.gateway_wall_follow_active
+        )
+        if near_front_junction:
+            # Side openings are already persistent, so choose the route now
+            # rather than waiting for the close splayed ray to become an
+            # emergency and backing out of the junction.
             blocked = True
         if backout_limit_reached:
             # We have already created the configured clearance; do not issue

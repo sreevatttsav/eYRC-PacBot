@@ -88,12 +88,13 @@ WEDGE_CLEARANCE_TIE_DB = 0.015
 # from the MEASURED yaw gain (step test), not wheel-size estimates.
 YAW_GAIN_K = 0.0914   # from step_test s1_step summary.json
 TURN_KP = 2.0          # P gain on angle error (rad/s per rad)
-TURN_MIN_W = 1.5       # minimum wheel speed in a turn (rad/s, step test sets)
+TURN_MIN_W = 1.2       # minimum wheel speed in a turn (rad/s)
+TURN_ACCEL_W = 15.0    # wheel-speed ramp, rad/s^2, for smooth turn entry/exit
 TURN_EXIT_ERR = 0.052  # 3 deg; coast adds ~1-2 deg -> final inside +/-5
 TURN_TIE_DB = 0.05     # side-openness deadband: tie -> prev turn dir
 TURN_MAX_RETRIES = 2
-TURN_TIMEOUT_BASE = 0.5    # hard timeout = BASE + PER_RAD*|target|
-TURN_TIMEOUT_PER_RAD = 3.0  # allow the low-speed approach to target to finish
+TURN_TIMEOUT_BASE = 0.7    # hard timeout = BASE + PER_RAD*|target|
+TURN_TIMEOUT_PER_RAD = 3.5  # allow the smooth low-speed approach to target
 # NOTE: step_test t90@SPIN3 capped at the 2 s window, so the honest
 # recompute (1.5*t90+0.5 = 3.5 s) waits on real s1_turns data. The
 # no-progress watchdog is the real stall protection; this stays loose.
@@ -446,6 +447,7 @@ class CenteringController:
         self.brake_until = None
         self.reverse_ticks = 0
         self.spin_done_s = 0.0
+        self.turn_w = 0.0
         self.turn_cause = cause
         self.turn_outcome = "active"
         self.junction_stage = "none"
@@ -597,6 +599,17 @@ class CenteringController:
         dt = dt if dt and dt > 0 else 0.0
         self.t += dt
         backout_limit_reached = False
+        repeated_backout_route = self.backout_loop_latched
+        if repeated_backout_route:
+            # Repeated identical backouts are evidence that parking is not
+            # solving the obstacle. Clear the latch and force one normal
+            # blocked-front route decision instead of stopping forever.
+            self.backout_loop_latched = False
+            self.backout_signature_count = 0
+            self.front_backout_active = False
+            self.front_backout_side = 0.0
+            self.front_backout_t = 0.0
+            backout_limit_reached = True
         if self.front_backout_active:
             self.front_backout_t += dt
             if self.front_backout_t >= FRONT_BACKOUT_MAX_S:
@@ -1329,9 +1342,14 @@ class CenteringController:
                     self.turn_progress = 0.0
                     # fall into the P servo below with fresh err
             if self.turn_active:
-                w = TURN_KP * err
-                wmag = min(SPIN_SPEED, max(TURN_MIN_W, abs(w)))
-                w = math.copysign(wmag, err) if err != 0.0 else 0.0
+                desired_w = TURN_KP * err
+                wmag = min(SPIN_SPEED, max(TURN_MIN_W, abs(desired_w)))
+                desired_w = math.copysign(wmag, err) if err != 0.0 else 0.0
+                max_step = TURN_ACCEL_W * max(dt, 0.0)
+                delta_w = max(-max_step,
+                              min(max_step, desired_w - self.turn_w))
+                self.turn_w += delta_w
+                w = self.turn_w
                 self.spin_done_s += dt
                 self.turn_angle = turned   # exposed for turn logging
                 self.turn_error = err

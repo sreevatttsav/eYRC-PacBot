@@ -262,10 +262,12 @@ class ControllerRegressionTests(unittest.TestCase):
             ctl._record_backout_signature(signature)
         self.assertTrue(ctl.backout_loop_latched)
 
-        # A repeated signature alone is not evidence of a safe route turn.
+        # Repeated signatures force a fresh route decision rather than a
+        # permanent parking state.
         left, right, *_ = ctl.update(0.8, 0.8, 0.18, 0.18, 0.0, 0.02)
-        self.assertEqual(ctl.state, "BACKOUT_HOLD")
-        self.assertEqual((left, right), (0.0, 0.0))
+        self.assertEqual(ctl.state, "REVERSE")
+        self.assertLess(left, 0.0)
+        self.assertLess(right, 0.0)
 
     def test_lone_emergency_ray_backs_until_clear(self):
         ctl = CenteringController()

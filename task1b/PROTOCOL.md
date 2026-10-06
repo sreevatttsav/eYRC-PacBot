@@ -782,6 +782,55 @@ Then Ctrl+C the controller.
     GATEWAY: 2.35 rad/s
   -- lateral: mean|offset|=0.02692095103857567 coverage=100.0% n=33700
   ```
+- 2026-10-06 Linux→Mac: `maze19` stopped on user instruction (~67 s
+  wall, 78,899 ticks; `task1b/logs/20261006T130941Z_maze19/`, controller
+  `b5f08dc`). Sim stdout captured via `script -qec` — wrapper lines
+  only, sim binary still produces no stdout during the run. Controller
+  output captured in `controller_maze19.log`. What I noticed: GATEWAY
+  handed off to FOLLOW at t=2.2 s (good). New `progress_route_left`
+  turn logic fired — but 4 turns FAIL (errors −11.3°, −83.3°, −70.9°,
+  −17.2°), with two exiting via FRONT_BACKOUT. New `analyze_run.py`
+  metrics show **heading drift FLAG** (max>20° duration=16.25 s,
+  episodes>5s=1). All sensors 94–100% valid, lateral coverage 88%.
+  Verbatim `analyze_run.py` below.
+  ```
+  == maze19 commit=b5f08dc ticks=78899
+  -- turns --
+    #0 t=32.8s target=+90deg(logged) final_err=-11.3deg dur=4.02s exit=FRONT_BACKOUT:front_emergency rev=0[] FAIL
+    #1 t=53.6s target=+90deg(logged) final_err=-83.3deg dur=0.38s exit=FOLLOW:approach rev=0[] FAIL
+    #2 t=54.5s target=+90deg(logged) final_err=-70.9deg dur=0.56s exit=FRONT_BACKOUT:front_emergency rev=0[] FAIL
+    #3 t=70.4s target=+90deg(logged) final_err=-17.2deg dur=3.07s exit=FOLLOW:clear rev=0[] FAIL
+  -- stuck --
+    zero episodes
+  -- transitions --
+    BRAKE->FOLLOW [approach] x1
+    BRAKE->FOLLOW [clear] x1
+    FOLLOW->REVERSE [blocked] x1
+    FOLLOW->TURN [progress_route_left] x1
+    FRONT_BACKOUT->TURN [junction_left] x1
+    FRONT_BACKOUT->TURN [progress_route_left] x1
+    GATEWAY->FOLLOW [approach] x1
+    REVERSE->TURN [junction_left] x1
+    TURN->BRAKE [coast] x2
+    TURN->FRONT_BACKOUT [front_emergency] x2
+  -- sensors (valid/sat/held/none) --
+    fl: valid=94.7% sat=5.3% held=0.0% none=0.0%
+    fr: valid=100.0% sat=0.0% held=0.0% none=0.0%
+    sl: valid=99.8% sat=0.2% held=0.0% none=0.0%
+    sr: valid=99.9% sat=0.1% held=0.0% none=0.0%
+  -- mean |wheel| by state --
+    BRAKE: 2.00 rad/s
+    FOLLOW: 2.06 rad/s
+    FRONT_BACKOUT: 1.50 rad/s
+    GATEWAY: 2.35 rad/s
+    REVERSE: 3.00 rad/s
+    TURN: 1.99 rad/s
+  -- lateral: mean|offset|=0.0014472449787632281 coverage=88.0% n=69455
+  -- simulator verdict -- pending
+  -- heading drift -- max>20deg duration=16.25s episodes>5s=1 FLAG
+  -- steer cancellation -- 0 ticks (0.00%)
+  -- repeated state/signature cycles -- 0 cluster(s) of >=3 similar backouts
+  ```
 
 - 2026-10-05 Mac→Linux: maze8 follow-up fix implemented. Stuck
   detection now evaluates only FOLLOW/GATEWAY and clears its partial

@@ -32,6 +32,12 @@ import sys
 CAP_M = 0.300          # lateral metric needs both sides below the cap
 FINAL_ERR_DEG = 5.0
 REVERSAL_BAND_DEG = 8.0
+HEADING_FLAG_RAD = math.radians(20.0)
+HEADING_FLAG_DWELL_S = 5.0
+STEER_COMPONENT_MIN = 1.0
+STEER_TOTAL_NEAR_ZERO = 0.10
+REPEAT_SIGNATURE_TOL_M = 0.01
+REPEAT_SIGNATURE_MIN = 3
 
 
 def _f(row, key, default=None):
@@ -50,6 +56,8 @@ def load_run(run_dir):
     events = list(csv.DictReader(open(ev_path))) if os.path.exists(ev_path) else []
     meta_path = os.path.join(run_dir, "meta.json")
     meta = json.load(open(meta_path)) if os.path.exists(meta_path) else {}
+    result_path = os.path.join(run_dir, "result.json")
+    result = json.load(open(result_path)) if os.path.exists(result_path) else None
     # gyro-integral heading on sim-time (turn ground truth, coast incl.)
     th = 0.0
     for r in ticks:
@@ -57,7 +65,8 @@ def load_run(run_dir):
         d = _f(r, "dt_rep", 0.02) or 0.0
         th += g * d
         r["_th"] = th
-    return {"dir": run_dir, "ticks": ticks, "events": events, "meta": meta}
+    return {"dir": run_dir, "ticks": ticks, "events": events,
+            "meta": meta, "result": result}
 
 
 def turn_episodes(rep):
@@ -245,6 +254,93 @@ def analyze_lateral(rep):
             "coverage": len(vals) / len(ticks), "n": len(vals)}
 
 
+def analyze_heading_drift(rep):
+    ticks = rep["ticks"]
+    if not ticks or "e_heading" not in ticks[0]:
+        return None
+    episodes, start, elapsed = [], None, 0.0
+    for r in ticks:
+        e = _f(r, "e_heading")
+        dt = _f(r, "dt_rep", 0.0) or 0.0
+        if e is not None and abs(e) > HEADING_FLAG_RAD:
+            if start is None:
+                start = _f(r, "t_wall", 0.0) or 0.0
+                elapsed = 0.0
+            elapsed += dt
+        elif start is not None:
+            episodes.append({"start_t": start, "duration_s": elapsed})
+            start, elapsed = None, 0.0
+    if start is not None:
+        episodes.append({"start_t": start, "duration_s": elapsed,
+                         "unterminated": True})
+    flagged = [e for e in episodes if e["duration_s"] > HEADING_FLAG_DWELL_S]
+    return {"episodes": episodes, "flagged": flagged,
+            "max_duration_s": max((e["duration_s"] for e in episodes),
+                                   default=0.0)}
+
+
+def analyze_steer_cancellation(rep):
+    ticks = rep["ticks"]
+    keys = ticks[0].keys() if ticks else []
+    components = ("steer_lat", "steer_front", "steer_heading")
+    if not ticks or not all(k in keys for k in components) or "steer" not in keys:
+        return None
+    rows = []
+    for r in ticks:
+        vals = [_f(r, k) for k in components]
+        total = _f(r, "steer")
+        if None in vals or total is None:
+            continue
+        magnitude = sum(abs(v) for v in vals)
+        if (magnitude >= STEER_COMPONENT_MIN
+                and abs(total) <= STEER_TOTAL_NEAR_ZERO):
+            rows.append({"t": _f(r, "t_wall", 0.0) or 0.0,
+                         "state": r.get("state", "?"),
+                         "component_abs_sum": magnitude,
+                         "total": total})
+    return {"count": len(rows), "fraction": len(rows) / len(ticks),
+            "examples": rows[:5]}
+
+
+def analyze_repeated_state_signatures(rep):
+    ticks = rep["ticks"]
+    if not ticks:
+        return None
+    sig_keys = ("fl_f", "fr_f", "sl_f", "sr_f")
+    if not all(k in ticks[0] for k in sig_keys):
+        sig_keys = ("fl", "fr", "sl", "sr")
+    clusters = []
+    prev_state = None
+    pending_signature = None
+    for i, r in enumerate(ticks):
+        state = r.get("state")
+        if state == "FRONT_BACKOUT" and prev_state != "FRONT_BACKOUT":
+            sig = tuple(_f(r, k) for k in sig_keys)
+            pending_signature = sig if all(v is not None for v in sig) else None
+        elif (pending_signature is not None
+              and prev_state == "FRONT_BACKOUT" and state == "FOLLOW"):
+            sig = pending_signature
+            if all(v is not None for v in sig):
+                if (clusters and max(abs(a - b) for a, b in
+                                     zip(sig, clusters[-1]["signature"]))
+                        <= REPEAT_SIGNATURE_TOL_M):
+                    clusters[-1]["count"] += 1
+                    clusters[-1]["last_t"] = _f(r, "t_wall", 0.0) or 0.0
+                else:
+                    clusters.append({
+                        "count": 1,
+                        "first_t": _f(r, "t_wall", 0.0) or 0.0,
+                        "last_t": _f(r, "t_wall", 0.0) or 0.0,
+                        "signature": sig,
+                    })
+            pending_signature = None
+        elif pending_signature is not None and state != "FRONT_BACKOUT":
+            pending_signature = None
+        prev_state = state
+    repeated = [c for c in clusters if c["count"] >= REPEAT_SIGNATURE_MIN]
+    return {"clusters": clusters, "repeated": repeated}
+
+
 def report(rep):
     turns = analyze_turns(rep)
     stuck = analyze_stuck(rep)
@@ -252,8 +348,13 @@ def report(rep):
     sens = analyze_sensors(rep)
     wheels = analyze_wheels(rep)
     lat = analyze_lateral(rep)
+    heading = analyze_heading_drift(rep)
+    steer_cancel = analyze_steer_cancellation(rep)
+    cycles = analyze_repeated_state_signatures(rep)
     return {"turns": turns, "stuck": stuck, "trans": trans,
             "sens": sens, "wheels": wheels, "lat": lat,
+            "heading": heading, "steer_cancel": steer_cancel,
+            "cycles": cycles, "result": rep.get("result"),
             "nticks": len(rep["ticks"]),
             "label": rep["meta"].get("label", "?"),
             "commit": (rep["meta"].get("git_commit") or "?")[:7]}
@@ -291,6 +392,37 @@ def print_report(r):
     lat = r["lat"]
     print(f"-- lateral: mean|offset|={lat['mean_abs']} "
           f"coverage={lat['coverage']:.1%} n={lat['n']}")
+    result = r.get("result")
+    if result is None:
+        print("-- simulator verdict -- n/a (no result.json)")
+    else:
+        payloads = [m.get("payload") for m in result.get("messages", [])]
+        print(f"-- simulator verdict -- {result.get('status')}"
+              + (f" payload={payloads[-1]}" if payloads else ""))
+    heading = r.get("heading")
+    if heading is None:
+        print("-- heading drift -- n/a (old log)")
+    else:
+        print(f"-- heading drift -- max>{math.degrees(HEADING_FLAG_RAD):.0f}deg "
+              f"duration={heading['max_duration_s']:.2f}s "
+              f"episodes>{HEADING_FLAG_DWELL_S:.0f}s="
+              f"{len(heading['flagged'])}"
+              + (" FLAG" if heading["flagged"] else ""))
+    cancel = r.get("steer_cancel")
+    if cancel is None:
+        print("-- steer cancellation -- n/a (old log)")
+    else:
+        print(f"-- steer cancellation -- {cancel['count']} ticks "
+              f"({cancel['fraction']:.2%})"
+              + (" FLAG" if cancel["count"] else ""))
+    cycles = r.get("cycles")
+    if cycles is None:
+        print("-- repeated state/signature cycles -- n/a")
+    else:
+        print(f"-- repeated state/signature cycles -- "
+              f"{len(cycles['repeated'])} cluster(s) of >="
+              f"{REPEAT_SIGNATURE_MIN} similar backouts"
+              + (" FLAG" if cycles["repeated"] else ""))
 
 
 def compare(a, b):

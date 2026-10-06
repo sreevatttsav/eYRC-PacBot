@@ -1,6 +1,7 @@
 """Focused regressions for maze navigation recovery behavior."""
 import unittest
 from collections import deque
+import math
 import sys
 import types
 
@@ -18,7 +19,9 @@ except ImportError:
 
 from task_1b_boilerplate import (
     CenteringController, FOLLOW_STEER_RATIO, FRONT_BACKOUT_SPEED,
-    FRONT_EMERGENCY_DIST, FRONT_SPEED_TAPER_END, YAW_GAIN_K,
+    FRONT_EMERGENCY_DIST, FRONT_MIN_SPEED_MPS, FRONT_RAY_COS,
+    FRONT_SPEED_TAPER_END, HEADING_PIVOT_THRESHOLD, K_LIN,
+    PROGRESS_WATCHDOG_S, YAW_GAIN_K,
 )
 from task_1b_boilerplate import GATEWAY_APPROACH_M, GATEWAY_CORRIDOR_S
 
@@ -51,6 +54,24 @@ class ControllerRegressionTests(unittest.TestCase):
         # Left opens into a branch while the right wall remains present.
         for _ in range(80):
             ctl.update(0.8, 0.8, 0.30, 0.20, 0.0, 0.02)
+            if ctl.state == "TURN":
+                break
+
+        self.assertEqual(ctl.state, "TURN")
+        self.assertEqual(ctl.turn_cause, "gap")
+        self.assertGreater(ctl.turn_target, 0.0)
+
+    def test_two_wall_corridor_arms_junction_detector(self):
+        ctl = CenteringController()
+
+        # A normal narrow corridor has both side ranges below FOLLOW_WALL_MAX.
+        # It must still latch a wall so that its later loss can mean a branch.
+        for _ in range(70):
+            ctl.update(0.8, 0.8, 0.20, 0.22, 0.0, 0.02)
+        self.assertEqual(ctl.follow_side, 1.0)
+
+        for _ in range(80):
+            ctl.update(0.8, 0.8, 0.30, 0.22, 0.0, 0.02)
             if ctl.state == "TURN":
                 break
 
@@ -118,13 +139,85 @@ class ControllerRegressionTests(unittest.TestCase):
             self.assertEqual(ctl.reverse_ticks, 0)
             self.assertGreater(left + right, 0.0)
 
-    def test_lone_close_ray_steers_away(self):
+    def test_lone_close_splayed_ray_does_not_steer(self):
         ctl = CenteringController()
         left, right, *_ = ctl.update(None, 0.10, 0.18, 0.18, 0.0, 0.02)
 
         self.assertEqual(ctl.state, "FOLLOW")
-        self.assertGreater(right - left, 0.0)  # steer left, away from right ray
+        self.assertEqual(ctl.steer_front, 0.0)
+        self.assertAlmostEqual(left, right)
         self.assertGreater(left + right, 0.0)
+
+    def test_front_distance_uses_forward_projection_and_pair_gate(self):
+        ctl = CenteringController()
+        _, _, _, e_front, _ = ctl.update(
+            0.20, 0.29, 0.18, 0.18, 0.0, 0.02)
+
+        self.assertAlmostEqual(e_front, (0.20 - 0.29) * FRONT_RAY_COS)
+        self.assertEqual(ctl.steer_front, 0.0)  # asymmetric pair is not a wall
+
+        ctl = CenteringController()
+        ctl.update(0.20, 0.23, 0.18, 0.18, 0.0, 0.02)
+        self.assertNotEqual(ctl.steer_front, 0.0)  # close, similar wall pair
+
+    def test_near_front_taper_keeps_minimum_forward_speed(self):
+        ctl = CenteringController()
+        ray_distance = 0.09 / FRONT_RAY_COS
+        left, right, *_ = ctl.update(ray_distance, 0.60, 0.18, 0.18,
+                                     0.0, 0.02)
+
+        self.assertEqual(ctl.state, "FOLLOW")
+        self.assertGreaterEqual((left + right) * 0.5 * K_LIN,
+                                FRONT_MIN_SPEED_MPS - 1e-6)
+
+    def test_large_heading_error_uses_gyro_pivot_not_wall_steering(self):
+        ctl = CenteringController()
+        ctl.gyro_th = -math.radians(25)
+        left, right, *_ = ctl.update(0.8, 0.8, 0.12, 0.22, 0.0, 0.02)
+
+        self.assertEqual(ctl.state, "TURN")
+        self.assertEqual(ctl.turn_cause, "heading_recenter")
+        self.assertAlmostEqual(ctl.turn_target, math.radians(25), places=3)
+        self.assertEqual((left, right), (0.0, 0.0))
+        self.assertEqual(ctl.steer_lat, 0.0)
+        self.assertEqual(ctl.steer_front, 0.0)
+        self.assertGreater(HEADING_PIVOT_THRESHOLD, math.radians(14))
+
+        omega = 0.0
+        for _ in range(500):
+            cmd_omega = 1.25 * YAW_GAIN_K * (right - left)
+            omega += (cmd_omega - omega) * 0.02 / 0.14
+            left, right, *_ = ctl.update(
+                0.8, 0.8, 0.12, 0.22, omega, 0.02)
+            if ctl.state == "FOLLOW" and not ctl.turn_active:
+                break
+        self.assertEqual(ctl.state, "FOLLOW")
+        self.assertAlmostEqual(ctl.heading_ref, 0.0)
+        self.assertLess(abs(ctl.e_heading), HEADING_PIVOT_THRESHOLD)
+
+    def test_progress_watchdog_flags_three_matching_backouts(self):
+        ctl = CenteringController()
+        signature = (0.07, 0.20, 0.10, 0.12)
+        for _ in range(3):
+            ctl._record_backout_signature(signature)
+        self.assertTrue(ctl.watchdog_pending)
+        self.assertEqual(ctl.watchdog_reason, "repeat_front_backout")
+
+        # Escalate only once the close-front condition has cleared.
+        left, right, *_ = ctl.update(0.8, 0.8, 0.18, 0.18, 0.0, 0.02)
+        self.assertEqual(ctl.state, "TURN")
+        self.assertEqual(ctl.turn_cause, "progress_route")
+        self.assertEqual((left, right), (0.0, 0.0))
+
+    def test_progress_watchdog_uses_fifteen_seconds_without_change(self):
+        ctl = CenteringController()
+        signature = (0.20, 0.20, 0.10, 0.10)
+        ctl._update_progress_watchdog(0.02, signature)
+        for _ in range(int(PROGRESS_WATCHDOG_S / 0.02) + 1):
+            ctl.t += 0.02
+            ctl._update_progress_watchdog(0.02, signature)
+        self.assertTrue(ctl.watchdog_pending)
+        self.assertEqual(ctl.watchdog_reason, "no_progress_15s")
 
     def test_lone_emergency_ray_backs_until_clear(self):
         ctl = CenteringController()
@@ -166,6 +259,15 @@ class ControllerRegressionTests(unittest.TestCase):
         ctl.update(0.10, 0.10, 0.18, 0.18, 0.0, 0.02)
         self.assertEqual(ctl.state, "REVERSE")
         self.assertNotEqual(ctl.spin_dir, 0.0)
+        self.assertAlmostEqual(abs(ctl.turn_target), 3.141592653589793)
+
+    def test_blocked_front_turns_toward_classified_open_side(self):
+        ctl = CenteringController()
+        ctl.update(0.10, 0.10, 0.10, 0.30, 0.0, 0.02)
+
+        self.assertEqual(ctl.state, "REVERSE")
+        self.assertLess(ctl.spin_dir, 0.0)
+        self.assertEqual(ctl.turn_cause, "junction")
 
     def test_gateway_handoff_returns_to_nearest_front_speed_control(self):
         ctl = CenteringController()
@@ -179,7 +281,8 @@ class ControllerRegressionTests(unittest.TestCase):
 
         self.assertFalse(ctl.gateway_active)
         self.assertEqual(ctl.state, "FOLLOW")
-        self.assertLess((left + right) / 2.0, 1.0)
+        self.assertLessEqual((left + right) / 2.0,
+                             0.02 / K_LIN + 1e-6)
 
     def test_gateway_extends_straight_approach_then_holds_if_still_blocked(self):
         ctl = CenteringController()

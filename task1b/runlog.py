@@ -111,6 +111,9 @@ class RunLogger:
         }
         with open(os.path.join(self.run_dir, "meta.json"), "w") as f:
             json.dump(meta, f, indent=2)
+        self._result_path = os.path.join(self.run_dir, "result.json")
+        self._result_messages = []
+        self._write_result("pending")
 
         self._ticks_f = open(os.path.join(self.run_dir, "ticks.csv"),
                              "w", newline="")
@@ -131,6 +134,32 @@ class RunLogger:
         self._y = 0.0
         self._th = 0.0
         print(f"[runlog] logging to {self.run_dir}")
+
+    def _write_result(self, status):
+        payload = {
+            "status": status,
+            "messages": self._result_messages,
+            "note": ("No wheel encoders or simulator pose stream are available; "
+                     "the progress watchdog compares ToF signatures and cannot "
+                     "distinguish a uniform straight corridor from no motion."),
+        }
+        with open(self._result_path, "w") as f:
+            json.dump(payload, f, indent=2)
+            f.flush()
+            try:
+                os.fsync(f.fileno())
+            except OSError:
+                pass
+
+    def result(self, payload, topic="pacbot/result"):
+        """Persist each simulator verdict immediately to the run folder."""
+        self._result_messages.append({
+            "received_utc": datetime.now(timezone.utc).isoformat(),
+            "topic": topic,
+            "payload": payload,
+        })
+        self._write_result("received")
+        print(f"[runlog] simulator result saved: {payload}", flush=True)
 
     # -- per-callback ----------------------------------------------------
     def tick(self, raw, filt, gyro_z, dt_rep, e_lat, e_front, steer,
@@ -223,6 +252,9 @@ class RunLogger:
         try:
             self.flush()
         finally:
+            self._write_result(
+                "received" if self._result_messages
+                else "not_received_before_shutdown")
             self._ticks_f.close()
             self._events_f.close()
         print(f"[runlog] closed {self.run_dir} "

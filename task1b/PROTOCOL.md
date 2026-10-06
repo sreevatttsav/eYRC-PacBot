@@ -1015,3 +1015,17 @@ Then Ctrl+C the controller.
   `FRONT_BACKOUT` before FOLLOW wheel commands collapse toward zero. Record
   any repeated gateway transitions, minimum front readings, wheel speeds,
   backout release, and simulator verdict.
+
+- 2026-10-06 Mac→Linux: maze19 exposed that the single-ray emergency
+  backout check ran before the committed gyro-turn servo. A close splayed
+  ray could therefore interrupt a `progress_route`/junction turn, leaving
+  the heading half-complete and causing follow-up turns to start from the
+  wrong frame. Restricted `FRONT_BACKOUT` entry to FOLLOW/GATEWAY while a
+  committed turn owns the wheels; the completed turn will perform a fresh
+  obstacle decision. Added a regression for a close single ray during TURN.
+  Local validation: 28/28 tests pass and `git diff --check` is clean.
+
+  **Next run: maze20.** Run the full maze with the patched controller and
+  capture the simulator verdict. Verify that no `TURN→FRONT_BACKOUT`
+  transition occurs while a committed turn is active, that progress-route
+  turns reach their gyro targets, and report the standard analyzer output.

@@ -139,6 +139,19 @@ class ControllerRegressionTests(unittest.TestCase):
             self.assertEqual(ctl.reverse_ticks, 0)
             self.assertGreater(left + right, 0.0)
 
+    def test_single_ray_emergency_does_not_interrupt_committed_turn(self):
+        ctl = CenteringController()
+        ctl._start_turn(1.0, math.pi / 2.0, "progress_route")
+        ctl.state = "TURN"
+
+        left, right, *_ = ctl.update(0.08 / FRONT_RAY_COS, 0.30,
+                                     0.18, 0.18, 0.0, 0.02)
+
+        self.assertEqual(ctl.state, "TURN")
+        self.assertFalse(ctl.front_backout_active)
+        self.assertLess(left, 0.0)
+        self.assertGreater(right, 0.0)
+
     def test_lone_close_splayed_ray_does_not_steer(self):
         ctl = CenteringController()
         left, right, *_ = ctl.update(None, 0.10, 0.18, 0.18, 0.0, 0.02)

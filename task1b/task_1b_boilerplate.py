@@ -1035,7 +1035,16 @@ class CenteringController:
                     e_lat, e_front, steer, yaw_rate, dt)
         emergency_l = fl_num and fl_forward <= FRONT_EMERGENCY_DIST
         emergency_r = fr_num and fr_forward <= FRONT_EMERGENCY_DIST
-        if not blocked and (emergency_l != emergency_r):
+        # A committed gyro turn owns the wheel commands until it reaches its
+        # target.  Letting a single splayed ray interrupt that turn leaves the
+        # heading state half-complete and can make the next recovery turn
+        # start from the wrong frame (maze19).  Emergency backout remains a
+        # FOLLOW/GATEWAY intervention; a completed turn will make a fresh
+        # obstacle decision on the next tick.
+        turn_owns_wheels = self.spin_dir != 0.0 or self.turn_active
+        if (self.state in ("FOLLOW", "GATEWAY")
+                and not turn_owns_wheels
+                and not blocked and (emergency_l != emergency_r)):
             self.front_backout_active = True
             self.front_backout_side = 1.0 if emergency_l else -1.0
             self._record_backout_signature(

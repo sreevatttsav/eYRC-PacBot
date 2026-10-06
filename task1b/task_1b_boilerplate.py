@@ -1005,6 +1005,21 @@ class CenteringController:
         emergency_l = fl_num and fl_forward <= FRONT_EMERGENCY_DIST
         emergency_r = fr_num and fr_forward <= FRONT_EMERGENCY_DIST
 
+        # If one front ray is genuinely close while the other ray is stale or
+        # invalid, this is a degraded view of a blocked front, not a harmless
+        # grazing ray. Promote it to the normal route selector so the bot can
+        # turn toward an observed opening instead of driving into the wall.
+        # The gateway wall-follow exemption deliberately remains untouched.
+        degraded_front_block = (
+            (emergency_l != emergency_r)
+            and (fl_s != "valid" or fr_s != "valid")
+            and (self.observation.left == "open"
+                 or self.observation.right == "open")
+            and not self.gateway_wall_follow_active
+        )
+        if degraded_front_block:
+            blocked = True
+
         # A committed gyro turn owns the wheel commands until it reaches its
         # target. Letting a single splayed ray interrupt that turn leaves the
         # heading state half-complete and can make the next recovery turn

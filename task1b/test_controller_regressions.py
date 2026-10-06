@@ -177,6 +177,27 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertEqual(ctl.observation.hazard, "single_ray")
         self.assertGreater((left + right) * 0.5, 1.5)
 
+    def test_stale_opposite_front_ray_routes_around_close_wall(self):
+        ctl = CenteringController()
+        for _ in range(20):
+            ctl.update(0.8, 0.8, 0.30, 0.30, 0.0, 0.02)
+        for _ in range(30):
+            left, right, *_ = ctl.update(None, 0.047, 0.30, 0.30,
+                                         0.0, 0.02)
+            if ctl.state == "REVERSE":
+                break
+
+        self.assertEqual(ctl.state, "REVERSE")
+        self.assertLess(left, 0.0)
+        self.assertLess(right, 0.0)
+        self.assertEqual(ctl.turn_cause, "junction")
+
+        for _ in range(40):
+            ctl.update(None, 0.20, 0.30, 0.30, 0.0, 0.02)
+            if ctl.state == "TURN":
+                break
+        self.assertEqual(ctl.state, "TURN")
+
     def test_lone_close_splayed_ray_does_not_steer(self):
         ctl = CenteringController()
         left, right, *_ = ctl.update(None, 0.10, 0.18, 0.18, 0.0, 0.02)

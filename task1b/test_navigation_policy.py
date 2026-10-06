@@ -73,16 +73,16 @@ class NavigationPolicyTests(unittest.TestCase):
                 break
         self.assertEqual(ctl.state, 'TURN')
 
-    def test_emergency_aborts_turn(self):
+    def test_emergency_does_not_interrupt_committed_turn(self):
         ctl = CenteringController()
         ctl._start_turn(1, math.pi/2, 'junction')
         ctl.turn_active = True
         ctl.state = 'TURN'
         ctl.update(.07, .8, .051, .051, 0, .02)
-        self.assertEqual(ctl.state, 'FRONT_BACKOUT')
-        self.assertEqual(ctl.turn_outcome, 'aborted')
-        self.assertFalse(ctl.turn_active)
-        self.assertEqual(ctl.spin_dir, 0)
+        self.assertEqual(ctl.state, 'TURN')
+        self.assertEqual(ctl.turn_outcome, 'active')
+        self.assertTrue(ctl.turn_active)
+        self.assertNotEqual(ctl.spin_dir, 0)
 
     def test_closed_loop_corridor_and_left_branch(self):
         # Rays originate at the documented sensor locations. The corridor

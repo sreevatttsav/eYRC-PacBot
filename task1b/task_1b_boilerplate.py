@@ -1073,25 +1073,6 @@ class CenteringController:
         # obstacle decision on the next tick.
         turn_owns_wheels = self.spin_dir != 0.0 or self.turn_active
         
-        # If an emergency occurs during an active turn, abort the turn cleanly
-        if ((emergency_l or emergency_r) and turn_owns_wheels
-                and self.turn_cause == "junction"):
-            self.abort_reason = "front_emergency"
-            self.turn_outcome = "aborted"
-            self.turn_active = False
-            self.spin_dir = 0.0
-            self.reverse_ticks = 0
-            self.brake_until = None
-            self.front_backout_active = True
-            self.front_backout_side = 1.0 if emergency_l else -1.0
-            self.front_backout_t = 0.0
-            self._record_backout_signature(
-                (fl_forward, fr_forward, self.sl_f, self.sr_f))
-            self._set_state("FRONT_BACKOUT", "front_emergency")
-            return self._finalize(
-                -FRONT_BACKOUT_SPEED, -FRONT_BACKOUT_SPEED,
-                e_lat, e_front, steer, yaw_rate, dt)
-
         if (self.state in ("FOLLOW", "GATEWAY")
                 and not turn_owns_wheels
                 and not self.gateway_wall_follow_active

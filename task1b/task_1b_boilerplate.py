@@ -1033,6 +1033,19 @@ class CenteringController:
         )
         if degraded_front_block:
             blocked = True
+        tight_corridor_front_block = (
+            ((fl_num and fl_forward < FRONT_STOP_DIST)
+             != (fr_num and fr_forward < FRONT_STOP_DIST))
+            and front_clear is not None
+            and front_clear < FRONT_STOP_DIST
+            and self.sl_f is not None and self.sr_f is not None
+            and self.sl_f < WEDGE_ENTER and self.sr_f < WEDGE_ENTER
+            and not self.gateway_wall_follow_active
+        )
+        if tight_corridor_front_block:
+            # A close ray between two established side walls is the end of
+            # the corridor, even if the opposite splayed ray is still clear.
+            blocked = True
         if backout_limit_reached:
             # We have already created the configured clearance; do not issue
             # another reverse command. Let the normal blocked-front policy

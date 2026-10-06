@@ -205,6 +205,17 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertNotEqual(ctl.state, "FRONT_BACKOUT")
         self.assertNotEqual(ctl.state, "BACKOUT_HOLD")
 
+    def test_close_front_ray_in_tight_corridor_commits_route_turn(self):
+        ctl = CenteringController()
+        for _ in range(30):
+            ctl.update(0.30, 0.30, 0.06, 0.06, 0.0, 0.02)
+        for _ in range(30):
+            ctl.update(0.30, 0.12, 0.06, 0.06, 0.0, 0.02)
+            if ctl.state in ("REVERSE", "TURN"):
+                break
+        self.assertIn(ctl.state, ("REVERSE", "TURN"))
+        self.assertNotEqual(ctl.state, "FRONT_BACKOUT")
+
     def test_lone_close_splayed_ray_does_not_steer(self):
         ctl = CenteringController()
         left, right, *_ = ctl.update(None, 0.10, 0.18, 0.18, 0.0, 0.02)

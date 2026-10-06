@@ -58,21 +58,20 @@ class NavigationPolicyTests(unittest.TestCase):
         self.assertEqual(ctl.lat_mode, 'left_only')
         self.assertGreater(r, l)  # too far from left wall: steer left
 
-    def test_single_ray_is_cautious_but_not_a_route_turn(self):
+    def test_single_ray_in_tight_corridor_routes_instead_of_driving_on(self):
         ctl = CenteringController()
         for _ in range(20):
             ctl.update(.11, .8, .051, .051, 0, .02)
-        self.assertEqual(ctl.state, 'FOLLOW')
+        self.assertIn(ctl.state, ('REVERSE', 'TURN'))
         self.assertEqual(ctl.observation.hazard, 'single_ray')
 
-    def test_persistent_near_single_ray_gets_bounded_backout(self):
+    def test_persistent_near_single_ray_commits_a_turn(self):
         ctl = CenteringController()
         for _ in range(160):
             ctl.update(.115, .8, .051, .051, 0, .02)
-            if ctl.state == 'FRONT_BACKOUT':
+            if ctl.state == 'TURN':
                 break
-        self.assertEqual(ctl.state, 'FRONT_BACKOUT')
-        self.assertEqual(ctl.state_reason, 'single_ray_check')
+        self.assertEqual(ctl.state, 'TURN')
 
     def test_emergency_aborts_turn(self):
         ctl = CenteringController()

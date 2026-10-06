@@ -21,7 +21,7 @@ from task_1b_boilerplate import (
     CenteringController, FOLLOW_STEER_RATIO, FRONT_BACKOUT_SPEED,
     FRONT_EMERGENCY_DIST, FRONT_MIN_SPEED_MPS, FRONT_RAY_COS,
     FRONT_SPEED_TAPER_END, HEADING_PIVOT_THRESHOLD, K_LIN,
-    YAW_GAIN_K,
+    YAW_GAIN_K, FOLLOW_ESTABLISH_S,
 )
 from task_1b_boilerplate import GATEWAY_APPROACH_M, GATEWAY_CORRIDOR_S
 
@@ -151,6 +151,20 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertFalse(ctl.front_backout_active)
         self.assertLess(left, 0.0)
         self.assertGreater(right, 0.0)
+
+    def test_gateway_wall_follow_ignores_entrance_jamb_single_ray(self):
+        ctl = CenteringController()
+        ctl.state = "FOLLOW"
+        ctl.gateway_wall_follow_active = True
+        ctl.follow_t = FOLLOW_ESTABLISH_S
+
+        left, right, *_ = ctl.update(0.08 / FRONT_RAY_COS, 0.80,
+                                     0.21, 0.19, 0.0, 0.02)
+
+        self.assertEqual(ctl.state, "FOLLOW")
+        self.assertGreater(left, 0.0)
+        self.assertGreater(right, 0.0)
+        self.assertFalse(ctl.front_backout_active)
 
     def test_lone_close_splayed_ray_does_not_steer(self):
         ctl = CenteringController()

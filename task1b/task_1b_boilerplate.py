@@ -726,7 +726,11 @@ class CenteringController:
         # the close splayed front rays as entrance geometry until a front
         # ray actually clears. Otherwise FOLLOW immediately re-enters the
         # blocked-front turn loop before it can track the acquired wall.
-        if self.gateway_wall_follow_active and gateway_path_open:
+        # Keep the entrance-wall exemption until both splayed rays clear.
+        # One open ray is exactly the jamb geometry that caused maze20 to
+        # reverse out of the entrance.
+        if (self.gateway_wall_follow_active
+                and front_open_l and front_open_r):
             self.gateway_wall_follow_active = False
         blocked = (self.observation.front == "blocked"
                    and not self.gateway_wall_follow_active)
@@ -1029,6 +1033,7 @@ class CenteringController:
 
         if (self.state in ("FOLLOW", "GATEWAY")
                 and not turn_owns_wheels
+                and not self.gateway_wall_follow_active
                 and not blocked and (emergency_l != emergency_r)):
             self.front_backout_active = True
             self.front_backout_side = 1.0 if emergency_l else -1.0

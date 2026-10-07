@@ -136,7 +136,7 @@ RECOVER_DIST = 0.10    # back-out distance per recovery (m, estimated)
 # Sanity anchor: yaw gain 0.0914 (measured) vs R/track = 0.218
 # kinematic -- the sim loses ~58% in yaw (slip), translation unaffected.
 K_LIN = 0.017          # m/s per wheel rad/s (binary MJCF wheel radius)
-CRUISE_LINEAR_MPS = 0.04   # s2a cruise (refactor at explicit speed)
+CRUISE_LINEAR_MPS = 0.06   # faster long-corridor cruise
 MAX_LINEAR_MPS = 0.12      # s2c ceiling (only if scoring rewards speed)
 
 # Saturation model (Stage 2). SAT_MODE="ceiling": a reading at the cap
@@ -710,6 +710,7 @@ class CenteringController:
             backout_limit_reached=backout_limit_reached,
             # filled in by _classify_front
             front_clear=None, front_open_l=False, front_open_r=False,
+            front_center_clear=None,
             gateway_path_open=False, gateway_corridor=False,
             blocked=False,
         )
@@ -765,6 +766,11 @@ class CenteringController:
         front_vals = [v for v in (c.fl_forward, c.fr_forward)
                       if v is not None]
         c.front_clear = min(front_vals) if front_vals else None
+        c.front_center_clear = (
+            (c.fl_forward + c.fr_forward) * 0.5
+            if c.fl_forward is not None and c.fr_forward is not None
+            else None
+        )
         c.front_open_l = (c.fl_s == "valid" and
                           c.fl_forward > self.RESUME_DIST)
         c.front_open_r = (c.fr_s == "valid" and
@@ -1567,6 +1573,12 @@ class CenteringController:
         """Linear speed command (m/s): slow down toward a front wall,
         crawl when the front is unknown."""
         front_clear = c.front_clear
+        if (c.front_center_clear is not None
+                and self.observation.front == "clear"
+                and not self.state_reason.startswith("gateway_")):
+            # Use centreline clearance for speed once the path is confirmed;
+            # obstacle classification still uses the nearest-ray safety path.
+            front_clear = c.front_center_clear
         # Slowdown ramps from emergency distance to CAP-0.02; a saturated
         # front reads the cap, i.e. full cruise. Unknown front -> cautious
         # half speed. (A blocked front never reaches FOLLOW: _phase_escape

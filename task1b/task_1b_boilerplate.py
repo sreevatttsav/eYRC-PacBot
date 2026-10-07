@@ -48,7 +48,7 @@ I_DEADBAND = 0.005     # ignore |e_lat| below this (meters)
 
 FRONT_SLOW_DIST = 0.5  # below this, start slowing down (meters)
 FRONT_STOP_DIST = 0.15 # below this, spin in place
-FRONT_JUNCTION_DIST = 0.18  # near front + open side: commit route turn
+FRONT_JUNCTION_DIST = 0.16  # near front + open side: commit route turn
 FRONT_SPEED_TAPER_END = 0.06  # speed remains positive above this range
 FRONT_EMERGENCY_DIST = 0.08  # back out before the taper can stall the bot
 FRONT_EMERGENCY_RELEASE = 0.12  # hysteresis: keep backing until clear
@@ -166,7 +166,7 @@ GATEWAY_CLEAR_S = 0.15    # both front rays clear this long -> FOLLOW
 GATEWAY_CORRIDOR_MAX = 0.22  # both sides inside this range = passage entered
 GATEWAY_CORRIDOR_SYM_DB = 0.06
 GATEWAY_CORRIDOR_S = 0.30  # require a stable side-wall signature
-GATEWAY_SIDE_WALL_DELTA_M = 0.25  # side range fell from spawn baseline
+GATEWAY_SIDE_WALL_DELTA_M = 0.04  # side range fell from spawn baseline
 GATEWAY_SIDE_WALL_DWELL_S = 0.25  # sensor persistence debounce, not mode time
 GATEWAY_REARM_CLEAR_DIST = 0.20  # require front sensor evidence to rearm
 GATEWAY_FRONT_STEER_MAX = 0.50  # bound front alignment while in the frame
@@ -787,6 +787,11 @@ class CenteringController:
             and self.sl_f < GATEWAY_CORRIDOR_MAX
             and self.sr_f < GATEWAY_CORRIDOR_MAX
             and abs(self.sl_f - self.sr_f) < GATEWAY_CORRIDOR_SYM_DB
+            # Narrow side ranges alone do not prove that the entrance has
+            # been crossed: one splayed front ray may still be looking at
+            # the entrance jamb. Wait for both fronts to clear before using
+            # the corridor signature as a handoff.
+            and front_open_l and front_open_r
         )
         if self.gateway_failed:
             self._set_state("GATEWAY_HOLD", "gateway_abort")
@@ -1025,9 +1030,7 @@ class CenteringController:
                 # Keep the entrance interpretation active through FOLLOW
                 # while front rays remain blocked; side-wall acquisition
                 # is the evidence that this is a passage, not a dead end.
-                self.gateway_wall_follow_active = (
-                    side_wall_exit and not gateway_path_open
-                )
+                self.gateway_wall_follow_active = side_wall_exit
                 self.gateway_rearm_latched = True
                 if side_wall_exit:
                     if side_wall_l and side_wall_r:
@@ -1153,6 +1156,7 @@ class CenteringController:
             and front_clear < FRONT_JUNCTION_DIST
             and (self.observation.left == "open"
                  or self.observation.right == "open")
+            and self.follow_t >= FOLLOW_ESTABLISH_S
             and not self.gateway_wall_follow_active
         )
         if near_front_junction:

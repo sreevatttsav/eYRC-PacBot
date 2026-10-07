@@ -218,10 +218,10 @@ class ControllerRegressionTests(unittest.TestCase):
 
     def test_near_front_with_open_side_commits_junction_turn(self):
         ctl = CenteringController()
+        for _ in range(60):
+            ctl.update(0.30, 0.30, 0.10, 0.70, 0.0, 0.02)
         for _ in range(30):
-            ctl.update(0.30, 0.30, 0.70, 0.70, 0.0, 0.02)
-        for _ in range(30):
-            ctl.update(0.30, 0.16, 0.70, 0.70, 0.0, 0.02)
+            ctl.update(0.30, 0.16, 0.10, 0.70, 0.0, 0.02)
             if ctl.state in ("REVERSE", "TURN"):
                 break
         self.assertIn(ctl.state, ("REVERSE", "TURN"))

@@ -252,7 +252,7 @@ class ControllerRegressionTests(unittest.TestCase):
                 break
 
         self.assertFalse(ctl.gateway_wall_follow_active)
-        self.assertIn(ctl.state, ("REVERSE", "TURN"))
+        self.assertIn(ctl.state, ("ROUTE_BUFFER", "REVERSE", "TURN"))
 
     def test_gateway_releases_with_asymmetric_close_corridor_walls(self):
         ctl = CenteringController()
@@ -265,7 +265,7 @@ class ControllerRegressionTests(unittest.TestCase):
                 break
 
         self.assertFalse(ctl.gateway_wall_follow_active)
-        self.assertIn(ctl.state, ("REVERSE", "TURN"))
+        self.assertIn(ctl.state, ("ROUTE_BUFFER", "REVERSE", "TURN"))
 
     def test_single_ray_in_corridor_does_not_hold_minimum_speed(self):
         ctl = CenteringController()
@@ -288,9 +288,13 @@ class ControllerRegressionTests(unittest.TestCase):
             if ctl.state == "REVERSE":
                 break
 
-        self.assertEqual(ctl.state, "REVERSE")
-        self.assertLess(left, 0.0)
-        self.assertLess(right, 0.0)
+        self.assertIn(ctl.state, ("ROUTE_BUFFER", "REVERSE"))
+        if ctl.state == "REVERSE":
+            self.assertLess(left, 0.0)
+            self.assertLess(right, 0.0)
+        else:
+            self.assertGreater(left, 0.0)
+            self.assertGreater(right, 0.0)
         self.assertEqual(ctl.turn_cause, "junction")
 
         for _ in range(40):
@@ -314,7 +318,7 @@ class ControllerRegressionTests(unittest.TestCase):
             ctl.update(0.30, 0.12, 0.06, 0.06, 0.0, 0.02)
             if ctl.state in ("REVERSE", "TURN"):
                 break
-        self.assertIn(ctl.state, ("REVERSE", "TURN"))
+        self.assertIn(ctl.state, ("ROUTE_BUFFER", "REVERSE", "TURN"))
         self.assertNotEqual(ctl.state, "FRONT_BACKOUT")
 
     def test_near_front_with_open_side_commits_junction_turn(self):
@@ -387,7 +391,7 @@ class ControllerRegressionTests(unittest.TestCase):
             ctl.update(0.10, 0.10, 0.30, 0.30, 0.0, 0.02)
             if ctl.state == "REVERSE":
                 break
-        self.assertEqual(ctl.state, "REVERSE")
+        self.assertIn(ctl.state, ("ROUTE_BUFFER", "REVERSE"))
         self.assertEqual(ctl.turn_cause, "junction")
 
     def test_lone_close_splayed_ray_does_not_steer(self):
@@ -439,9 +443,13 @@ class ControllerRegressionTests(unittest.TestCase):
         # Repeated signatures force a fresh route decision rather than a
         # permanent parking state.
         left, right, *_ = ctl.update(0.8, 0.8, 0.18, 0.18, 0.0, 0.02)
-        self.assertEqual(ctl.state, "REVERSE")
-        self.assertLess(left, 0.0)
-        self.assertLess(right, 0.0)
+        self.assertIn(ctl.state, ("ROUTE_BUFFER", "REVERSE"))
+        if ctl.state == "REVERSE":
+            self.assertLess(left, 0.0)
+            self.assertLess(right, 0.0)
+        else:
+            self.assertGreater(left, 0.0)
+            self.assertGreater(right, 0.0)
 
     def test_lone_emergency_ray_backs_until_clear(self):
         ctl = CenteringController()

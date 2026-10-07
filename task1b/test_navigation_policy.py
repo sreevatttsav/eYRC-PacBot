@@ -101,7 +101,7 @@ class NavigationPolicyTests(unittest.TestCase):
         ctl = CenteringController()
         for _ in range(20):
             ctl.update(.11, .8, .051, .051, 0, .02)
-        self.assertIn(ctl.state, ('REVERSE', 'TURN'))
+        self.assertIn(ctl.state, ('ROUTE_BUFFER', 'REVERSE', 'TURN'))
         self.assertEqual(ctl.observation.hazard, 'single_ray')
 
     def test_persistent_near_single_ray_commits_a_turn(self):

@@ -155,6 +155,8 @@ FOLLOW_SIDE_PREFERENCE = 1.0  # stable tie-break when both corridor walls are pr
 SIDE_ROUTE_MIN_M = 0.20       # side opening threshold for routing
 SIDE_ROUTE_TIE_DB = 0.03
 SIDE_OPEN_DWELL_S = 0.50
+ROUTE_BUFFER_M = 0.05         # creep into a junction before route choice
+ROUTE_BUFFER_SPEED_MPS = 0.018
 BLIND_TURN_S = 15.0      # fully blind this long -> 180 deg turn-back;
 # a second consecutive blind stretch latches HOLD (stop, don't wander).
 # Gateway probe (maze2/3 spawn: entrance gap ahead BETWEEN the
@@ -253,6 +255,8 @@ def _controller_constants():
         "SIDE_ROUTE_MIN_M": SIDE_ROUTE_MIN_M,
         "SIDE_ROUTE_TIE_DB": SIDE_ROUTE_TIE_DB,
         "SIDE_OPEN_DWELL_S": SIDE_OPEN_DWELL_S,
+        "ROUTE_BUFFER_M": ROUTE_BUFFER_M,
+        "ROUTE_BUFFER_SPEED_MPS": ROUTE_BUFFER_SPEED_MPS,
         "BLIND_TURN_S": BLIND_TURN_S,
         "GATEWAY_FRONT_MAX": GATEWAY_FRONT_MAX,
         "GATEWAY_SYM_DB": GATEWAY_SYM_DB,
@@ -393,6 +397,9 @@ class CenteringController:
         self.post_turn_clear_t = 0.0
         self.route_dir = 0.0
         self.route_latched = False
+        self.route_buffer_active = False
+        self.route_buffer_distance = 0.0
+        self.route_buffer_used = False
         # Exploration state (maze1 pack): wall follow + blind driving.
         self.follow_side = 0.0   # +1 left / -1 right / 0 none latched
         self.follow_t = 0.0
@@ -911,6 +918,7 @@ class CenteringController:
                         self.flood_pending_move = False
                     self.deadend_probe_used = False
                     self.route_latched = False
+                    self.route_buffer_used = False
                     self._set_state("FOLLOW", "post_turn_acquired")
                 else:
                     self._set_state("POST_TURN_ADVANCE", "acquire_corridor")
@@ -1307,6 +1315,44 @@ class CenteringController:
             self._from_backup = True  # next fresh block is a retry, not new
             self._set_state("BACKUP", "giveup")
             return self._fin(c, -REVERSE_WHEEL_W, -REVERSE_WHEEL_W, c.steer)
+
+        side_signal = (
+            self.observation.left == "open"
+            or self.observation.right == "open"
+            or (c.sl_num and self.sl_f >= SIDE_ROUTE_MIN_M)
+            or (c.sr_num and self.sr_f >= SIDE_ROUTE_MIN_M)
+        )
+        center_safe = (
+            c.front_center_clear is not None
+            and c.front_center_clear >= 0.18
+            and c.front_clear is not None
+            and c.front_clear >= FRONT_EMERGENCY_DIST
+        )
+        if self.route_buffer_active:
+            if side_signal or not center_safe:
+                self.route_buffer_active = False
+                self.route_buffer_distance = 0.0
+            else:
+                v_buf = min(ROUTE_BUFFER_SPEED_MPS, MAX_LINEAR_MPS)
+                base_buf = v_buf / K_LIN
+                steer_buf = max(-0.25, min(0.25, c.steer))
+                self.route_buffer_distance += v_buf * c.dt
+                if self.route_buffer_distance >= ROUTE_BUFFER_M:
+                    self.route_buffer_active = False
+                    self.route_buffer_distance = 0.0
+                else:
+                    self._set_state("ROUTE_BUFFER", "locate_side_opening")
+                    return self._fin(c, base_buf - steer_buf,
+                                     base_buf + steer_buf, steer_buf)
+        if (c.blocked and self.spin_dir == 0.0 and self.reverse_ticks == 0
+                and not self.route_buffer_used and not side_signal
+                and center_safe):
+            self.route_buffer_active = True
+            self.route_buffer_used = True
+            self.route_buffer_distance = 0.0
+            self._set_state("ROUTE_BUFFER", "locate_side_opening")
+            base_buf = min(ROUTE_BUFFER_SPEED_MPS, MAX_LINEAR_MPS) / K_LIN
+            return self._fin(c, base_buf, base_buf, 0.0)
 
         if not (c.blocked or self.spin_dir != 0.0):
             return None

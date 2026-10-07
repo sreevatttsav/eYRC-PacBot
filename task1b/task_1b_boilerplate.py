@@ -42,7 +42,7 @@ KP_LAT = 3.0           # lateral centering: e_lat = sl - sr (meters)
 KP_FRONT = 1.5         # heading trim: e_front = fl - fr (meters)
 KD_YAW = 0.8           # gyro damping: -KD_YAW * yaw_rate
 
-FRONT_STOP_DIST = 0.15 # below this, spin in place
+FRONT_STOP_DIST = 0.13 # below this, route around the front wall
 FRONT_JUNCTION_DIST = 0.16  # near front + open side: commit route turn
 FRONT_SPEED_TAPER_END = 0.06  # speed remains positive above this range
 FRONT_EMERGENCY_DIST = 0.08  # back out before the taper can stall the bot
@@ -1185,7 +1185,7 @@ class CenteringController:
             ((fl_num and fl_forward < FRONT_STOP_DIST)
              != (fr_num and fr_forward < FRONT_STOP_DIST))
              and front_clear is not None
-             and front_clear < FRONT_STOP_DIST - 0.02
+             and front_clear < FRONT_STOP_DIST
             and self.sl_f is not None and self.sr_f is not None
             and self.sl_f < WEDGE_EXIT and self.sr_f < WEDGE_EXIT
             and not self.gateway_wall_follow_active

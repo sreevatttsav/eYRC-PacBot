@@ -17,9 +17,23 @@ except ImportError:
 
 from sensing import Tof, WallPerception
 from task_1b_boilerplate import CenteringController, K_LIN, YAW_GAIN_K
+from flood_fill import FloodFillPlanner
 
 
 class NavigationPolicyTests(unittest.TestCase):
+    def test_flood_fill_prefers_known_shorter_branch(self):
+        planner = FloodFillPlanner(y=2)
+        planner.set_wall(0, 2, 0, True)  # east is blocked
+        planner.set_wall(0, 2, 1, False)  # north is locally open
+        planner.set_wall(0, 2, 3, False)  # south is locally open
+        # Make the north route longer by blocking its next east edge.
+        planner.set_wall(0, 1, 0, True)
+        self.assertEqual(planner.choose((1, -1)), -1)
+
+    def test_flood_fill_keeps_unknown_edges_traversable(self):
+        planner = FloodFillPlanner(y=2)
+        self.assertEqual(planner.choose((1, -1)), 1)
+
     def test_measured_cap_and_longer_ranges(self):
         tof = Tof(sat_cap=None)
         self.assertEqual(tof.update(0.300, 0.02)[1], 'valid')

@@ -19,6 +19,7 @@ import paho.mqtt.client as mqtt
 
 from runlog import RunLogger
 from sensing import StuckDetector, Tof, WallPerception
+from flood_fill import FloodFillPlanner
 
 MQTT_HOST = "localhost"
 MQTT_PORT = 1883
@@ -342,6 +343,9 @@ class CenteringController:
         self.brake_until = None  # turn_t deadline for the BRAKE state
         self.brake_w = 0.0       # signed opposing wheel speed in BRAKE
         self.turn_cause = ""     # e.g. junction, blocked, deadend, lost
+        self.flood = FloodFillPlanner()
+        self.flood_pending_move = False
+        self.flood_route = "none"
         self.post_turn_stage = "none"
         self.post_turn_t = 0.0
         self.post_turn_distance = 0.0
@@ -810,6 +814,9 @@ class CenteringController:
                     self.front_check_t = 0.0
                     self.backout_signature_count = 0
                     self.corridor_heading = self.gyro_th
+                    if self.flood_pending_move:
+                        self.flood.advance()
+                        self.flood_pending_move = False
                     self._set_state("FOLLOW", "post_turn_acquired")
                 else:
                     self._set_state("POST_TURN_ADVANCE", "acquire_corridor")
@@ -1228,6 +1235,13 @@ class CenteringController:
         self._from_backup = False
         side_left_open = self.observation.left == "open"
         side_right_open = self.observation.right == "open"
+        self.flood.observe(
+            front=c.blocked,
+            left=None if self.observation.left == "uncertain"
+            else not side_left_open,
+            right=None if self.observation.right == "uncertain"
+            else not side_right_open,
+        )
         deadend = c.blocked and not (side_left_open or side_right_open)
         mag = math.pi if deadend else math.pi / 2.0
         turn_cause = "deadend" if deadend else "blocked"
@@ -1239,10 +1253,13 @@ class CenteringController:
             # whichever side merely has a few centimetres more
             # range. At a two-way choice, keep the latched hand.
             if side_left_open and side_right_open:
-                tdir = (self.follow_side or
-                        FOLLOW_SIDE_PREFERENCE)
+                local_dir = (self.follow_side or FOLLOW_SIDE_PREFERENCE)
+                flood_dir = self.flood.choose((1, -1))
+                tdir = flood_dir if flood_dir is not None else local_dir
+                self.flood_route = "flood" if flood_dir is not None else "local"
             else:
                 tdir = 1.0 if side_left_open else -1.0
+                self.flood_route = "local_single_open"
             turn_cause = "junction"
         else:
             tdir = 1.0  # deterministic U-turn direction
@@ -1252,6 +1269,9 @@ class CenteringController:
             tdir = self.spin_dir
             self.flip_next = False
         self._start_turn(tdir, mag, turn_cause)
+        if abs(mag - math.pi / 2.0) < 0.01:
+            self.flood.rotate(1 if tdir > 0 else -1)
+            self.flood_pending_move = True
         self.reverse_ticks = max(1, int(self.REVERSE_S / dt)) if dt > 0 else 200
 
     def _run_turn(self, c):

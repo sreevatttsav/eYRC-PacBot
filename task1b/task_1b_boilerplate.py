@@ -110,14 +110,13 @@ RETRIM_TOL = 0.0873      # 5 deg: accept final error within this
 OVERSHOOT_MAX = 0.14     # 8 deg past target: give up, don't re-trim
 POST_TURN_SETTLE_S = 0.15   # stop and collect fresh ranges after rotation
 POST_TURN_VERIFY_MAX_S = 0.50  # bounded wait when front samples are stale
-POST_TURN_ADVANCE_M = 0.11  # half-cell acquisition before rearming
+POST_TURN_ADVANCE_M = 0.06  # acquire the outgoing corridor before rearming
 POST_TURN_SPEED_MPS = 0.025
 POST_TURN_CENTER_GAIN = 0.15
 POST_TURN_CENTER_MAX_W = 0.25
 POST_TURN_HEADING_TOL = 0.12
 POST_TURN_LATERAL_TOL = 0.035
 POST_TURN_CLEAR_DWELL_S = 0.08
-POST_TURN_BLOCK_DWELL_S = 0.10
 
 # Stuck detection + recovery (fix 2, retuned Stage 1b, rescaled for the
 # MEASURED gain: 0.3 was calibrated at K=0.13; at K=0.0914 the same
@@ -290,7 +289,6 @@ def _controller_constants():
         "POST_TURN_HEADING_TOL": POST_TURN_HEADING_TOL,
         "POST_TURN_LATERAL_TOL": POST_TURN_LATERAL_TOL,
         "POST_TURN_CLEAR_DWELL_S": POST_TURN_CLEAR_DWELL_S,
-        "POST_TURN_BLOCK_DWELL_S": POST_TURN_BLOCK_DWELL_S,
         "TURN_TIMEOUT_BASE": TURN_TIMEOUT_BASE,
         "TURN_TIMEOUT_PER_RAD": TURN_TIMEOUT_PER_RAD,
         "NO_PROGRESS_START": NO_PROGRESS_START,
@@ -385,7 +383,6 @@ class CenteringController:
         self.post_turn_t = 0.0
         self.post_turn_distance = 0.0
         self.post_turn_clear_t = 0.0
-        self.post_turn_block_t = 0.0
         self.route_dir = 0.0
         self.route_latched = False
         # Exploration state (maze1 pack): wall follow + blind driving.
@@ -828,7 +825,6 @@ class CenteringController:
                 self.post_turn_stage = "advance"
                 self.post_turn_distance = 0.0
                 self.post_turn_clear_t = 0.0
-                self.post_turn_block_t = 0.0
             elif (self.post_turn_t >= POST_TURN_SETTLE_S and front_fresh
                   and not probe_path_confirmed):
                 # A left probe is exploratory, not proof of a left route.
@@ -849,22 +845,14 @@ class CenteringController:
                 return self._fin(c, 0.0, 0.0, 0.0)
 
         if self.post_turn_stage == "advance":
-            blocked_sample = self.observation.front == "blocked"
-            self.post_turn_block_t = (
-                self.post_turn_block_t + c.dt if blocked_sample else 0.0
-            )
-            # Emergency is immediate; a debounced blocked classification gets
-            # a short hysteresis window so one stale/asymmetric sample cannot
-            # cancel the selected route during acquisition.
             post_blocked = (
-                self.observation.hazard == "emergency"
-                or self.post_turn_block_t >= POST_TURN_BLOCK_DWELL_S
+                self.observation.front == "blocked"
+                or self.observation.hazard == "emergency"
             )
             if post_blocked:
                 self.post_turn_stage = "none"
                 self.gateway_active = False
                 self.gateway_rearm_latched = True
-                self.post_turn_block_t = 0.0
                 c.blocked = True
             else:
                 v_post = min(POST_TURN_SPEED_MPS, MAX_LINEAR_MPS)
@@ -901,7 +889,6 @@ class CenteringController:
                     self.post_turn_stage = "none"
                     self.post_turn_t = 0.0
                     self.post_turn_clear_t = 0.0
-                    self.post_turn_block_t = 0.0
                     self.front_check_t = 0.0
                     self.backout_signature_count = 0
                     self.corridor_heading = self.gyro_th

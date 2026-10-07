@@ -48,9 +48,10 @@ from task_1b_boilerplate import (  # noqa: E402
 
 # Robot scale from meshes/roda_sim.stl + chassis_sim.stl
 WHEEL_R = 0.017   # m
-WHEEL_L = 0.08    # m track width (tunable guess)
-ROBOT_HALF_W = 0.05
-CORRIDOR_W = 0.40  # m wall-to-wall
+WHEEL_L = 0.078   # m track width from simulator MJCF
+ROBOT_HALF_W = 0.043
+CORRIDOR_W = 0.17  # m wall-to-wall from the documented maze geometry
+FRONT_RAY_ANGLE = math.radians(20.0)
 DT = 0.02
 TOF_SIGMA = 0.005  # m
 GYRO_SIGMA = 0.02  # rad/s
@@ -103,8 +104,8 @@ class Corridor:
         if self.dropout and self.dropout[0] < x < self.dropout[1]:
             sr = MAX_RANGE  # junction: right wall gone
         ahead = max(0.0, (self.end_x - x) / c)
-        fl = ahead / math.cos(0.26)  # ~15 deg splay each side
-        fr = ahead / math.cos(-0.26)
+        fl = ahead / math.cos(FRONT_RAY_ANGLE)
+        fr = ahead / math.cos(-FRONT_RAY_ANGLE)
         # clip + noise like real ToF
         def n(v):
             v = max(0.0, min(v, MAX_RANGE))

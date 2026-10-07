@@ -747,8 +747,8 @@ class CenteringController:
         # reverse out of the entrance.
         normal_corridor = (
             c.sl_num and c.sr_num
-            and self.sl_f < WEDGE_ENTER
-            and self.sr_f < WEDGE_ENTER
+            and self.sl_f < WEDGE_EXIT
+            and self.sr_f < WEDGE_EXIT
         )
         if (self.gateway_wall_follow_active
                 and (c.front_open_l and c.front_open_r
@@ -1125,7 +1125,7 @@ class CenteringController:
              and front_clear is not None
              and front_clear < FRONT_STOP_DIST
             and self.sl_f is not None and self.sr_f is not None
-            and self.sl_f < WEDGE_ENTER and self.sr_f < WEDGE_ENTER
+            and self.sl_f < WEDGE_EXIT and self.sr_f < WEDGE_EXIT
             and not self.gateway_wall_follow_active
         )
         if tight_corridor_front_block:

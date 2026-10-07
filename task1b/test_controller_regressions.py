@@ -20,7 +20,7 @@ except ImportError:
 from task_1b_boilerplate import (
     CenteringController, FOLLOW_STEER_RATIO, FRONT_BACKOUT_SPEED,
     FRONT_EMERGENCY_DIST, FRONT_MIN_SPEED_MPS, FRONT_RAY_COS,
-    FRONT_SPEED_TAPER_END, HEADING_PIVOT_THRESHOLD, K_LIN,
+    FRONT_SPEED_TAPER_END, K_LIN,
     YAW_GAIN_K, FOLLOW_ESTABLISH_S,
 )
 from task_1b_boilerplate import GATEWAY_APPROACH_M, GATEWAY_CORRIDOR_S
@@ -64,8 +64,8 @@ class ControllerRegressionTests(unittest.TestCase):
     def test_two_wall_corridor_arms_junction_detector(self):
         ctl = CenteringController()
 
-        # A normal narrow corridor has both side ranges below FOLLOW_WALL_MAX.
-        # It must still latch a wall so that its later loss can mean a branch.
+        # A normal narrow corridor has two close side walls. It must still
+        # latch a wall so that its later loss can mean a branch.
         for _ in range(70):
             ctl.update(0.8, 0.8, 0.051, 0.051, 0.0, 0.02)
         self.assertEqual(ctl.follow_side, 1.0)
@@ -78,6 +78,24 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertEqual(ctl.state, "TURN")
         self.assertEqual(ctl.turn_cause, "junction")
         self.assertGreater(ctl.turn_target, 0.0)
+
+    def test_right_wall_loss_turns_into_right_branch(self):
+        ctl = CenteringController()
+
+        # Establish a right-hand wall-follow reference.
+        for _ in range(70):
+            ctl.update(0.8, 0.8, 0.30, 0.051, 0.0, 0.02)
+        self.assertEqual(ctl.follow_side, -1.0)
+
+        # Right opens into a branch while the left wall remains present.
+        for _ in range(160):
+            ctl.update(0.8, 0.8, 0.051, 0.30, 0.0, 0.02)
+            if ctl.state == "TURN":
+                break
+
+        self.assertEqual(ctl.state, "TURN")
+        self.assertEqual(ctl.turn_cause, "junction")
+        self.assertLess(ctl.turn_target, 0.0)
 
     def test_second_wedge_cycle_commits_to_open_side(self):
         ctl = CenteringController()

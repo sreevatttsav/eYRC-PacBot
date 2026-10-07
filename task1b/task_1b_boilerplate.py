@@ -152,8 +152,9 @@ SAT_MODE = "distance"   # 0.300 m is a measured distance
 FOLLOW_ESTABLISH_S = 1.0  # sustained single-wall follow before gaps count
 GAP_OPEN_S = 0.5         # follow wall lost this long -> seek it (90 deg)
 FOLLOW_SIDE_PREFERENCE = 1.0  # stable tie-break when both corridor walls are present
-SIDE_ROUTE_MIN_M = 0.14       # fresh numeric side clearance usable for routing
+SIDE_ROUTE_MIN_M = 0.20       # side opening threshold for routing
 SIDE_ROUTE_TIE_DB = 0.03
+SIDE_OPEN_DWELL_S = 0.50
 BLIND_TURN_S = 15.0      # fully blind this long -> 180 deg turn-back;
 # a second consecutive blind stretch latches HOLD (stop, don't wander).
 # Gateway probe (maze2/3 spawn: entrance gap ahead BETWEEN the
@@ -251,6 +252,7 @@ def _controller_constants():
         "FOLLOW_SIDE_PREFERENCE": FOLLOW_SIDE_PREFERENCE,
         "SIDE_ROUTE_MIN_M": SIDE_ROUTE_MIN_M,
         "SIDE_ROUTE_TIE_DB": SIDE_ROUTE_TIE_DB,
+        "SIDE_OPEN_DWELL_S": SIDE_OPEN_DWELL_S,
         "BLIND_TURN_S": BLIND_TURN_S,
         "GATEWAY_FRONT_MAX": GATEWAY_FRONT_MAX,
         "GATEWAY_SYM_DB": GATEWAY_SYM_DB,
@@ -332,7 +334,7 @@ class CenteringController:
         self.sl_f = None
         self.sr_f = None
         self.last_status = ("none",) * 4
-        self.perception = WallPerception()
+        self.perception = WallPerception(side_dwell=SIDE_OPEN_DWELL_S)
         self.observation = None
         self.wall_target = WALL_TARGET
         self._target_samples = deque(maxlen=50)

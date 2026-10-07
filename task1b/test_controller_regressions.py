@@ -484,7 +484,7 @@ class ControllerRegressionTests(unittest.TestCase):
             ctl.update(0.10, 0.10, 0.18, 0.18, 0.0, 0.02)
         self.assertEqual(ctl.state, "REVERSE")
         self.assertNotEqual(ctl.spin_dir, 0.0)
-        self.assertEqual(ctl.turn_cause, "junction")
+        self.assertEqual(ctl.turn_cause, "deadend_probe")
         self.assertAlmostEqual(abs(ctl.turn_target), 3.141592653589793 / 2.0)
 
     def test_blocked_front_turns_toward_classified_open_side(self):

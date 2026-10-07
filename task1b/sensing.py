@@ -47,8 +47,10 @@ class WallPerception:
     """Debounced wall and front-path classifications from fresh measurements."""
 
     def __init__(self, wall_max=0.14, open_min=0.20, dwell=0.12,
-                 front_center_min=0.18, front_ray_guard=0.08):
+                 front_center_min=0.18, front_ray_guard=0.08,
+                 side_dwell=None):
         self.wall_max, self.open_min, self.dwell = wall_max, open_min, dwell
+        self.side_dwell = dwell if side_dwell is None else side_dwell
         self.front_center_min = front_center_min
         self.front_ray_guard = front_ray_guard
         self.side = ["uncertain", "uncertain"]
@@ -70,7 +72,8 @@ class WallPerception:
             else:
                 self.elapsed[i] = self.elapsed[i] + dt if self.candidate[i] == proposal else dt
                 self.candidate[i] = proposal
-                if self.elapsed[i] >= self.dwell:
+                dwell = self.side_dwell if proposal == "open" else self.dwell
+                if self.elapsed[i] >= dwell:
                     self.side[i] = proposal
                     self.candidate[i], self.elapsed[i] = None, 0.0
         l = fl * front_cos if fs_l == "valid" and fl is not None else None

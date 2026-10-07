@@ -787,11 +787,6 @@ class CenteringController:
             and self.sl_f < GATEWAY_CORRIDOR_MAX
             and self.sr_f < GATEWAY_CORRIDOR_MAX
             and abs(self.sl_f - self.sr_f) < GATEWAY_CORRIDOR_SYM_DB
-            # Narrow side ranges alone do not prove that the entrance has
-            # been crossed: one splayed front ray may still be looking at
-            # the entrance jamb. Wait for both fronts to clear before using
-            # the corridor signature as a handoff.
-            and front_open_l and front_open_r
         )
         if self.gateway_failed:
             self._set_state("GATEWAY_HOLD", "gateway_abort")
@@ -1025,12 +1020,19 @@ class CenteringController:
             # Distance alone is not evidence that the entrance is clear.
             # Require at least one front ray to open before handing control
             # to normal obstacle escape; otherwise stop safely at the limit.
-            approach_exit = approach_limit and gateway_path_open
+            # A single open ray can be the entrance post/jamb geometry. Do
+            # not hand the probe to normal obstacle routing until both front
+            # rays have cleared; otherwise the bot reverses before crossing
+            # the gateway.
+            approach_exit = approach_limit and front_open_l and front_open_r
             if front_exit or corridor_exit or side_wall_exit or approach_exit:
                 # Keep the entrance interpretation active through FOLLOW
                 # while front rays remain blocked; side-wall acquisition
                 # is the evidence that this is a passage, not a dead end.
-                self.gateway_wall_follow_active = side_wall_exit
+                self.gateway_wall_follow_active = (
+                    side_wall_exit
+                    or (corridor_exit and not (front_open_l and front_open_r))
+                )
                 self.gateway_rearm_latched = True
                 if side_wall_exit:
                     if side_wall_l and side_wall_r:

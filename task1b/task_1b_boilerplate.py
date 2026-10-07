@@ -806,7 +806,7 @@ class CenteringController:
             front_fresh = c.fl_s == "valid" and c.fr_s == "valid"
             probe_path_confirmed = (
                 self.turn_cause != "deadend_probe"
-                or (c.front_open_l and c.front_open_r)
+                or self.observation.front == "clear"
             )
             verify_blocked = (
                 self.observation.front == "blocked"

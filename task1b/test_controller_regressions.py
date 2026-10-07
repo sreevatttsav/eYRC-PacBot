@@ -351,7 +351,7 @@ class ControllerRegressionTests(unittest.TestCase):
         ctl.state = "POST_TURN_VERIFY"
 
         for _ in range(20):
-            ctl.update(0.30, 0.15, 0.051, 0.051, 0.0, 0.02)
+            ctl.update(0.10, 0.15, 0.051, 0.051, 0.0, 0.02)
             if ctl.state in ("REVERSE", "TURN"):
                 break
 

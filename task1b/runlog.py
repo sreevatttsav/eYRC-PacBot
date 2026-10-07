@@ -56,8 +56,9 @@ TICKS_HEADER = [
     "x_est", "y_est", "th_est",  # dead-reckoned pose (ESTIMATED, drifts)
     "x_true", "y_true", "th_true",  # sim ground truth if available, else empty
     "extra",       # JSON of unrecognized payload keys (future pose/topics)
-    "wall_left", "wall_right", "front_path", "front_hazard",
-    "follow_side", "wall_target", "junction_stage", "turn_outcome",
+     "wall_left", "wall_right", "front_path", "front_hazard",
+     "follow_side", "wall_target", "junction_stage", "exit_set",
+     "junction_decision", "turn_outcome",
     "commanded_travel_est_m",
 ]
 
@@ -224,9 +225,10 @@ class RunLogger:
             f"{self._x:.4f}", f"{self._y:.4f}", f"{self._th:+.4f}",
             xt, yt, tht,
             json.dumps(extra or {}, separators=(",", ":")),
-            *(navigation.get(k, "") for k in ("wall_left", "wall_right",
-              "front_path", "front_hazard", "follow_side", "wall_target",
-              "junction_stage", "turn_outcome")),
+             *(navigation.get(k, "") for k in ("wall_left", "wall_right",
+               "front_path", "front_hazard", "follow_side", "wall_target",
+              "junction_stage", "exit_set", "junction_decision",
+              "turn_outcome")),
             f"{self._travel_est:.4f}",
         ])
         self._i += 1

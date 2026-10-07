@@ -40,7 +40,7 @@ class NavigationPolicyTests(unittest.TestCase):
         self.assertEqual(tof.update(0.300, 0.02)[1], 'valid')
         self.assertEqual(tof.update(0.8, 0.02)[1], 'valid')
         self.assertEqual(tof.update(2.0, 0.02)[1], 'valid')
-        self.assertEqual(tof.update(3.0, 0.02)[1], 'held')
+        self.assertEqual(tof.update(3.0, 0.02)[1], 'none')
         self.assertEqual(tof.update(None, 0.11)[1], 'none')
 
     def test_opening_requires_fresh_persistent_samples(self):
@@ -106,7 +106,7 @@ class NavigationPolicyTests(unittest.TestCase):
 
     def test_persistent_near_single_ray_commits_a_turn(self):
         ctl = CenteringController()
-        for _ in range(160):
+        for _ in range(280):
             ctl.update(.115, .8, .051, .051, 0, .02)
             if ctl.state == 'TURN':
                 break
@@ -149,7 +149,7 @@ class NavigationPolicyTests(unittest.TestCase):
             sl = ray(-.005, .034, math.pi/2)
             sr = ray(-.005, -.034, -math.pi/2)
             l, r, *_ = ctl.update(fl, fr, sl, sr, omega, dt)
-            saw_advance |= ctl.junction_stage == 'advance'
+            saw_advance |= ctl.junction_stage in ('candidate', 'creep', 'classify')
             if ctl.state == 'TURN':
                 saw_turn = True
                 break

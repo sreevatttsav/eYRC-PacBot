@@ -38,7 +38,11 @@ MAX_SPEED = 10.0       # hard clamp on each wheel
 MAX_STEER = 4.0        # hard clamp on steer correction
 REVERSE_WHEEL_W = BASE_SPEED * 0.5  # wheel speed for every reverse/backout
 
-KP_LAT = 3.0           # lateral centering: e_lat = sl - sr (meters)
+KP_LAT = 3.5           # lateral centering: e_lat = sl - sr (meters)
+KI_LAT = 0.45          # corridor-centering integral gain
+KD_LAT = 0.25          # corridor-centering derivative gain
+LAT_INTEGRAL_MAX = 0.08
+LAT_DERIV_MAX = 0.50
 KP_FRONT = 1.5         # heading trim: e_front = fl - fr (meters)
 KD_YAW = 0.8           # gyro damping: -KD_YAW * yaw_rate
 
@@ -82,6 +86,9 @@ WEDGE_CLEARANCE_TIE_DB = 0.015
 # from the MEASURED yaw gain (step test), not wheel-size estimates.
 YAW_GAIN_K = 0.0914   # from step_test s1_step summary.json
 TURN_KP = 2.0          # P gain on angle error (rad/s per rad)
+TURN_KI = 0.05         # bounded integral correction for turn bias
+TURN_KD_RATE = 0.25    # yaw-rate damping for turn PID
+TURN_INTEGRAL_MAX = 0.20
 TURN_MIN_W = 1.2       # minimum wheel speed in a turn (rad/s)
 TURN_ACCEL_W = 15.0    # wheel-speed ramp, rad/s^2, for smooth turn entry/exit
 TURN_PD_ASSIST_GAIN = 0.25  # bounded side-wall PD contribution during spin
@@ -114,9 +121,19 @@ POST_TURN_ADVANCE_M = 0.06  # acquire the outgoing corridor before rearming
 POST_TURN_SPEED_MPS = 0.025
 POST_TURN_CENTER_GAIN = 0.15
 POST_TURN_CENTER_MAX_W = 0.25
-POST_TURN_HEADING_TOL = 0.12
+# The gyro/brake handoff can leave roughly 0.17 rad of residual heading error
+# even after a turn passes the normal +/-5 degree turn criterion.  Acquisition
+# must not drive forever waiting for a tighter heading than the turn can yield.
+POST_TURN_HEADING_TOL = 0.20
 POST_TURN_LATERAL_TOL = 0.035
 POST_TURN_CLEAR_DWELL_S = 0.08
+POST_TURN_BLOCK_DWELL_S = 0.12
+CORRIDOR_ENTRY_DISTANCE_M = 0.16
+CORRIDOR_ENTRY_CLEAR_DWELL_S = 0.10
+# During acquisition the nearest splayed ray may still see the wall the bot
+# has just rotated away from.  Abort only when the estimated centreline is
+# genuinely occupied; do not let that old-wall ray cancel the latched route.
+POST_TURN_CENTER_BLOCK_DIST = 0.10
 
 # Stuck detection + recovery (fix 2, retuned Stage 1b, rescaled for the
 # MEASURED gain: 0.3 was calibrated at K=0.13; at K=0.0914 the same
@@ -155,7 +172,9 @@ FOLLOW_SIDE_PREFERENCE = 1.0  # stable tie-break when both corridor walls are pr
 SIDE_ROUTE_MIN_M = 0.20       # side opening threshold for routing
 SIDE_ROUTE_TIE_DB = 0.03
 SIDE_OPEN_DWELL_S = 0.50
-ROUTE_BUFFER_M = 0.05         # creep into a junction before route choice
+ROUTE_BUFFER_M = 0.08         # creep into a junction before route choice
+JUNCTION_ADVANCE_M = 0.08     # enter a detected side branch before turning
+FRONT_BRANCH_SIDE_MAX = 0.20  # side-wall context for asymmetric front branch
 ROUTE_BUFFER_SPEED_MPS = 0.018
 BLIND_TURN_S = 15.0      # fully blind this long -> 180 deg turn-back;
 # a second consecutive blind stretch latches HOLD (stop, don't wander).
@@ -228,6 +247,9 @@ def _controller_constants():
     return {
         "BASE_SPEED": BASE_SPEED, "MAX_SPEED": MAX_SPEED,
         "MAX_STEER": MAX_STEER, "KP_LAT": KP_LAT,
+        "KI_LAT": KI_LAT, "KD_LAT": KD_LAT,
+        "LAT_INTEGRAL_MAX": LAT_INTEGRAL_MAX,
+        "LAT_DERIV_MAX": LAT_DERIV_MAX,
         "KP_FRONT": KP_FRONT, "KD_YAW": KD_YAW,
         "FRONT_STOP_DIST": FRONT_STOP_DIST,
         "TIGHT_CORRIDOR_ROUTE_DIST": TIGHT_CORRIDOR_ROUTE_DIST,
@@ -256,6 +278,8 @@ def _controller_constants():
         "SIDE_ROUTE_TIE_DB": SIDE_ROUTE_TIE_DB,
         "SIDE_OPEN_DWELL_S": SIDE_OPEN_DWELL_S,
         "ROUTE_BUFFER_M": ROUTE_BUFFER_M,
+        "JUNCTION_ADVANCE_M": JUNCTION_ADVANCE_M,
+        "FRONT_BRANCH_SIDE_MAX": FRONT_BRANCH_SIDE_MAX,
         "ROUTE_BUFFER_SPEED_MPS": ROUTE_BUFFER_SPEED_MPS,
         "BLIND_TURN_S": BLIND_TURN_S,
         "GATEWAY_FRONT_MAX": GATEWAY_FRONT_MAX,
@@ -283,7 +307,10 @@ def _controller_constants():
         "WEDGE_REPEAT_WINDOW_S": WEDGE_REPEAT_WINDOW_S,
         "WEDGE_TURN_AFTER": WEDGE_TURN_AFTER,
         "WEDGE_CLEARANCE_TIE_DB": WEDGE_CLEARANCE_TIE_DB,
-        "TURN_KP": TURN_KP, "TURN_MIN_W": TURN_MIN_W,
+        "TURN_KP": TURN_KP, "TURN_KI": TURN_KI,
+        "TURN_KD_RATE": TURN_KD_RATE,
+        "TURN_INTEGRAL_MAX": TURN_INTEGRAL_MAX,
+        "TURN_MIN_W": TURN_MIN_W,
         "TURN_PD_ASSIST_GAIN": TURN_PD_ASSIST_GAIN,
         "TURN_PD_ASSIST_MAX_W": TURN_PD_ASSIST_MAX_W,
         "TURN_TOF_JUMP_M": TURN_TOF_JUMP_M,
@@ -301,6 +328,10 @@ def _controller_constants():
         "POST_TURN_HEADING_TOL": POST_TURN_HEADING_TOL,
         "POST_TURN_LATERAL_TOL": POST_TURN_LATERAL_TOL,
         "POST_TURN_CLEAR_DWELL_S": POST_TURN_CLEAR_DWELL_S,
+        "POST_TURN_BLOCK_DWELL_S": POST_TURN_BLOCK_DWELL_S,
+        "CORRIDOR_ENTRY_DISTANCE_M": CORRIDOR_ENTRY_DISTANCE_M,
+        "CORRIDOR_ENTRY_CLEAR_DWELL_S": CORRIDOR_ENTRY_CLEAR_DWELL_S,
+        "POST_TURN_CENTER_BLOCK_DIST": POST_TURN_CENTER_BLOCK_DIST,
         "TURN_TIMEOUT_BASE": TURN_TIMEOUT_BASE,
         "TURN_TIMEOUT_PER_RAD": TURN_TIMEOUT_PER_RAD,
         "NO_PROGRESS_START": NO_PROGRESS_START,
@@ -344,9 +375,18 @@ class CenteringController:
         self._target_samples = deque(maxlen=50)
         self.range_trend = 0.0
         self._last_follow_range = None
+        self.lat_integral = 0.0
+        self.lat_prev_error = None
+        self.corridor_entry_active = False
+        self.corridor_entry_distance = 0.0
+        self.corridor_entry_clear_t = 0.0
         self.corridor_heading = 0.0
         self.junction_stage = "none"
         self.junction_distance_est = 0.0
+        self.junction_dir = 0.0
+        self.junction_source = ""
+        self.exit_set = ""
+        self.junction_decision = ""
         self.turn_outcome = "none"
         self.t = 0.0              # controller clock (sim-time, from dt)
         self.gyro_th = 0.0        # integrated heading (turn termination)
@@ -367,12 +407,14 @@ class CenteringController:
         self.turn_target = 0.0   # signed radians (may become a residual)
         self.turn_orig = 0.0     # intended target (signed radians)
         self.turn_t = 0.0
+        self.turn_error_integral = 0.0
         self.turn_retries = 0
         self.turn_reversals = 0  # direction flips (cap 1, near target only)
         self.prev_turn_dir = 1.0  # tie-break default: left (fixed rule)
         self.retry_dir = None    # hard-timeout retry: force same dir once
         self.turn_angle = 0.0    # exposed for turn logging
         self.turn_error = 0.0
+        self.turn_error_integral = 0.0
         self.turn_wall_start_l = None
         self.turn_wall_start_r = None
         self.turn_tof_jump_t = 0.0
@@ -385,6 +427,7 @@ class CenteringController:
         self.turn_progress = 0.0  # angle gained in current 1 s window
         self.abort_reason = ""   # last turn abort: "", timeout, no_progress
         self.brake_until = None  # turn_t deadline for the BRAKE state
+        self.brake_elapsed = 0.0
         self.brake_w = 0.0       # signed opposing wheel speed in BRAKE
         self.brake_low_t = 0.0
         self.turn_cause = ""     # e.g. junction, blocked, deadend, lost
@@ -395,6 +438,12 @@ class CenteringController:
         self.post_turn_t = 0.0
         self.post_turn_distance = 0.0
         self.post_turn_clear_t = 0.0
+        self.post_turn_block_t = 0.0
+        self.lat_integral = 0.0
+        self.lat_prev_error = None
+        self.corridor_entry_active = False
+        self.corridor_entry_distance = 0.0
+        self.corridor_entry_clear_t = 0.0
         self.route_dir = 0.0
         self.route_latched = False
         self.route_buffer_active = False
@@ -413,6 +462,7 @@ class CenteringController:
         self.gateway_distance = 0.0
         self.gateway_clear_t = 0.0
         self.gateway_corridor_t = 0.0
+        self.gateway_release_corridor_t = 0.0
         self.gateway_side_wall_t = 0.0
         self.gateway_start_sl = None
         self.gateway_start_sr = None
@@ -488,7 +538,12 @@ class CenteringController:
         self.post_turn_stage = "none"
         self.post_turn_t = 0.0
         self.post_turn_distance = 0.0
+        self.post_turn_block_t = 0.0
+        self.lat_integral = 0.0
+        self.lat_prev_error = None
         self.junction_stage = "none"
+        self.junction_dir = 0.0
+        self.junction_source = ""
         self.spin_done_s = 0.0  # new escape -> new committed turn
         self.follow_side = 0.0
         self.follow_t = 0.0
@@ -616,9 +671,37 @@ class CenteringController:
                           yaw_rate, dt):
         """Calculate the wall/front/gyro steering components."""
         steer_lat = 0.0
-        if e_lat is not None:
+        pid_active = (
+            e_lat is not None
+            and self.state in ("FOLLOW", "POST_TURN_ADVANCE")
+            and self.observation.left == "wall"
+            and self.observation.right == "wall"
+            and dt > 0.0
+        )
+        if pid_active:
+            self.lat_integral = max(
+                -LAT_INTEGRAL_MAX,
+                min(LAT_INTEGRAL_MAX,
+                    self.lat_integral + e_lat * dt))
+            if self.lat_prev_error is None:
+                lat_derivative = 0.0
+            else:
+                lat_derivative = (e_lat - self.lat_prev_error) / dt
+                lat_derivative = max(-LAT_DERIV_MAX,
+                                     min(LAT_DERIV_MAX, lat_derivative))
+            self.lat_prev_error = e_lat
+            steer_lat = (KP_LAT * e_lat
+                         + KI_LAT * self.lat_integral
+                         + KD_LAT * lat_derivative)
+        elif e_lat is not None:
+            # Preserve proportional correction outside the PID gate, but do
+            # not carry integral/derivative state through openings or turns.
+            self.lat_integral = 0.0
+            self.lat_prev_error = None
             steer_lat = KP_LAT * e_lat
         elif single is not None:
+            self.lat_integral = 0.0
+            self.lat_prev_error = None
             side, reading = single
             steer_lat = side * KP_LAT * (reading - self.wall_target)
             if self._last_follow_range is not None and dt > 0:
@@ -627,6 +710,9 @@ class CenteringController:
                 self.range_trend = 0.85 * self.range_trend + 0.15 * trend
                 steer_lat += side * 0.25 * self.range_trend
             self._last_follow_range = reading
+        else:
+            self.lat_integral = 0.0
+            self.lat_prev_error = None
 
         front_pair_faces_wall = (
             fl_num and fr_num
@@ -679,6 +765,11 @@ class CenteringController:
         """A turn failed: record why, then back up and retry."""
         self.abort_reason = abort_reason
         self.turn_outcome = "aborted"
+        # A failed turn never owns post-turn acquisition.  Do not carry the
+        # pre-turn route latch through BACKUP, or the fallback guard will
+        # park the controller in POST_TURN_VERIFY indefinitely.
+        self.route_latched = False
+        self.post_turn_stage = "none"
         return self._begin_backup(c, state_reason, flip_next)
 
     def _service_backout_limits(self, dt):
@@ -803,50 +894,125 @@ class CenteringController:
             and self.sl_f < WEDGE_EXIT
             and self.sr_f < WEDGE_EXIT
         )
-        if (self.gateway_wall_follow_active
-                and (c.front_open_l and c.front_open_r
-                     or (normal_corridor and c.front_clear is not None
-                         and c.front_clear < FRONT_EMERGENCY_DIST + 0.02))):
-            self.gateway_wall_follow_active = False
-        c.blocked = (self.observation.front == "blocked"
-                     and not self.gateway_wall_follow_active)
         c.gateway_corridor = (
             c.sl_num and c.sr_num
             and self.sl_f < GATEWAY_CORRIDOR_MAX
             and self.sr_f < GATEWAY_CORRIDOR_MAX
             and abs(self.sl_f - self.sr_f) < GATEWAY_CORRIDOR_SYM_DB
         )
+        exits = []
+        if (self.observation.left == "open"
+                or (c.sl_num and self.sl_f >= SIDE_ROUTE_MIN_M)):
+            exits.append("L")
+        if (self.observation.right == "open"
+                or (c.sr_num and self.sr_f >= SIDE_ROUTE_MIN_M)):
+            exits.append("R")
+        if (c.fl_num and c.fr_num and c.front_center_clear is not None
+                and c.front_center_clear >= self.perception.front_center_min
+                and min(c.fl_forward, c.fr_forward) >= self.perception.front_ray_guard):
+            exits.append("F")
+        self.exit_set = "{" + ",".join(exits) + "}"
+        self.gateway_release_corridor_t = (
+            self.gateway_release_corridor_t + c.dt
+            if self.gateway_wall_follow_active and c.gateway_corridor
+            else 0.0
+        )
+        if (self.gateway_wall_follow_active
+                and (c.front_open_l and c.front_open_r
+                     or (normal_corridor and c.front_clear is not None
+                         and c.front_clear < FRONT_EMERGENCY_DIST + 0.02)
+                     # The gateway jamb can keep one splayed ray close for
+                     # the whole first corridor.  Once both side walls are
+                     # established and the centreline is open, hand control
+                     # back to normal corridor/junction detection.
+                     or (normal_corridor and c.front_center_clear is not None
+                         and c.front_center_clear >= 0.28)
+                     # A stable pair of maze-width side walls is sufficient
+                     # to prove that the spawn gateway has been crossed. Do
+                     # not wait for both front rays to clear before allowing
+                      # a genuine blocked-front junction to route.
+                      or (c.gateway_corridor
+                          and self.gateway_release_corridor_t
+                          >= GATEWAY_CORRIDOR_S))):
+            self.gateway_wall_follow_active = False
+            self.gateway_release_corridor_t = 0.0
+        c.blocked = (self.observation.front == "blocked"
+                     and not self.gateway_wall_follow_active)
 
     # --- phase: post-turn settle / verify / advance ------------------
+    def _post_turn_center_blocked(self, c):
+        """Return True only for a real blockage of the outgoing centreline.
+
+        The front ToF rays are splayed.  Immediately after a turn, one ray
+        can remain close to the corner wall even though the robot's centreline
+        is already pointed into the selected corridor.  Post-turn acquisition
+        is authoritative, so the nearest ray must not be allowed to abort it
+        by itself.
+        """
+        if c.front_center_clear is not None:
+            if c.front_center_clear >= POST_TURN_CENTER_BLOCK_DIST:
+                return False
+            # A persistent side opening is evidence that the close front
+            # geometry belongs to the corner/jamb, not a dead-end directly in
+            # the selected route.  Use it as supporting route data while the
+            # post-turn latch owns the maneuver.
+            if self._post_turn_side_open(c):
+                return False
+            return True
+        # Missing one ray is not enough evidence to reject a latched route.
+        # If both rays are unavailable, wait for fresh data instead.
+        return False
+
+    def _post_turn_side_open(self, c):
+        """Whether side geometry supports the latched outgoing route."""
+        return (
+            self.observation.left == "open"
+            or self.observation.right == "open"
+            or (c.sl_num and self.sl_f >= SIDE_ROUTE_MIN_M)
+            or (c.sr_num and self.sr_f >= SIDE_ROUTE_MIN_M)
+        )
+
     def _phase_post_turn(self, c):
         """A completed turn owns a short settle/verify/advance sequence.
         This prevents the same corner from being reclassified while the
         sensors still see the wall that was just rotated past."""
         if self.post_turn_stage == "settle":
             self.post_turn_t += c.dt
+            side_open = self._post_turn_side_open(c)
+            center_blocked = self._post_turn_center_blocked(c)
             front_fresh = c.fl_s == "valid" and c.fr_s == "valid"
+            one_front_fresh = (
+                side_open and (
+                    (c.fl_s == "valid" and c.fl_forward is not None
+                     and c.fl_forward >= FRONT_EMERGENCY_RELEASE)
+                    or (c.fr_s == "valid" and c.fr_forward is not None
+                        and c.fr_forward >= FRONT_EMERGENCY_RELEASE)
+                )
+            )
+            front_confirmed = front_fresh or one_front_fresh
             probe_path_confirmed = (
                 self.turn_cause != "deadend_probe"
                 or self.observation.front == "clear"
+                or (side_open and not center_blocked)
             )
-            verify_blocked = (
-                self.observation.front == "blocked"
-                or (self.observation.hazard == "emergency" and
-                    (self.observation.left == "open"
-                     or self.observation.right == "open"))
+            # A route selected before the turn remains authoritative here.
+            # Classification of a single close splayed ray is deliberately
+            # ignored until the centreline itself is confirmed blocked.
+            self.post_turn_block_t = (
+                self.post_turn_block_t + c.dt if center_blocked else 0.0
             )
+            verify_blocked = self.post_turn_block_t >= POST_TURN_BLOCK_DWELL_S
             if verify_blocked and self.post_turn_t >= POST_TURN_SETTLE_S:
                 self.post_turn_stage = "none"
                 self.gateway_active = False
                 self.gateway_rearm_latched = True
                 c.blocked = True
-            elif (self.post_turn_t >= POST_TURN_SETTLE_S and front_fresh
-                  and self.observation.front != "blocked"
-                  and probe_path_confirmed):
+            elif (self.post_turn_t >= POST_TURN_SETTLE_S and front_confirmed
+                  and not center_blocked and probe_path_confirmed):
                 self.post_turn_stage = "advance"
                 self.post_turn_distance = 0.0
                 self.post_turn_clear_t = 0.0
-            elif (self.post_turn_t >= POST_TURN_SETTLE_S and front_fresh
+            elif (self.post_turn_t >= POST_TURN_SETTLE_S and front_confirmed
                   and not probe_path_confirmed):
                 # A left probe is exploratory, not proof of a left route.
                 # If fresh sensors still show no usable path, return to route
@@ -855,23 +1021,37 @@ class CenteringController:
                 self.route_latched = False
                 c.blocked = True
             elif self.post_turn_t >= POST_TURN_VERIFY_MAX_S:
-                # Unknown is not clear. Return to the route selector instead
-                # of advancing blindly on stale front data.
-                self.post_turn_stage = "none"
-                self.gateway_active = False
-                self.gateway_rearm_latched = True
-                c.blocked = True
+                # Do not park forever on a failed front ToF. If the side
+                # geometry proves that the selected corridor is open, use a
+                # bounded slow acquisition fallback even with both fronts
+                # temporarily invalid. A closed side pair remains blocked.
+                if side_open:
+                    self.post_turn_stage = "advance"
+                    self.post_turn_distance = 0.0
+                    self.post_turn_clear_t = 0.0
+                else:
+                    # A failed front sensor must not park the robot forever.
+                    # With both side walls closed there is no evidence for
+                    # the selected route, so release the latch and let the
+                    # normal dead-end/retry policy recover.
+                    self.post_turn_stage = "none"
+                    self.route_latched = False
+                    c.blocked = True
             else:
                 self._set_state("POST_TURN_VERIFY", "settle")
                 return self._fin(c, 0.0, 0.0, 0.0)
 
         if self.post_turn_stage == "advance":
-            post_blocked = (
-                self.observation.front == "blocked"
-                or self.observation.hazard == "emergency"
+            # Keep the selected route latched through the complete entry
+            # manoeuvre.  Only a centreline blockage can invalidate it.
+            center_blocked = self._post_turn_center_blocked(c)
+            self.post_turn_block_t = (
+                self.post_turn_block_t + c.dt if center_blocked else 0.0
             )
+            post_blocked = self.post_turn_block_t >= POST_TURN_BLOCK_DWELL_S
             if post_blocked:
                 self.post_turn_stage = "none"
+                self.route_latched = False
                 self.gateway_active = False
                 self.gateway_rearm_latched = True
                 c.blocked = True
@@ -896,8 +1076,12 @@ class CenteringController:
                 )) <= POST_TURN_HEADING_TOL
                 lateral_ok = (c.e_lat is None
                               or abs(c.e_lat) <= POST_TURN_LATERAL_TOL)
-                clear_ok = (self.observation.front != "blocked"
-                            and self.observation.hazard != "emergency")
+                side_open = self._post_turn_side_open(c)
+                clear_ok = (
+                    self.observation.front != "blocked"
+                    and (self.observation.hazard != "emergency"
+                         or (side_open and not center_blocked))
+                )
                 self.post_turn_clear_t = (
                     self.post_turn_clear_t + c.dt if clear_ok else 0.0
                 )
@@ -910,6 +1094,10 @@ class CenteringController:
                     self.post_turn_stage = "none"
                     self.post_turn_t = 0.0
                     self.post_turn_clear_t = 0.0
+                    self.post_turn_block_t = 0.0
+                    self.corridor_entry_active = True
+                    self.corridor_entry_distance = 0.0
+                    self.corridor_entry_clear_t = 0.0
                     self.front_check_t = 0.0
                     self.backout_signature_count = 0
                     self.corridor_heading = self.gyro_th
@@ -1170,6 +1358,49 @@ class CenteringController:
         fl_num, fr_num = c.fl_num, c.fr_num
         front_clear = c.front_clear
 
+        entry_single_safe = False
+        if self.corridor_entry_active:
+            self.corridor_entry_distance += (
+                max(0.0, CRUISE_LINEAR_MPS) * dt)
+            both_front_clear = (
+                fl_num and fr_num
+                and fl_forward >= FRONT_EMERGENCY_RELEASE
+                and fr_forward >= FRONT_EMERGENCY_RELEASE
+            )
+            self.corridor_entry_clear_t = (
+                self.corridor_entry_clear_t + dt
+                if both_front_clear else 0.0
+            )
+            if (self.corridor_entry_distance >= CORRIDOR_ENTRY_DISTANCE_M
+                    and self.corridor_entry_clear_t
+                    >= CORRIDOR_ENTRY_CLEAR_DWELL_S):
+                self.corridor_entry_active = False
+            elif self.corridor_entry_distance >= 0.30:
+                self.corridor_entry_active = False
+
+            emergency_l_now = fl_num and fl_forward <= FRONT_EMERGENCY_DIST
+            emergency_r_now = fr_num and fr_forward <= FRONT_EMERGENCY_DIST
+            side_open = (
+                self.observation.left == "open"
+                or self.observation.right == "open"
+                or (c.sl_num and self.sl_f >= SIDE_ROUTE_MIN_M)
+                or (c.sr_num and self.sr_f >= SIDE_ROUTE_MIN_M)
+            )
+            other_front_clear = (
+                (emergency_l_now and fr_num
+                 and fr_forward >= FRONT_EMERGENCY_RELEASE)
+                or (emergency_r_now and fl_num
+                    and fl_forward >= FRONT_EMERGENCY_RELEASE)
+            )
+            entry_single_safe = (
+                self.corridor_entry_active
+                and (emergency_l_now != emergency_r_now)
+                and other_front_clear
+                and side_open
+                and c.front_center_clear is not None
+                and c.front_center_clear >= POST_TURN_CENTER_BLOCK_DIST
+            )
+
         # A lone near-contact ray is ambiguous for choosing a turn, but
         # not safe to drive toward. Back straight until that same ray has
         # a clear margin; route choice is made from openings or a blocked
@@ -1188,8 +1419,22 @@ class CenteringController:
                 self._set_state("FRONT_BACKOUT", "front_emergency")
                 return self._fin(c, -FRONT_BACKOUT_SPEED,
                                  -FRONT_BACKOUT_SPEED, c.steer)
-        emergency_l = fl_num and fl_forward <= FRONT_EMERGENCY_DIST
-        emergency_r = fr_num and fr_forward <= FRONT_EMERGENCY_DIST
+        # Held ToF values are stale evidence, not a current contact. They may
+        # still support centering, but must not independently trigger an
+        # emergency reverse after a turn.
+        emergency_l = (fl_s == "valid" and fl_forward is not None
+                       and fl_forward <= FRONT_EMERGENCY_DIST)
+        emergency_r = (fr_s == "valid" and fr_forward is not None
+                       and fr_forward <= FRONT_EMERGENCY_DIST)
+        corridor_single_ray_safe = (
+            emergency_l != emergency_r
+            and c.front_center_clear is not None
+            and c.front_center_clear >= POST_TURN_CENTER_BLOCK_DIST
+            and c.front_clear is not None
+            and c.front_clear >= FRONT_EMERGENCY_DIST
+            and self.observation.left == "wall"
+            and self.observation.right == "wall"
+        )
         side_left_route = (
             self.observation.left == "open"
             or (c.sl_num and self.sl_f >= SIDE_ROUTE_MIN_M)
@@ -1205,6 +1450,22 @@ class CenteringController:
             (emergency_l and side_right_route)
             or (emergency_r and side_left_route)
         )
+        if entry_single_safe:
+            # The selected corridor has just been acquired. Keep moving into
+            # it while the close splayed ray clears instead of letting normal
+            # FOLLOW emergency logic undo the completed turn.
+            c.blocked = False
+            self.front_check_t = 0.0
+            self.front_backout_active = False
+            self._set_state("FOLLOW", "corridor_entry")
+            return None
+        if corridor_single_ray_safe:
+            # In a confirmed two-wall corridor, the near splayed ray is
+            # usually looking at the adjacent wall. Keep corridor tracking
+            # active instead of interrupting the PID with a backout.
+            c.blocked = False
+            self.front_check_t = 0.0
+            return None
         if emergency_route and not self.gateway_wall_follow_active:
             c.blocked = True
 
@@ -1286,8 +1547,10 @@ class CenteringController:
             self.front_check_t += dt
             # A grazing ray gets a bounded cautious approach. If the same
             # near ray never clears, back straight out and decide afresh.
-            if self.front_check_t >= 1.5 and front_clear is not None \
-                    and front_clear < 0.12:
+            if (self.front_check_t >= 1.5
+                    and not corridor_single_ray_safe
+                    and front_clear is not None
+                    and front_clear < 0.12):
                 self.front_check_t = 0.0
                 self.front_backout_active = True
                 self.front_backout_side = (
@@ -1375,6 +1638,12 @@ class CenteringController:
             return None
 
         if self.spin_dir == 0.0 and self.reverse_ticks == 0:
+            if self.route_latched:
+                # A selected route remains authoritative until acquisition
+                # succeeds or the post-turn phase has confirmed a persistent
+                # centreline blockage.  Never silently choose a new branch.
+                self._set_state("POST_TURN_VERIFY", "route_latched")
+                return self._fin(c, 0.0, 0.0, 0.0)
             self._select_turn(c)
         if self.reverse_ticks > 0:
             self.reverse_ticks -= 1
@@ -1398,6 +1667,28 @@ class CenteringController:
         side_right_numeric = (c.sr_num and self.sr_f >= SIDE_ROUTE_MIN_M)
         sensor_left_route = side_left_open or side_left_numeric
         sensor_right_route = side_right_open or side_right_numeric
+        # A side sensor can still be looking at the corridor wall before the
+        # chassis reaches a branch.  When both side sensors confirm a narrow
+        # corridor, use a strongly asymmetric front pair to identify the
+        # branch opening ahead. This combines side-wall context with front
+        # direction instead of declaring a dead end from side ToF alone.
+        narrow_side_corridor = (
+            c.sl_num and c.sr_num
+            and self.sl_f < FRONT_BRANCH_SIDE_MAX
+            and self.sr_f < FRONT_BRANCH_SIDE_MAX
+        )
+        front_left_branch = (
+            narrow_side_corridor and c.fl_num and c.fr_num
+            and c.fl_forward >= FRONT_JUNCTION_DIST
+            and c.fr_forward <= FRONT_JUNCTION_DIST
+        )
+        front_right_branch = (
+            narrow_side_corridor and c.fl_num and c.fr_num
+            and c.fr_forward >= FRONT_JUNCTION_DIST
+            and c.fl_forward <= FRONT_JUNCTION_DIST
+        )
+        sensor_left_route = sensor_left_route or front_left_branch
+        sensor_right_route = sensor_right_route or front_right_branch
         self.flood.observe(
             front=c.blocked,
             left=None if self.observation.left == "uncertain"
@@ -1406,17 +1697,11 @@ class CenteringController:
             else not side_right_open,
         )
         deadend = c.blocked and not (sensor_left_route or sensor_right_route)
-        if deadend and not self.deadend_probe_used:
-            # A newly blocked entrance may have no persistent side opening
-            # yet. Probe left once before committing to a U-turn.
-            mag = math.pi / 2.0
-            tdir = 1.0
-            turn_cause = "deadend_probe"
-            self.deadend_probe_used = True
-        else:
-            mag = math.pi if deadend else math.pi / 2.0
-            turn_cause = "deadend" if deadend else "blocked"
-            tdir = 1.0
+        # A true dead end has no TOF-confirmed side route, so recover directly
+        # with a 180-degree turn. Never explore left blindly.
+        mag = math.pi if deadend else math.pi / 2.0
+        turn_cause = "deadend" if deadend else "blocked"
+        tdir = 1.0
         if self.retry_dir is not None:
             tdir = self.retry_dir  # hard-timeout retry: same dir
             self.retry_dir = None
@@ -1427,19 +1712,24 @@ class CenteringController:
             if sensor_left_route and sensor_right_route:
                 local_dir = (self.follow_side or FOLLOW_SIDE_PREFERENCE)
                 side_delta = self.sl_f - self.sr_f if c.sl_num and c.sr_num else 0.0
-                if abs(side_delta) > SIDE_ROUTE_TIE_DB:
+                front_delta = (
+                    c.fl_forward - c.fr_forward
+                    if c.fl_num and c.fr_num else 0.0
+                )
+                if (c.fl_num and c.fr_num
+                        and abs(front_delta) > FRONT_ALIGN_SYM_DB):
+                    # When both side rays look open, the splayed front pair
+                    # still identifies which jamb is being left behind. Turn
+                    # toward the clearer front ray instead of defaulting left
+                    # on an equal side-ToF tie.
+                    tdir = 1.0 if front_delta > 0.0 else -1.0
+                    self.flood_route = "front_clearance"
+                elif abs(side_delta) > SIDE_ROUTE_TIE_DB:
                     tdir = 1.0 if side_delta > 0 else -1.0
                     self.flood_route = "side_clearance"
-                elif self.turn_cause == "deadend_probe":
-                    # The first post-probe check belongs to the probe route;
-                    # do not let an uncalibrated flood-map tie-break reverse
-                    # the intended left exploration immediately.
-                    tdir = 1.0
-                    self.flood_route = "probe_left"
                 else:
-                    flood_dir = self.flood.choose((1, -1))
-                    tdir = flood_dir if flood_dir is not None else local_dir
-                    self.flood_route = "flood" if flood_dir is not None else "local"
+                    tdir = local_dir
+                    self.flood_route = "side_tie"
             else:
                 tdir = 1.0 if sensor_left_route else -1.0
                 self.flood_route = "side_sensor"
@@ -1452,12 +1742,16 @@ class CenteringController:
             tdir = self.spin_dir
             self.flip_next = False
         self._start_turn(tdir, mag, turn_cause)
+        self.junction_decision = ("left" if tdir > 0 else "right")
+        if abs(mag - math.pi) < 0.01:
+            self.junction_decision = "uturn"
         self.route_dir = tdir
         self.route_latched = True
         if abs(mag - math.pi / 2.0) < 0.01:
             self.flood.rotate(1 if tdir > 0 else -1)
             self.flood_pending_move = True
-        self.reverse_ticks = max(1, int(self.REVERSE_S / dt)) if dt > 0 else 200
+        self.reverse_ticks = (max(1, int(self.REVERSE_S / dt))
+                              if dt > 0 else 200)
 
     def _run_turn(self, c):
         """Gyro-terminated turn (fix 3, Stage 1b) + coast brake: P servo
@@ -1470,6 +1764,7 @@ class CenteringController:
             self.turn_active = True
             self.turn_entry = self.gyro_th
             self.turn_t = 0.0
+            self.turn_error_integral = 0.0
             self.np_t0 = 0.0
             self.np_a0 = 0.0
             self.turn_progress = 0.0
@@ -1483,6 +1778,7 @@ class CenteringController:
             # In BRAKE, require both angle tolerance and a continuous low-yaw
             # dwell. A single quiet gyro sample is not enough to declare the
             # turn complete.
+            self.brake_elapsed += dt
             if abs(yaw_rate) < BRAKE_EXIT_GYRO:
                 self.brake_low_t += dt
             else:
@@ -1490,13 +1786,16 @@ class CenteringController:
             err = self.turn_target - (self.gyro_th - self.turn_entry)
             settled = (abs(err) <= RETRIM_TOL
                        and self.brake_low_t >= TURN_STOP_DWELL_S)
-            timed_out = self.turn_t > self.brake_until
+            timed_out = (self.turn_t > self.brake_until
+                         or self.brake_elapsed >= BRAKE_TIMEOUT)
             if settled or (timed_out and abs(err) <= RETRIM_TOL):
                 self.brake_until = None
+                self.brake_elapsed = 0.0
                 finishing = True
             elif timed_out:
                 # Brake did not settle on target; let residual trim take over.
                 self.brake_until = None
+                self.brake_elapsed = 0.0
                 self.brake_low_t = 0.0
             else:
                 w = self.brake_w
@@ -1525,13 +1824,15 @@ class CenteringController:
             self.turn_tof_jump_t = (
                 self.turn_tof_jump_t + dt if tof_jump else 0.0
             )
-            if self.turn_tof_jump_t >= TURN_TOF_DWELL_S:
+            if (self.turn_tof_jump_t >= TURN_TOF_DWELL_S
+                    and abs(err) <= TURN_EXIT_ERR):
                 # The side wall has visibly disappeared into the selected
                 # branch. Stop the 90-degree maneuver here, then let the
                 # post-turn sensor check decide whether to advance.
                 self.turn_target = turned
                 self.turn_stop_reason = "tof_open"
                 self.brake_until = self.turn_t + BRAKE_TIMEOUT
+                self.brake_elapsed = 0.0
                 self.brake_low_t = 0.0
                 self.brake_w = -math.copysign(
                     BRAKE_W, yaw_rate if yaw_rate != 0.0 else 1.0)
@@ -1566,6 +1867,7 @@ class CenteringController:
                 finishing = True  # already slow: no brake needed
             else:
                 self.brake_until = self.turn_t + BRAKE_TIMEOUT
+                self.brake_elapsed = 0.0
                 self.brake_low_t = 0.0
                 self.brake_w = -math.copysign(
                     BRAKE_W, yaw_rate if yaw_rate != 0.0 else err)
@@ -1612,7 +1914,13 @@ class CenteringController:
 
         # P servo with a wheel-speed ramp. Always reached with the turn
         # active: every abort/complete path above has already returned.
-        desired_w = TURN_KP * err
+        self.turn_error_integral = max(
+            -TURN_INTEGRAL_MAX,
+            min(TURN_INTEGRAL_MAX,
+                self.turn_error_integral + err * dt))
+        desired_w = (TURN_KP * err
+                     + TURN_KI * self.turn_error_integral
+                     - TURN_KD_RATE * yaw_rate)
         wmag = min(SPIN_SPEED, max(TURN_MIN_W, abs(desired_w)))
         desired_w = math.copysign(wmag, err) if err != 0.0 else 0.0
         max_step = TURN_ACCEL_W * max(dt, 0.0)
@@ -1712,15 +2020,39 @@ class CenteringController:
         else:
             followed_close = L_close if self.follow_side > 0 else R_close
             followed_open = self.observation.opening(self.follow_side)
+            opposite_open = self.observation.opening(-self.follow_side)
+            front_branch_dir = 0.0
+            if (L_close and R_close and c.fl_num and c.fr_num
+                    and c.fl_forward is not None and c.fr_forward is not None):
+                if (c.fl_forward >= FRONT_JUNCTION_DIST
+                        and c.fr_forward <= FRONT_JUNCTION_DIST):
+                    front_branch_dir = 1.0
+                elif (c.fr_forward >= FRONT_JUNCTION_DIST
+                      and c.fl_forward <= FRONT_JUNCTION_DIST):
+                    front_branch_dir = -1.0
             if followed_close:
                 self.follow_t += dt
                 self.gap_t = 0.0
-            elif followed_open:
+            elif followed_open or opposite_open or front_branch_dir != 0.0:
                 self.gap_t += dt
                 if (self.follow_t >= FOLLOW_ESTABLISH_S
                         and self.gap_t >= GAP_OPEN_S
                         and self.junction_stage == "none"):
-                    self.junction_stage = "advance"
+                    if front_branch_dir != 0.0:
+                        self.junction_dir = front_branch_dir
+                        self.junction_source = "front_pair"
+                    elif followed_open and opposite_open:
+                        delta = (self.sl_f - self.sr_f
+                                 if c.sl_num and c.sr_num else 0.0)
+                        self.junction_dir = (1.0 if delta >= 0.0 else -1.0)
+                        self.junction_source = "side_pair"
+                    elif followed_open:
+                        self.junction_dir = self.follow_side
+                        self.junction_source = "side_followed"
+                    else:
+                        self.junction_dir = -self.follow_side
+                        self.junction_source = "side_opposite"
+                    self.junction_stage = "candidate"
                     self.junction_distance_est = 0.0
             else:
                 # Sensor unknown: pause the opening timer, don't infer void.
@@ -1729,28 +2061,40 @@ class CenteringController:
     def _junction_advance(self, c, v_cmd):
         """Creep past the corner of a detected branch, then turn into it.
         Returns (result_or_None, v_cmd)."""
-        if self.junction_stage != "advance":
+        if self.junction_stage == "candidate":
+            self.junction_stage = "creep"
+        if self.junction_stage not in ("creep", "classify"):
             return None, v_cmd
         if self.observation.hazard == "emergency":
             self.junction_stage = "none"
             return None, v_cmd
-        self.junction_distance_est += max(0.0, v_cmd) * c.dt
-        if self.junction_distance_est >= 0.055:
+        if self.junction_stage == "creep":
+            self.junction_distance_est += max(0.0, v_cmd) * c.dt
+            self._set_state("JUNCTION_CREEP", "opening_candidate")
+        if self.junction_distance_est >= JUNCTION_ADVANCE_M:
+            self.junction_stage = "classify"
             # The splayed front rays must leave room to rotate.
-            branch_open = self.observation.opening(self.follow_side)
-            clearance_side = -self.follow_side
+            branch_open = (
+                self.observation.opening(self.junction_dir)
+                or self.junction_source == "front_pair"
+            )
+            turn_front = (c.fl_forward if self.junction_dir > 0
+                          else c.fr_forward)
+            clearance_side = -self.junction_dir
             clearance_status = c.sl_s if clearance_side > 0 else c.sr_s
             clearance_range = self.sl_f if clearance_side > 0 else self.sr_f
-            if (c.front_clear is not None and c.front_clear >= 0.12
+            if (turn_front is not None and turn_front >= 0.12
                     and branch_open
                     and clearance_status == "valid"
                     and clearance_range >= 0.035):
-                self._start_turn(self.follow_side, math.pi / 2.0, "junction")
+                self._start_turn(self.junction_dir, math.pi / 2.0, "junction")
                 self._set_state(
                     "TURN", "junction_" +
-                    ("left" if self.follow_side > 0 else "right"))
+                    ("left" if self.junction_dir > 0 else "right"))
                 return self._fin(c, 0.0, 0.0, c.steer), v_cmd
             self.junction_stage = "none"
+            self.junction_dir = 0.0
+            self.junction_source = ""
             return None, v_cmd
         return None, min(v_cmd, 0.025)
 
@@ -1922,9 +2266,11 @@ def on_message(client, userdata, msg):
                 "front_path": CONTROLLER.observation.front,
                 "front_hazard": CONTROLLER.observation.hazard,
                 "follow_side": CONTROLLER.follow_side,
-                "wall_target": CONTROLLER.wall_target,
-                "junction_stage": CONTROLLER.junction_stage,
-                "turn_outcome": CONTROLLER.turn_outcome,
+                 "wall_target": CONTROLLER.wall_target,
+                 "junction_stage": CONTROLLER.junction_stage,
+                 "exit_set": CONTROLLER.exit_set,
+                 "junction_decision": CONTROLLER.junction_decision,
+                 "turn_outcome": CONTROLLER.turn_outcome,
             })
         if _PREV_STATE is not None and CONTROLLER.state != _PREV_STATE:
             LOGGER.event(_PREV_STATE, CONTROLLER.state,

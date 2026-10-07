@@ -25,6 +25,7 @@ truth for both).
 """
 import math
 from collections import deque
+from statistics import median
 from dataclasses import dataclass
 
 
@@ -117,6 +118,7 @@ class Tof:
         self.age = 0.0
         self.status = "none"
         self.sat_latched = False
+        self.valid_history = deque(maxlen=5)
 
     def update(self, raw, dt):
         dt = dt if dt and dt > 0 else 0.0
@@ -130,15 +132,18 @@ class Tof:
         ok = (raw is not None and raw == raw
               and 0.0 < raw <= self.max_range)
         if ok:
+            self.valid_history.append(raw)
+            filtered_raw = median(self.valid_history)
             a = dt / (self.tau + dt) if dt > 0 else 1.0
-            self.val = raw if self.val is None else self.val + a * (raw - self.val)
+            self.val = (filtered_raw if self.val is None
+                        else self.val + a * (filtered_raw - self.val))
             self.age = 0.0
             self.sat_latched = False
             self.status = "valid"
         else:
             self.age += dt
             if self.val is not None and self.age <= self.hold_s:
-                self.status = "sat" if self.sat_latched else "held"
+                self.status = "sat" if self.sat_latched else "none"
             else:
                 self.status = "none"
         if self.status == "none":

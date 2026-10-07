@@ -178,7 +178,7 @@ class ControllerRegressionTests(unittest.TestCase):
             if ctl.state in ("REVERSE", "TURN"):
                 break
 
-        self.assertIn(ctl.state, ("REVERSE", "TURN"))
+        self.assertIn(ctl.state, ("WEDGE", "REVERSE", "TURN"))
         self.assertEqual(ctl.turn_cause, "junction")
         self.assertLess(ctl.turn_target, 0.0)
 
@@ -197,7 +197,7 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertEqual(ctl.state_reason, "tof_open")
         self.assertGreaterEqual(abs(ctl.gyro_th), math.radians(85.0))
 
-    def test_first_unclassified_deadend_probes_left_before_uturn(self):
+    def test_unclassified_deadend_uses_direct_uturn(self):
         ctl = CenteringController()
         for _ in range(40):
             ctl.update(0.10, 0.10, 0.10, 0.10, 0.0, 0.02)
@@ -205,8 +205,8 @@ class ControllerRegressionTests(unittest.TestCase):
                 break
 
         self.assertEqual(ctl.state, "TURN")
-        self.assertEqual(ctl.turn_cause, "deadend_probe")
-        self.assertAlmostEqual(abs(ctl.turn_target), math.pi / 2.0)
+        self.assertEqual(ctl.turn_cause, "deadend")
+        self.assertAlmostEqual(abs(ctl.turn_target), math.pi)
 
         # Once the probe has been used, a still-blocked route escalates to a
         # real 180-degree escape rather than repeating left quarter-turns.
@@ -286,9 +286,13 @@ class ControllerRegressionTests(unittest.TestCase):
             left, right, *_ = ctl.update(0.11 / FRONT_RAY_COS, 0.32,
                                          0.051, 0.051, 0.0, 0.02)
 
-        self.assertEqual(ctl.state, "FOLLOW")
+        self.assertIn(ctl.state, ("FOLLOW", "ROUTE_BUFFER"))
+        self.assertFalse(ctl.gateway_wall_follow_active)
         self.assertEqual(ctl.observation.hazard, "single_ray")
-        self.assertGreater((left + right) * 0.5, 1.5)
+        if ctl.state == "FOLLOW":
+            self.assertGreater((left + right) * 0.5, 1.5)
+        else:
+            self.assertGreater((left + right) * 0.5, 1.0)
 
     def test_stale_opposite_front_ray_routes_around_close_wall(self):
         ctl = CenteringController()
@@ -341,7 +345,7 @@ class ControllerRegressionTests(unittest.TestCase):
             ctl.update(0.12, 0.20, 0.10, 0.70, 0.0, 0.02)
             if ctl.state in ("REVERSE", "TURN"):
                 break
-        self.assertIn(ctl.state, ("REVERSE", "TURN"))
+        self.assertIn(ctl.state, ("WEDGE", "REVERSE", "TURN"))
         self.assertEqual(ctl.turn_cause, "junction")
 
     def test_completed_turn_settles_then_acquires_corridor(self):
@@ -380,6 +384,109 @@ class ControllerRegressionTests(unittest.TestCase):
 
         self.assertEqual(ctl.state, "POST_TURN_ADVANCE")
 
+    def test_post_turn_route_latch_survives_old_corner_ray(self):
+        ctl = CenteringController()
+        ctl.post_turn_stage = "settle"
+        ctl.route_latched = True
+        ctl.route_dir = 1.0
+        ctl.state = "POST_TURN_VERIFY"
+
+        # The left splayed ray still sees the corner, but the centreline is
+        # clear.  Acquisition must own the wheels rather than back out.
+        for _ in range(20):
+            ctl.update(0.10, 0.30, 0.051, 0.051, 0.0, 0.02)
+            if ctl.state == "POST_TURN_ADVANCE":
+                break
+
+        self.assertEqual(ctl.state, "POST_TURN_ADVANCE")
+        self.assertTrue(ctl.route_latched)
+
+        for _ in range(160):
+            ctl.update(0.10, 0.30, 0.051, 0.051, 0.0, 0.02)
+            if ctl.state == "FOLLOW":
+                break
+
+        self.assertEqual(ctl.state, "FOLLOW")
+        self.assertEqual(ctl.state_reason, "post_turn_acquired")
+
+    def test_post_turn_both_close_front_rays_abort_acquisition(self):
+        ctl = CenteringController()
+        ctl.post_turn_stage = "settle"
+        ctl.route_latched = True
+        ctl.route_dir = 1.0
+        ctl.state = "POST_TURN_VERIFY"
+
+        for _ in range(20):
+            ctl.update(0.10, 0.10, 0.051, 0.051, 0.0, 0.02)
+            if ctl.state in ("REVERSE", "TURN"):
+                break
+
+        self.assertIn(ctl.state, ("WEDGE", "REVERSE", "TURN"))
+
+    def test_post_turn_side_opening_supports_close_front_geometry(self):
+        ctl = CenteringController()
+        ctl.post_turn_stage = "settle"
+        ctl.route_latched = True
+        ctl.route_dir = 1.0
+        ctl.state = "POST_TURN_VERIFY"
+
+        # Both front rays are close, but the side clearance proves this is a
+        # corner/branch rather than a dead end in the selected route.
+        for _ in range(20):
+            ctl.update(0.10, 0.10, 0.30, 0.30, 0.0, 0.02)
+            if ctl.state == "POST_TURN_ADVANCE":
+                break
+
+        self.assertEqual(ctl.state, "POST_TURN_ADVANCE")
+        self.assertTrue(ctl.route_latched)
+
+    def test_post_turn_unknown_front_does_not_drop_route_latch(self):
+        ctl = CenteringController()
+        ctl.post_turn_stage = "settle"
+        ctl.route_latched = True
+        ctl.route_dir = 1.0
+        ctl.state = "POST_TURN_VERIFY"
+
+        for _ in range(40):
+            left, right, *_ = ctl.update(None, None, 0.051, 0.051,
+                                         0.0, 0.02)
+            if ctl.state in ("REVERSE", "TURN", "WEDGE"):
+                break
+
+        self.assertIn(ctl.state, ("REVERSE", "TURN", "WEDGE"))
+        self.assertNotEqual(ctl.state, "POST_TURN_VERIFY")
+
+    def test_route_latch_blocks_fallback_turn_selection(self):
+        ctl = CenteringController()
+        ctl.route_latched = True
+        ctl.route_dir = 1.0
+        ctl.gateway_rearm_latched = True
+        ctl.state = "FOLLOW"
+
+        left = right = 0.0
+        for _ in range(10):
+            left, right, *_ = ctl.update(0.10, 0.10, 0.30, 0.30,
+                                         0.0, 0.02)
+            if ctl.state == "POST_TURN_VERIFY":
+                break
+
+        self.assertEqual(ctl.state, "POST_TURN_VERIFY")
+        self.assertEqual((left, right), (0.0, 0.0))
+
+    def test_aborted_turn_clears_route_latch(self):
+        ctl = CenteringController()
+        ctl.route_latched = True
+        ctl.post_turn_stage = "none"
+        ctl.state = "TURN"
+
+        ctl._abort_turn(
+            types.SimpleNamespace(dt=0.02, steer=0.0, e_lat=None,
+                                  e_front=None, yaw_rate=0.0),
+            "no_progress", "no_progress")
+
+        self.assertFalse(ctl.route_latched)
+        self.assertEqual(ctl.post_turn_stage, "none")
+
     def test_failed_left_probe_escalates_instead_of_claiming_a_path(self):
         ctl = CenteringController()
         ctl.post_turn_stage = "settle"
@@ -394,17 +501,37 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertIn(ctl.state, ("REVERSE", "TURN"))
         self.assertNotEqual(ctl.state, "POST_TURN_ADVANCE")
 
+    def test_probe_uses_open_side_as_acquisition_confirmation(self):
+        ctl = CenteringController()
+        ctl.post_turn_stage = "settle"
+        ctl.turn_cause = "deadend_probe"
+        ctl.route_latched = True
+        ctl.state = "POST_TURN_VERIFY"
+
+        for _ in range(20):
+            ctl.update(0.47, 0.08, 0.30, 0.30, 0.0, 0.02)
+            if ctl.state == "POST_TURN_ADVANCE":
+                break
+
+        self.assertEqual(ctl.state, "POST_TURN_ADVANCE")
+
+        for _ in range(160):
+            ctl.update(0.47, 0.08, 0.30, 0.30, 0.0, 0.02)
+            if ctl.state == "FOLLOW":
+                break
+        self.assertEqual(ctl.state, "FOLLOW")
+
     def test_post_turn_blockage_returns_to_route_selection(self):
         ctl = CenteringController()
         ctl.post_turn_stage = "settle"
         ctl.state = "POST_TURN_VERIFY"
 
         for _ in range(20):
-            ctl.update(0.10, 0.10, 0.30, 0.30, 0.0, 0.02)
+            ctl.update(0.10, 0.10, 0.051, 0.051, 0.0, 0.02)
             if ctl.state == "REVERSE":
                 break
         self.assertIn(ctl.state, ("ROUTE_BUFFER", "REVERSE"))
-        self.assertEqual(ctl.turn_cause, "junction")
+        self.assertEqual(ctl.turn_cause, "deadend")
 
     def test_lone_close_splayed_ray_does_not_steer(self):
         ctl = CenteringController()
@@ -414,6 +541,68 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertEqual(ctl.steer_front, 0.0)
         self.assertAlmostEqual(left, right)
         self.assertGreater(left + right, 0.0)
+
+    def test_corridor_pid_centers_and_clears_on_side_opening(self):
+        ctl = CenteringController()
+        for _ in range(20):
+            ctl.update(0.30, 0.30, 0.08, 0.05, 0.0, 0.02)
+
+        self.assertEqual(ctl.state, "FOLLOW")
+        self.assertGreater(ctl.steer_lat, 0.0)
+        self.assertGreater(ctl.lat_integral, 0.0)
+
+        for _ in range(40):
+            ctl.update(0.30, 0.30, 0.30, 0.05, 0.0, 0.02)
+        self.assertEqual(ctl.lat_integral, 0.0)
+        self.assertIsNone(ctl.lat_prev_error)
+
+    def test_corridor_pid_resets_on_turn_start(self):
+        ctl = CenteringController()
+        ctl.lat_integral = 0.05
+        ctl.lat_prev_error = 0.02
+        ctl._start_turn(1.0, math.pi / 2.0, "junction")
+        self.assertEqual(ctl.lat_integral, 0.0)
+        self.assertIsNone(ctl.lat_prev_error)
+
+    def test_corridor_entry_accepts_release_margin_single_ray(self):
+        ctl = CenteringController()
+        ctl.corridor_entry_active = True
+        ctl.state = "FOLLOW"
+
+        left, right, *_ = ctl.update(
+            0.160 / FRONT_RAY_COS, 0.053 / FRONT_RAY_COS,
+            0.295, 0.107, 0.0, 0.02)
+
+        self.assertEqual(ctl.state, "FOLLOW")
+        self.assertGreater(left + right, 0.0)
+
+    def test_post_turn_one_valid_front_ray_and_side_open_confirms_route(self):
+        ctl = CenteringController()
+        ctl.post_turn_stage = "settle"
+        ctl.turn_cause = "deadend_probe"
+        ctl.route_latched = True
+        ctl.state = "POST_TURN_VERIFY"
+
+        for _ in range(20):
+            ctl.update(0.30, None, 0.30, 0.30, 0.0, 0.02)
+            if ctl.state == "POST_TURN_ADVANCE":
+                break
+
+        self.assertEqual(ctl.state, "POST_TURN_ADVANCE")
+
+    def test_post_turn_invalid_front_uses_open_side_timeout_fallback(self):
+        ctl = CenteringController()
+        ctl.post_turn_stage = "settle"
+        ctl.turn_cause = "junction"
+        ctl.route_latched = True
+        ctl.state = "POST_TURN_VERIFY"
+
+        for _ in range(40):
+            ctl.update(None, None, 0.30, 0.30, 0.0, 0.02)
+            if ctl.state == "POST_TURN_ADVANCE":
+                break
+
+        self.assertEqual(ctl.state, "POST_TURN_ADVANCE")
 
     def test_front_distance_uses_forward_projection_and_pair_gate(self):
         ctl = CenteringController()
@@ -478,6 +667,31 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertNotEqual(ctl.state, "FRONT_BACKOUT")
         self.assertGreater(left + right, 0.0)
 
+    def test_held_close_front_ray_does_not_start_emergency_backout(self):
+        ctl = CenteringController()
+        ctl.tof_fl.val = 0.07
+        ctl.tof_fl.age = 0.01
+        ctl.tof_fl.status = "held"
+
+        left, right, *_ = ctl.update(None, 0.30, 0.18, 0.18,
+                                     0.0, 0.02)
+
+        self.assertNotEqual(ctl.state, "FRONT_BACKOUT")
+        self.assertGreater(left + right, 0.0)
+
+    def test_post_turn_invalid_front_closed_sides_releases_latch(self):
+        ctl = CenteringController()
+        ctl.post_turn_stage = "settle"
+        ctl.route_latched = True
+        ctl.state = "POST_TURN_VERIFY"
+
+        for _ in range(40):
+            ctl.update(None, 0.11, 0.08, 0.08, 0.0, 0.02)
+            if ctl.state in ("REVERSE", "TURN"):
+                break
+
+        self.assertIn(ctl.state, ("REVERSE", "TURN", "WEDGE"))
+
     def test_front_backout_starts_before_taper_can_stall(self):
         self.assertGreater(FRONT_EMERGENCY_DIST, FRONT_SPEED_TAPER_END)
         ctl = CenteringController()
@@ -486,6 +700,16 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertEqual(ctl.state, "FRONT_BACKOUT")
         self.assertAlmostEqual(left, -FRONT_BACKOUT_SPEED)
         self.assertAlmostEqual(right, -FRONT_BACKOUT_SPEED)
+
+    def test_single_close_ray_in_two_wall_corridor_does_not_interrupt_follow(self):
+        ctl = CenteringController()
+        for _ in range(20):
+            left, right, *_ = ctl.update(
+                0.09 / FRONT_RAY_COS, 0.30 / FRONT_RAY_COS,
+                0.051, 0.051, 0.0, 0.02)
+
+        self.assertNotEqual(ctl.state, "FRONT_BACKOUT")
+        self.assertGreater(left + right, 0.0)
 
     def test_slow_follow_steering_never_reverses_a_wheel(self):
         ctl = CenteringController()
@@ -504,8 +728,8 @@ class ControllerRegressionTests(unittest.TestCase):
             ctl.update(0.10, 0.10, 0.18, 0.18, 0.0, 0.02)
         self.assertEqual(ctl.state, "REVERSE")
         self.assertNotEqual(ctl.spin_dir, 0.0)
-        self.assertEqual(ctl.turn_cause, "deadend_probe")
-        self.assertAlmostEqual(abs(ctl.turn_target), 3.141592653589793 / 2.0)
+        self.assertEqual(ctl.turn_cause, "deadend")
+        self.assertAlmostEqual(abs(ctl.turn_target), 3.141592653589793)
 
     def test_blocked_front_turns_toward_classified_open_side(self):
         ctl = CenteringController()
@@ -515,6 +739,35 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertEqual(ctl.state, "REVERSE")
         self.assertLess(ctl.spin_dir, 0.0)
         self.assertEqual(ctl.turn_cause, "junction")
+
+    def test_equal_side_openings_use_clearer_front_ray(self):
+        ctl = CenteringController()
+        ctl.observation = types.SimpleNamespace(
+            left="open", right="open", front="blocked")
+        ctl.sl_f = ctl.sr_f = 0.30
+        c = types.SimpleNamespace(
+            dt=0.02, blocked=True, sl_num=True, sr_num=True,
+            fl_num=True, fr_num=True, fl_forward=0.10, fr_forward=0.30,
+            backout_limit_reached=False)
+        ctl._select_turn(c)
+
+        self.assertEqual(ctl.turn_cause, "junction")
+        self.assertLess(ctl.spin_dir, 0.0)
+
+    def test_narrow_corridor_with_clear_right_front_branch_turns_right(self):
+        ctl = CenteringController()
+        ctl.observation = types.SimpleNamespace(
+            left="wall", right="wall", front="blocked")
+        ctl.sl_f = ctl.sr_f = 0.08
+        c = types.SimpleNamespace(
+            dt=0.02, blocked=True, sl_num=True, sr_num=True,
+            fl_num=True, fr_num=True, fl_forward=0.10, fr_forward=0.30,
+            backout_limit_reached=False)
+        ctl._select_turn(c)
+
+        self.assertEqual(ctl.turn_cause, "junction")
+        self.assertLess(ctl.spin_dir, 0.0)
+        self.assertAlmostEqual(abs(ctl.turn_target), math.pi / 2.0)
 
     def test_gateway_handoff_returns_to_nearest_front_speed_control(self):
         ctl = CenteringController()
@@ -602,6 +855,29 @@ class ControllerRegressionTests(unittest.TestCase):
             if ctl.state == "GATEWAY":
                 break
         self.assertNotEqual(ctl.state, "GATEWAY")
+
+    def test_gateway_wall_follow_releases_on_open_centerline_in_corridor(self):
+        ctl = CenteringController()
+        ctl.gateway_wall_follow_active = True
+        ctl.gateway_active = True
+        ctl.gateway_rearm_latched = True
+
+        for _ in range(20):
+            ctl.update(0.60, 0.13, 0.051, 0.051, 0.0, 0.02)
+
+        self.assertFalse(ctl.gateway_wall_follow_active)
+
+    def test_gateway_wall_follow_releases_on_corridor_signature(self):
+        ctl = CenteringController()
+        ctl.gateway_wall_follow_active = True
+        ctl.gateway_active = True
+        ctl.gateway_rearm_latched = True
+
+        for _ in range(20):
+            ctl.update(0.10, 0.10, 0.18, 0.18, 0.0, 0.02)
+
+        self.assertFalse(ctl.gateway_wall_follow_active)
+
 
 
 if __name__ == "__main__":

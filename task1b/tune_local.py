@@ -9,7 +9,7 @@ Run:
     python3 tune_local.py --run offset --plot out.png --verbose
 
 Tune order: KP_LAT up till slight oscillation -> KD_YAW up till damped
--> KP_FRONT up till nose stops wiggling -> KI_LAT last, tiny.
+-> KP_FRONT up till nose stops wiggling.
 """
 import argparse
 import csv
@@ -38,10 +38,8 @@ sys.path.insert(0, "task1b")
 
 from task_1b_boilerplate import (  # noqa: E402
     BASE_SPEED,
-    FRONT_SLOW_DIST,
     FRONT_STOP_DIST,
     KD_YAW,
-    KI_LAT,
     KP_FRONT,
     KP_LAT,
     MAX_RANGE,
@@ -70,7 +68,7 @@ TURN_PLANT_COAST_TAU = 0.28
 TURN_PLANT_GAIN = 0.18
 
 CSV_HEADER = ["timestamp", "mode", "scenario", "kp_lat", "kp_front",
-              "kd_yaw", "ki_lat", "gyro_bias", "seed",
+              "kd_yaw", "gyro_bias", "seed",
               "rms", "max", "final", "hit", "spun"]
 
 
@@ -165,11 +163,11 @@ def run_turn_test(name, target_deg, plant_gain=TURN_PLANT_GAIN,
     if mag > 100:  # dead-end 180: both sides close (but above wedge)
         sl0, sr0 = 0.10, 0.10
     elif want_left:
-        # Keep this synthetic blocked-front turn away from the distinct
-        # spawn-gateway signature (both sides >= 0.20 m).
-        sl0, sr0 = 0.18, 0.12
+        # The left branch is open; the right wall remains present.
+        sl0, sr0 = 0.30, 0.12
     else:
-        sl0, sr0 = 0.12, 0.18
+        # The right branch is open; the left wall remains present.
+        sl0, sr0 = 0.12, 0.30
     plant = TurnPlant(gain=plant_gain, stall=stall, seed=seed)
     turned = 0.0
     aborts = []
@@ -244,8 +242,8 @@ def turn_tests(plant_gain=TURN_PLANT_GAIN, seed=0):
 def run_scenario(name, gains, T=12.0, seed=1, gyro_bias=0.0,
                  verbose=False):
     import task_1b_boilerplate as B
-    old = (B.KP_LAT, B.KP_FRONT, B.KD_YAW, B.KI_LAT)
-    B.KP_LAT, B.KP_FRONT, B.KD_YAW, B.KI_LAT = gains
+    old = (B.KP_LAT, B.KP_FRONT, B.KD_YAW)
+    B.KP_LAT, B.KP_FRONT, B.KD_YAW = gains
     try:
         ctl = CenteringController()
         y0, th0, x0 = 0.0, 0.0, 0.0
@@ -291,7 +289,7 @@ def run_scenario(name, gains, T=12.0, seed=1, gyro_bias=0.0,
                 "final": abs(ys[-1]), "hit": hit, "spun": spun,
                 "ys": ys, "ths": ths, "sts": sts}
     finally:
-        B.KP_LAT, B.KP_FRONT, B.KD_YAW, B.KI_LAT = old
+        B.KP_LAT, B.KP_FRONT, B.KD_YAW = old
 
 
 def main():
@@ -302,7 +300,6 @@ def main():
     ap.add_argument("--kp-lat", type=float, default=KP_LAT)
     ap.add_argument("--kp-front", type=float, default=KP_FRONT)
     ap.add_argument("--kd-yaw", type=float, default=KD_YAW)
-    ap.add_argument("--ki-lat", type=float, default=KI_LAT)
     ap.add_argument("--gyro-bias", type=float, default=0.0)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--plot", default=None)
@@ -327,7 +324,7 @@ def main():
         csv_rows = []
         for kp in [1.5, 3.0, 5.0, 7.0]:
             for kd in [0.0, 0.4, 0.8, 1.5]:
-                gains = (kp, a.kp_front, kd, a.ki_lat)
+                gains = (kp, a.kp_front, kd)
                 row, hits = [], 0
                 for sc in ["offset", "angle", "noise", "junction"]:
                     r = run_scenario(sc, gains, seed=a.seed,
@@ -339,7 +336,7 @@ def main():
                             "timestamp": ts, "mode": "sweep",
                             "scenario": sc, "kp_lat": kp,
                             "kp_front": a.kp_front, "kd_yaw": kd,
-                            "ki_lat": a.ki_lat, "gyro_bias": a.gyro_bias,
+                            "gyro_bias": a.gyro_bias,
                             "seed": a.seed, "rms": f"{r['rms']:.4f}",
                             "max": f"{r['max']:.4f}",
                             "final": f"{r['final']:.4f}",
@@ -354,9 +351,9 @@ def main():
         log_csv(a.csv, csv_rows)
         return
 
-    gains = (a.kp_lat, a.kp_front, a.kd_yaw, a.ki_lat)
+    gains = (a.kp_lat, a.kp_front, a.kd_yaw)
     print(f"gains KP_LAT={gains[0]} KP_FRONT={gains[1]} "
-          f"KD_YAW={gains[2]} KI_LAT={gains[3]} bias={a.gyro_bias}")
+          f"KD_YAW={gains[2]} bias={a.gyro_bias}")
     results = {}
     csv_rows = []
     for sc in a.run.split(","):
@@ -372,7 +369,7 @@ def main():
             csv_rows.append({
                 "timestamp": ts, "mode": "run", "scenario": sc,
                 "kp_lat": gains[0], "kp_front": gains[1],
-                "kd_yaw": gains[2], "ki_lat": gains[3],
+                "kd_yaw": gains[2],
                 "gyro_bias": a.gyro_bias, "seed": a.seed,
                 "rms": f"{r['rms']:.4f}", "max": f"{r['max']:.4f}",
                 "final": f"{r['final']:.4f}",

@@ -793,7 +793,14 @@ class CenteringController:
             else:
                 v_post = min(POST_TURN_SPEED_MPS, MAX_LINEAR_MPS)
                 base_post = v_post / K_LIN
-                steer_post = max(-0.5, min(c.steer, 0.5))
+                # The outgoing corridor is acquired immediately after a
+                # completed gyro turn. Reusing wall-follow steering here can
+                # rotate the robot back toward the old corridor during the
+                # relatively slow 6 cm advance. Hold the verified heading;
+                # normal wall-follow steering resumes after acquisition.
+                steer_post = max(-0.2, min(
+                    KP_HEADING * self._wrap(self.corridor_heading
+                                             - self.gyro_th), 0.2))
                 left_post = base_post - steer_post
                 right_post = base_post + steer_post
                 self.post_turn_distance += v_post * c.dt

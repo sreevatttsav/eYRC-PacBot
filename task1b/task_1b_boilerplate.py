@@ -87,7 +87,7 @@ TURN_PD_ASSIST_GAIN = 0.25  # bounded side-wall PD contribution during spin
 TURN_PD_ASSIST_MAX_W = 0.35
 TURN_TOF_JUMP_M = 0.18       # side wall opening must be this large
 TURN_TOF_OPEN_M = 0.20       # and reach clear/open range
-TURN_TOF_MIN_ANGLE = math.radians(60.0)
+TURN_TOF_MIN_ANGLE = math.radians(80.0)
 TURN_TOF_DWELL_S = 0.04      # reject one noisy jump sample
 TURN_EXIT_ERR = 0.052  # 3 deg; coast adds ~1-2 deg -> final inside +/-5
 TURN_MAX_RETRIES = 2
@@ -166,7 +166,7 @@ GATEWAY_CORRIDOR_S = 0.30  # require a stable side-wall signature
 GATEWAY_SIDE_WALL_DELTA_M = 0.04  # side range fell from spawn baseline
 GATEWAY_SIDE_WALL_DWELL_S = 0.25  # sensor persistence debounce, not mode time
 GATEWAY_FRONT_STEER_MAX = 0.50  # bound front alignment while in the frame
-GATEWAY_APPROACH_M = 0.40  # allow a longer straight entrance before handoff
+GATEWAY_APPROACH_M = 0.65  # move into the maze before route handoff
 GATEWAY_TIMEOUT = 12.0     # enough time to cover the approach at cruise speed
 
 # Heading-aware centering (Stage 3). The reference accumulates each

@@ -183,7 +183,7 @@ class ControllerRegressionTests(unittest.TestCase):
 
         self.assertEqual(ctl.state, "BRAKE")
         self.assertEqual(ctl.state_reason, "tof_open")
-        self.assertGreaterEqual(abs(ctl.gyro_th), math.radians(60.0))
+        self.assertGreaterEqual(abs(ctl.gyro_th), math.radians(80.0))
 
     def test_first_unclassified_deadend_probes_left_before_uturn(self):
         ctl = CenteringController()

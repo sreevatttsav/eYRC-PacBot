@@ -85,6 +85,10 @@ TURN_MIN_W = 1.2       # minimum wheel speed in a turn (rad/s)
 TURN_ACCEL_W = 15.0    # wheel-speed ramp, rad/s^2, for smooth turn entry/exit
 TURN_PD_ASSIST_GAIN = 0.25  # bounded side-wall PD contribution during spin
 TURN_PD_ASSIST_MAX_W = 0.35
+TURN_TOF_JUMP_M = 0.18       # side wall opening must be this large
+TURN_TOF_OPEN_M = 0.20       # and reach clear/open range
+TURN_TOF_MIN_ANGLE = math.radians(60.0)
+TURN_TOF_DWELL_S = 0.04      # reject one noisy jump sample
 TURN_EXIT_ERR = 0.052  # 3 deg; coast adds ~1-2 deg -> final inside +/-5
 TURN_MAX_RETRIES = 2
 TURN_TIMEOUT_BASE = 0.7    # hard timeout = BASE + PER_RAD*|target|
@@ -263,6 +267,10 @@ def _controller_constants():
         "TURN_KP": TURN_KP, "TURN_MIN_W": TURN_MIN_W,
         "TURN_PD_ASSIST_GAIN": TURN_PD_ASSIST_GAIN,
         "TURN_PD_ASSIST_MAX_W": TURN_PD_ASSIST_MAX_W,
+        "TURN_TOF_JUMP_M": TURN_TOF_JUMP_M,
+        "TURN_TOF_OPEN_M": TURN_TOF_OPEN_M,
+        "TURN_TOF_MIN_ANGLE_DEG": math.degrees(TURN_TOF_MIN_ANGLE),
+        "TURN_TOF_DWELL_S": TURN_TOF_DWELL_S,
         "TURN_EXIT_ERR": TURN_EXIT_ERR,
         "TURN_MAX_RETRIES": TURN_MAX_RETRIES,
         "POST_TURN_SETTLE_S": POST_TURN_SETTLE_S,
@@ -341,6 +349,10 @@ class CenteringController:
         self.retry_dir = None    # hard-timeout retry: force same dir once
         self.turn_angle = 0.0    # exposed for turn logging
         self.turn_error = 0.0
+        self.turn_wall_start_l = None
+        self.turn_wall_start_r = None
+        self.turn_tof_jump_t = 0.0
+        self.turn_stop_reason = ""
         self.retry_used = False
         self._from_backup = False
         self.np_t0 = 0.0         # no-progress window start (turn-time)
@@ -434,6 +446,10 @@ class CenteringController:
         self.turn_w = 0.0
         self.turn_cause = cause
         self.turn_outcome = "active"
+        self.turn_wall_start_l = None
+        self.turn_wall_start_r = None
+        self.turn_tof_jump_t = 0.0
+        self.turn_stop_reason = ""
         # Any committed navigation turn means the spawn entrance phase is
         # over. Never reinterpret later symmetric walls as another gateway.
         self.gateway_active = False
@@ -1304,6 +1320,8 @@ class CenteringController:
             self.np_t0 = 0.0
             self.np_a0 = 0.0
             self.turn_progress = 0.0
+            self.turn_wall_start_l = self.sl_f if c.sl_s == "valid" else None
+            self.turn_wall_start_r = self.sr_f if c.sr_s == "valid" else None
         self.turn_t += dt
         turned = self.gyro_th - self.turn_entry
         err = self.turn_target - turned
@@ -1333,6 +1351,39 @@ class CenteringController:
                 self.turn_angle = turned
                 self.turn_error = err
                 self._set_state("BRAKE", "coast")
+                return self._fin(c, -w, w, c.steer)
+        tof_jump = False
+        if (self.brake_until is None
+                and abs(abs(self.turn_orig) - math.pi / 2.0) < 0.01
+                and abs(turned) >= TURN_TOF_MIN_ANGLE):
+            if self.turn_orig > 0:
+                start = self.turn_wall_start_l
+                current = self.sl_f
+                status = c.sl_s
+            else:
+                start = self.turn_wall_start_r
+                current = self.sr_f
+                status = c.sr_s
+            tof_jump = (
+                status == "valid" and start is not None and current is not None
+                and current >= TURN_TOF_OPEN_M
+                and current - start >= TURN_TOF_JUMP_M
+            )
+            self.turn_tof_jump_t = (
+                self.turn_tof_jump_t + dt if tof_jump else 0.0
+            )
+            if self.turn_tof_jump_t >= TURN_TOF_DWELL_S:
+                # The side wall has visibly disappeared into the selected
+                # branch. Stop the 90-degree maneuver here, then let the
+                # post-turn sensor check decide whether to advance.
+                self.turn_target = turned
+                self.turn_stop_reason = "tof_open"
+                self.brake_until = self.turn_t + BRAKE_TIMEOUT
+                self.brake_low_t = 0.0
+                self.brake_w = -math.copysign(
+                    BRAKE_W, yaw_rate if yaw_rate != 0.0 else 1.0)
+                self._set_state("BRAKE", "tof_open")
+                w = self.brake_w
                 return self._fin(c, -w, w, c.steer)
         timeout = TURN_TIMEOUT_BASE + TURN_TIMEOUT_PER_RAD * abs(self.turn_target)
         if not finishing and self.turn_t > timeout:

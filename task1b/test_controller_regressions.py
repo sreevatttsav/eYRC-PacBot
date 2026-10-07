@@ -170,6 +170,21 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertLess(left, 0.0)
         self.assertGreater(right, 0.0)
 
+    def test_side_wall_jump_brakes_a_90_degree_turn(self):
+        ctl = CenteringController()
+        ctl._start_turn(1.0, math.pi / 2.0, "junction")
+        ctl.state = "TURN"
+
+        for i in range(200):
+            left_wall = 0.05 if i < 2 else 0.30
+            ctl.update(0.8, 0.8, left_wall, 0.05, 0.6, 0.02)
+            if ctl.state == "BRAKE":
+                break
+
+        self.assertEqual(ctl.state, "BRAKE")
+        self.assertEqual(ctl.state_reason, "tof_open")
+        self.assertGreaterEqual(abs(ctl.gyro_th), math.radians(60.0))
+
     def test_gateway_wall_follow_ignores_entrance_jamb_single_ray(self):
         ctl = CenteringController()
         ctl.state = "FOLLOW"

@@ -83,6 +83,8 @@ YAW_GAIN_K = 0.0914   # from step_test s1_step summary.json
 TURN_KP = 2.0          # P gain on angle error (rad/s per rad)
 TURN_MIN_W = 1.2       # minimum wheel speed in a turn (rad/s)
 TURN_ACCEL_W = 15.0    # wheel-speed ramp, rad/s^2, for smooth turn entry/exit
+TURN_PD_ASSIST_GAIN = 0.25  # bounded side-wall PD contribution during spin
+TURN_PD_ASSIST_MAX_W = 0.35
 TURN_EXIT_ERR = 0.052  # 3 deg; coast adds ~1-2 deg -> final inside +/-5
 TURN_MAX_RETRIES = 2
 TURN_TIMEOUT_BASE = 0.7    # hard timeout = BASE + PER_RAD*|target|
@@ -258,6 +260,8 @@ def _controller_constants():
         "WEDGE_TURN_AFTER": WEDGE_TURN_AFTER,
         "WEDGE_CLEARANCE_TIE_DB": WEDGE_CLEARANCE_TIE_DB,
         "TURN_KP": TURN_KP, "TURN_MIN_W": TURN_MIN_W,
+        "TURN_PD_ASSIST_GAIN": TURN_PD_ASSIST_GAIN,
+        "TURN_PD_ASSIST_MAX_W": TURN_PD_ASSIST_MAX_W,
         "TURN_EXIT_ERR": TURN_EXIT_ERR,
         "TURN_MAX_RETRIES": TURN_MAX_RETRIES,
         "POST_TURN_SETTLE_S": POST_TURN_SETTLE_S,
@@ -1391,7 +1395,14 @@ class CenteringController:
         self.turn_error = err
         side = "left" if self.turn_target > 0 else "right"
         self._set_state("TURN", (self.turn_cause + "_" if self.turn_cause else "") + side)
-        return self._fin(c, -w, w, c.steer)
+        # Keep the gyro loop authoritative for the requested angle, but use
+        # a small bounded lateral-PD assist so a turn entered off-centre does
+        # not blindly pivot around the old corridor centreline. The assist
+        # cannot override the gyro target or front-safety phases.
+        turn_pd = max(-TURN_PD_ASSIST_MAX_W,
+                      min(TURN_PD_ASSIST_MAX_W,
+                          TURN_PD_ASSIST_GAIN * c.steer_lat))
+        return self._fin(c, -w - turn_pd, w + turn_pd, c.steer)
 
     # --- default behavior: FOLLOW ------------------------------------
     def _follow(self, c):

@@ -87,7 +87,7 @@ TURN_PD_ASSIST_GAIN = 0.25  # bounded side-wall PD contribution during spin
 TURN_PD_ASSIST_MAX_W = 0.35
 TURN_TOF_JUMP_M = 0.18       # side wall opening must be this large
 TURN_TOF_OPEN_M = 0.20       # and reach clear/open range
-TURN_TOF_MIN_ANGLE = math.radians(80.0)
+TURN_TOF_MIN_ANGLE = math.radians(85.0)
 TURN_TOF_DWELL_S = 0.04      # reject one noisy jump sample
 TURN_EXIT_ERR = 0.052  # 3 deg; coast adds ~1-2 deg -> final inside +/-5
 TURN_MAX_RETRIES = 2
@@ -1297,9 +1297,16 @@ class CenteringController:
             # range. At a two-way choice, keep the latched hand.
             if side_left_open and side_right_open:
                 local_dir = (self.follow_side or FOLLOW_SIDE_PREFERENCE)
-                flood_dir = self.flood.choose((1, -1))
-                tdir = flood_dir if flood_dir is not None else local_dir
-                self.flood_route = "flood" if flood_dir is not None else "local"
+                if self.turn_cause == "deadend_probe":
+                    # The first post-probe check belongs to the probe route;
+                    # do not let an uncalibrated flood-map tie-break reverse
+                    # the intended left exploration immediately.
+                    tdir = 1.0
+                    self.flood_route = "probe_left"
+                else:
+                    flood_dir = self.flood.choose((1, -1))
+                    tdir = flood_dir if flood_dir is not None else local_dir
+                    self.flood_route = "flood" if flood_dir is not None else "local"
             else:
                 tdir = 1.0 if side_left_open else -1.0
                 self.flood_route = "local_single_open"

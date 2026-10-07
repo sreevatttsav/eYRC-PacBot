@@ -184,6 +184,19 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertGreater(right, 0.0)
         self.assertFalse(ctl.front_backout_active)
 
+    def test_gateway_wall_follow_releases_in_normal_close_corridor(self):
+        ctl = CenteringController()
+        ctl.gateway_wall_follow_active = True
+
+        for _ in range(30):
+            ctl.update(0.08 / FRONT_RAY_COS, 1.20,
+                       0.051, 0.051, 0.0, 0.02)
+            if ctl.state in ("REVERSE", "TURN"):
+                break
+
+        self.assertFalse(ctl.gateway_wall_follow_active)
+        self.assertIn(ctl.state, ("REVERSE", "TURN"))
+
     def test_single_ray_in_corridor_does_not_hold_minimum_speed(self):
         ctl = CenteringController()
         ctl.gateway_wall_follow_active = True

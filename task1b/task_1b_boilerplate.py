@@ -740,8 +740,15 @@ class CenteringController:
         # Keep the entrance-wall exemption until both splayed rays clear.
         # One open ray is exactly the jamb geometry that caused maze20 to
         # reverse out of the entrance.
+        normal_corridor = (
+            c.sl_num and c.sr_num
+            and self.sl_f < WEDGE_ENTER
+            and self.sr_f < WEDGE_ENTER
+        )
         if (self.gateway_wall_follow_active
-                and c.front_open_l and c.front_open_r):
+                and (c.front_open_l and c.front_open_r
+                     or (normal_corridor and c.front_clear is not None
+                         and c.front_clear < FRONT_EMERGENCY_DIST + 0.02))):
             self.gateway_wall_follow_active = False
         c.blocked = (self.observation.front == "blocked"
                      and not self.gateway_wall_follow_active)
@@ -1110,8 +1117,8 @@ class CenteringController:
         tight_corridor_front_block = (
             ((fl_num and fl_forward < FRONT_STOP_DIST)
              != (fr_num and fr_forward < FRONT_STOP_DIST))
-            and front_clear is not None
-            and front_clear < FRONT_STOP_DIST
+             and front_clear is not None
+             and front_clear < FRONT_STOP_DIST
             and self.sl_f is not None and self.sr_f is not None
             and self.sl_f < WEDGE_ENTER and self.sr_f < WEDGE_ENTER
             and not self.gateway_wall_follow_active

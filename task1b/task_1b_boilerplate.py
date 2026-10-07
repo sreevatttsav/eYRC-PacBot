@@ -97,9 +97,10 @@ NO_PROGRESS_WIN = 1.0     # abort if integrated angle gains < MIN in any window
 NO_PROGRESS_MIN = 0.0873  # 5 deg
 # Coast braking (step_test: 4-30 deg passive coast kills the +/-5 deg
 # budget, so turns end with a closed-loop rotation stop, not a timer).
-BRAKE_W = 2.0            # opposing wheel speed to stop rotation
+BRAKE_W = 1.0            # opposing wheel speed to stop rotation
 BRAKE_EXIT_GYRO = 0.12   # stopped threshold (rad/s)
-BRAKE_TIMEOUT = 0.5      # give up stopping after this (s)
+BRAKE_TIMEOUT = 0.25     # short bounded braking window
+TURN_STOP_DWELL_S = 0.04 # low yaw must persist before turn completion
 RETRIM_TOL = 0.0873      # 5 deg: accept final error within this
 OVERSHOOT_MAX = 0.14     # 8 deg past target: give up, don't re-trim
 POST_TURN_SETTLE_S = 0.15   # stop and collect fresh ranges after rotation
@@ -274,7 +275,9 @@ def _controller_constants():
         "NO_PROGRESS_WIN": NO_PROGRESS_WIN,
         "NO_PROGRESS_MIN": NO_PROGRESS_MIN,
         "BRAKE_W": BRAKE_W, "BRAKE_EXIT_GYRO": BRAKE_EXIT_GYRO,
-        "BRAKE_TIMEOUT": BRAKE_TIMEOUT, "RETRIM_TOL": RETRIM_TOL,
+        "BRAKE_TIMEOUT": BRAKE_TIMEOUT,
+        "TURN_STOP_DWELL_S": TURN_STOP_DWELL_S,
+        "RETRIM_TOL": RETRIM_TOL,
         "OVERSHOOT_MAX": OVERSHOOT_MAX,
         "YAW_GAIN_K": YAW_GAIN_K,
         "STUCK_WIN_S": STUCK_WIN_S, "STUCK_CMD_MIN": STUCK_CMD_MIN,
@@ -346,6 +349,7 @@ class CenteringController:
         self.abort_reason = ""   # last turn abort: "", timeout, no_progress
         self.brake_until = None  # turn_t deadline for the BRAKE state
         self.brake_w = 0.0       # signed opposing wheel speed in BRAKE
+        self.brake_low_t = 0.0
         self.turn_cause = ""     # e.g. junction, blocked, deadend, lost
         self.flood = FloodFillPlanner()
         self.flood_pending_move = False
@@ -424,6 +428,7 @@ class CenteringController:
         self.turn_t = 0.0
         self.abort_reason = ""
         self.brake_until = None
+        self.brake_low_t = 0.0
         self.reverse_ticks = 0
         self.spin_done_s = 0.0
         self.turn_w = 0.0
@@ -1304,12 +1309,24 @@ class CenteringController:
         err = self.turn_target - turned
         finishing = False
         if self.brake_until is not None:
-            # in BRAKE: hold opposition until stopped or timed out
-            if (abs(yaw_rate) < BRAKE_EXIT_GYRO
-                    or self.turn_t > self.brake_until):
-                err = self.turn_target - (self.gyro_th - self.turn_entry)
+            # In BRAKE, require both angle tolerance and a continuous low-yaw
+            # dwell. A single quiet gyro sample is not enough to declare the
+            # turn complete.
+            if abs(yaw_rate) < BRAKE_EXIT_GYRO:
+                self.brake_low_t += dt
+            else:
+                self.brake_low_t = 0.0
+            err = self.turn_target - (self.gyro_th - self.turn_entry)
+            settled = (abs(err) <= RETRIM_TOL
+                       and self.brake_low_t >= TURN_STOP_DWELL_S)
+            timed_out = self.turn_t > self.brake_until
+            if settled or (timed_out and abs(err) <= RETRIM_TOL):
                 self.brake_until = None
                 finishing = True
+            elif timed_out:
+                # Brake did not settle on target; let residual trim take over.
+                self.brake_until = None
+                self.brake_low_t = 0.0
             else:
                 w = self.brake_w
                 self.spin_done_s += dt
@@ -1329,7 +1346,8 @@ class CenteringController:
                 self.retry_dir = None
             return self._abort_turn(c, "hard_timeout", "turn_timeout",
                                     flip_next=flip)
-        if not finishing and self.turn_t >= NO_PROGRESS_START:
+        if (not finishing and self.brake_until is None
+                and self.turn_t >= NO_PROGRESS_START):
             if self.turn_t - self.np_t0 >= NO_PROGRESS_WIN:
                 self.turn_progress = turned - self.np_a0
                 if abs(self.turn_progress) < NO_PROGRESS_MIN:
@@ -1344,6 +1362,7 @@ class CenteringController:
                 finishing = True  # already slow: no brake needed
             else:
                 self.brake_until = self.turn_t + BRAKE_TIMEOUT
+                self.brake_low_t = 0.0
                 self.brake_w = -math.copysign(
                     BRAKE_W, yaw_rate if yaw_rate != 0.0 else err)
                 self._set_state("BRAKE", "coast")

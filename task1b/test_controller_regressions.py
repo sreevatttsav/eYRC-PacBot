@@ -121,13 +121,13 @@ class ControllerRegressionTests(unittest.TestCase):
             if ctl.state != last_state:
                 transitions.append((last_state, ctl.state))
                 last_state = ctl.state
-            if transitions[-1:] == [("BRAKE", "FOLLOW")]:
+            if transitions[-1:] == [("BRAKE", "POST_TURN_VERIFY")]:
                 completed_blocked_turn = True
                 break
 
         self.assertTrue(completed_blocked_turn)
         self.assertIn(("FOLLOW", "REVERSE"), transitions)
-        self.assertNotEqual(transitions[-1], ("BRAKE", "TURN"))
+        self.assertEqual(transitions[-1], ("BRAKE", "POST_TURN_VERIFY"))
 
     def test_single_close_front_ray_does_not_trigger_escape(self):
         ctl = CenteringController()
@@ -225,6 +225,42 @@ class ControllerRegressionTests(unittest.TestCase):
             if ctl.state in ("REVERSE", "TURN"):
                 break
         self.assertIn(ctl.state, ("REVERSE", "TURN"))
+        self.assertEqual(ctl.turn_cause, "junction")
+
+    def test_completed_turn_settles_then_acquires_corridor(self):
+        ctl = CenteringController()
+        ctl.post_turn_stage = "settle"
+        ctl.state = "POST_TURN_VERIFY"
+
+        left, right, *_ = ctl.update(0.8, 0.8, 0.051, 0.051,
+                                     0.0, 0.02)
+        self.assertEqual((left, right), (0.0, 0.0))
+
+        for _ in range(10):
+            left, right, *_ = ctl.update(0.8, 0.8, 0.051, 0.051,
+                                         0.0, 0.02)
+            if ctl.state == "POST_TURN_ADVANCE":
+                break
+        self.assertEqual(ctl.state, "POST_TURN_ADVANCE")
+        self.assertGreater(left + right, 0.0)
+
+        for _ in range(130):
+            ctl.update(0.8, 0.8, 0.051, 0.051, 0.0, 0.02)
+            if ctl.state == "FOLLOW":
+                break
+        self.assertEqual(ctl.state, "FOLLOW")
+        self.assertEqual(ctl.state_reason, "post_turn_acquired")
+
+    def test_post_turn_blockage_returns_to_route_selection(self):
+        ctl = CenteringController()
+        ctl.post_turn_stage = "settle"
+        ctl.state = "POST_TURN_VERIFY"
+
+        for _ in range(20):
+            ctl.update(0.10, 0.10, 0.30, 0.30, 0.0, 0.02)
+            if ctl.state == "REVERSE":
+                break
+        self.assertEqual(ctl.state, "REVERSE")
         self.assertEqual(ctl.turn_cause, "junction")
 
     def test_lone_close_splayed_ray_does_not_steer(self):

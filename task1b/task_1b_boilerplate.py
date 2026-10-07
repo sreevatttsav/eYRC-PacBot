@@ -109,6 +109,10 @@ BRAKE_EXIT_GYRO = 0.12   # stopped threshold (rad/s)
 BRAKE_TIMEOUT = 0.5      # give up stopping after this (s)
 RETRIM_TOL = 0.0873      # 5 deg: accept final error within this
 OVERSHOOT_MAX = 0.14     # 8 deg past target: give up, don't re-trim
+POST_TURN_SETTLE_S = 0.15   # stop and collect fresh ranges after rotation
+POST_TURN_VERIFY_MAX_S = 0.50  # bounded wait when front samples are stale
+POST_TURN_ADVANCE_M = 0.06  # acquire the outgoing corridor before rearming
+POST_TURN_SPEED_MPS = 0.025
 
 # Stuck detection + recovery (fix 2, retuned Stage 1b, rescaled for the
 # MEASURED gain: 0.3 was calibrated at K=0.13; at K=0.0914 the same
@@ -287,6 +291,10 @@ def _controller_constants():
         "TURN_EXIT_ERR": TURN_EXIT_ERR,
         "TURN_TIE_DB": TURN_TIE_DB,
         "TURN_MAX_RETRIES": TURN_MAX_RETRIES,
+        "POST_TURN_SETTLE_S": POST_TURN_SETTLE_S,
+        "POST_TURN_VERIFY_MAX_S": POST_TURN_VERIFY_MAX_S,
+        "POST_TURN_ADVANCE_M": POST_TURN_ADVANCE_M,
+        "POST_TURN_SPEED_MPS": POST_TURN_SPEED_MPS,
         "TURN_TIMEOUT_BASE": TURN_TIMEOUT_BASE,
         "TURN_TIMEOUT_PER_RAD": TURN_TIMEOUT_PER_RAD,
         "NO_PROGRESS_START": NO_PROGRESS_START,
@@ -373,6 +381,10 @@ class CenteringController:
         self.brake_until = None  # turn_t deadline for the BRAKE state
         self.brake_w = 0.0       # signed opposing wheel speed in BRAKE
         self.turn_cause = ""     # why this turn: "", "gap", "lost"
+        self.selected_route_dir = 0.0
+        self.post_turn_stage = "none"
+        self.post_turn_t = 0.0
+        self.post_turn_distance = 0.0
         # Exploration state (maze1 pack): wall follow + blind driving.
         self.follow_side = 0.0   # +1 left / -1 right / 0 none latched
         self.follow_t = 0.0
@@ -451,7 +463,15 @@ class CenteringController:
         self.spin_done_s = 0.0
         self.turn_w = 0.0
         self.turn_cause = cause
+        self.selected_route_dir = tdir
         self.turn_outcome = "active"
+        # Any committed navigation turn means the spawn entrance phase is
+        # over. Never reinterpret later symmetric walls as another gateway.
+        self.gateway_active = False
+        self.gateway_rearm_latched = True
+        self.post_turn_stage = "none"
+        self.post_turn_t = 0.0
+        self.post_turn_distance = 0.0
         self.junction_stage = "none"
         self.turn_updates_heading_ref = update_heading_ref
         self.spin_done_s = 0.0  # new escape -> new committed turn
@@ -772,6 +792,71 @@ class CenteringController:
             self._set_state("GATEWAY_HOLD", "gateway_abort")
             return self._finalize(0.0, 0.0, e_lat, e_front,
                                   0.0, yaw_rate, dt)
+
+        # A completed turn owns a short settle/verify/advance sequence. This
+        # prevents the same corner from being reclassified while the sensors
+        # still see the wall that was just rotated past.
+        if self.post_turn_stage == "settle":
+            self.post_turn_t += dt
+            front_fresh = fl_s == "valid" and fr_s == "valid"
+            verify_blocked = (
+                self.observation.front == "blocked"
+                or (self.observation.hazard == "emergency" and
+                    (self.observation.left == "open"
+                     or self.observation.right == "open"))
+            )
+            if verify_blocked and self.post_turn_t >= POST_TURN_SETTLE_S:
+                self.post_turn_stage = "none"
+                self.gateway_active = False
+                self.gateway_rearm_latched = True
+                blocked = True
+            elif (self.post_turn_t >= POST_TURN_SETTLE_S and front_fresh
+                  and self.observation.front != "blocked"):
+                self.post_turn_stage = "advance"
+                self.post_turn_distance = 0.0
+            elif self.post_turn_t >= POST_TURN_VERIFY_MAX_S:
+                # Unknown is not clear. Return to the route selector instead
+                # of advancing blindly on stale front data.
+                self.post_turn_stage = "none"
+                self.gateway_active = False
+                self.gateway_rearm_latched = True
+                blocked = True
+            else:
+                self._set_state("POST_TURN_VERIFY", "settle")
+                return self._finalize(0.0, 0.0, e_lat, e_front,
+                                      0.0, yaw_rate, dt)
+
+        if self.post_turn_stage == "advance":
+            post_blocked = (
+                self.observation.front == "blocked"
+                or self.observation.hazard == "emergency"
+                or (front_clear is not None
+                    and front_clear < FRONT_STOP_DIST)
+            )
+            if post_blocked:
+                self.post_turn_stage = "none"
+                self.gateway_active = False
+                self.gateway_rearm_latched = True
+                blocked = True
+            else:
+                v_post = min(POST_TURN_SPEED_MPS, MAX_LINEAR_MPS)
+                base_post = v_post / K_LIN
+                steer_post = max(-0.5, min(steer, 0.5))
+                left_post = base_post - steer_post
+                right_post = base_post + steer_post
+                self.post_turn_distance += v_post * dt
+                if self.post_turn_distance >= POST_TURN_ADVANCE_M:
+                    self.post_turn_stage = "none"
+                    self.post_turn_t = 0.0
+                    self.front_check_t = 0.0
+                    self.backout_signature_count = 0
+                    self.backout_loop_latched = False
+                    self.corridor_heading = self.gyro_th
+                    self._set_state("FOLLOW", "post_turn_acquired")
+                else:
+                    self._set_state("POST_TURN_ADVANCE", "acquire_corridor")
+                return self._finalize(left_post, right_post, e_lat, e_front,
+                                      steer_post, yaw_rate, dt)
 
         # --- stuck recovery finishes first (distance-driven backout) ---
         if self.recover_active:
@@ -1296,12 +1381,13 @@ class CenteringController:
                     self.turn_active = False
                     self.retry_used = False
                     self.retry_dir = None
-                    self._set_state(
-                        "FOLLOW", "turn_done" if front_clear is None
-                        or front_clear > FRONT_STOP_DIST
-                        else "turn_done_front_blocked")
-                    # fall through to FOLLOW; a still-blocked front gets
-                    # its own fresh reverse-and-direction decision.
+                    self.turn_w = 0.0
+                    self.post_turn_stage = "settle"
+                    self.post_turn_t = 0.0
+                    self.post_turn_distance = 0.0
+                    self._set_state("POST_TURN_VERIFY", "turn_complete")
+                    return self._finalize(0.0, 0.0, e_lat, e_front,
+                                          0.0, yaw_rate, dt)
                 else:
                     # stopped off-target: re-trim the residual
                     flipped = (err > 0) != (self.turn_orig > 0)

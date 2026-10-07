@@ -97,9 +97,9 @@ NO_PROGRESS_WIN = 1.0     # abort if integrated angle gains < MIN in any window
 NO_PROGRESS_MIN = 0.0873  # 5 deg
 # Coast braking (step_test: 4-30 deg passive coast kills the +/-5 deg
 # budget, so turns end with a closed-loop rotation stop, not a timer).
-BRAKE_W = 1.0            # opposing wheel speed to stop rotation
+BRAKE_W = 0.5            # opposing wheel speed to stop rotation
 BRAKE_EXIT_GYRO = 0.12   # stopped threshold (rad/s)
-BRAKE_TIMEOUT = 0.25     # short bounded braking window
+BRAKE_TIMEOUT = 0.35     # short bounded braking window
 TURN_STOP_DWELL_S = 0.04 # low yaw must persist before turn completion
 RETRIM_TOL = 0.0873      # 5 deg: accept final error within this
 OVERSHOOT_MAX = 0.14     # 8 deg past target: give up, don't re-trim
@@ -1123,7 +1123,7 @@ class CenteringController:
             ((fl_num and fl_forward < FRONT_STOP_DIST)
              != (fr_num and fr_forward < FRONT_STOP_DIST))
              and front_clear is not None
-             and front_clear < FRONT_STOP_DIST
+             and front_clear < FRONT_STOP_DIST - 0.02
             and self.sl_f is not None and self.sr_f is not None
             and self.sl_f < WEDGE_EXIT and self.sr_f < WEDGE_EXIT
             and not self.gateway_wall_follow_active

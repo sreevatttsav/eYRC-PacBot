@@ -805,8 +805,6 @@ class CenteringController:
             probe_path_confirmed = (
                 self.turn_cause != "deadend_probe"
                 or (c.front_open_l and c.front_open_r)
-                or self.observation.left == "open"
-                or self.observation.right == "open"
             )
             verify_blocked = (
                 self.observation.front == "blocked"

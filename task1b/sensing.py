@@ -75,9 +75,19 @@ class WallPerception:
         emergency = any(v is not None and v <= 0.08 for v in (l, r))
         both_close = l is not None and r is not None and l < 0.15 and r < 0.15
         self.blocked_t = self.blocked_t + dt if both_close else 0.0
+        front_center = ((l + r) * 0.5
+                        if l is not None and r is not None else None)
+        # The two rays are splayed. The nearer ray may still see the wall
+        # being rotated away from while the robot's centreline is open. Use a
+        # centreline estimate, but retain a near-contact guard so one extreme
+        # ray cannot falsely declare a path clear.
+        front_clear = (
+            front_center is not None
+            and front_center >= self.open_min
+            and min(l, r) >= 0.10
+        )
         front = "blocked" if self.blocked_t >= self.dwell else (
-            "clear" if l is not None and r is not None and min(l, r) >= 0.20
-            else "uncertain")
+            "clear" if front_clear else "uncertain")
         hazard = "emergency" if emergency else (
             "blocked_pair" if front == "blocked" else
             "single_ray" if (l is not None and l < 0.15) or

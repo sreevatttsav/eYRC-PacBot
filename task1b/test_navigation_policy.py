@@ -56,6 +56,20 @@ class NavigationPolicyTests(unittest.TestCase):
             o = p.update((1, 1, .30, .05), ('valid',)*4, .02)
         self.assertEqual(o.left, 'open')
 
+    def test_splayed_front_rays_use_centerline_clearance(self):
+        p = WallPerception(dwell=0.1)
+        for _ in range(8):
+            o = p.update((0.15, 0.30, .05, .05),
+                         ('valid',) * 4, .02, math.cos(math.radians(20)))
+        self.assertEqual(o.front, 'clear')
+
+    def test_extreme_close_front_ray_is_not_clear(self):
+        p = WallPerception(dwell=0.1)
+        for _ in range(8):
+            o = p.update((0.05, 0.40, .05, .05),
+                         ('valid',) * 4, .02, math.cos(math.radians(20)))
+        self.assertNotEqual(o.front, 'clear')
+
     def test_uniform_corridor_never_routes_on_unchanged_ranges(self):
         ctl = CenteringController()
         for _ in range(900):

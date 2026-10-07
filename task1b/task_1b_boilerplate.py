@@ -1190,6 +1190,23 @@ class CenteringController:
                                  -FRONT_BACKOUT_SPEED, c.steer)
         emergency_l = fl_num and fl_forward <= FRONT_EMERGENCY_DIST
         emergency_r = fr_num and fr_forward <= FRONT_EMERGENCY_DIST
+        side_left_route = (
+            self.observation.left == "open"
+            or (c.sl_num and self.sl_f >= SIDE_ROUTE_MIN_M)
+        )
+        side_right_route = (
+            self.observation.right == "open"
+            or (c.sr_num and self.sr_f >= SIDE_ROUTE_MIN_M)
+        )
+        # A close splayed ray can see the wall being left behind while the
+        # opposite side is already an observed route. Let route selection use
+        # that opening instead of backing away before it can choose it.
+        emergency_route = (
+            (emergency_l and side_right_route)
+            or (emergency_r and side_left_route)
+        )
+        if emergency_route and not self.gateway_wall_follow_active:
+            c.blocked = True
 
         # If one front ray is genuinely close while the other ray is stale or
         # invalid, this is a degraded view of a blocked front, not a harmless

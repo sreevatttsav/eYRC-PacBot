@@ -170,6 +170,18 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertLess(left, 0.0)
         self.assertGreater(right, 0.0)
 
+    def test_emergency_ray_routes_into_observed_opposite_side(self):
+        ctl = CenteringController()
+        for _ in range(30):
+            ctl.update(0.08 / FRONT_RAY_COS, 0.30,
+                       0.051, 0.30, 0.0, 0.02)
+            if ctl.state in ("REVERSE", "TURN"):
+                break
+
+        self.assertIn(ctl.state, ("REVERSE", "TURN"))
+        self.assertEqual(ctl.turn_cause, "junction")
+        self.assertLess(ctl.turn_target, 0.0)
+
     def test_side_wall_jump_brakes_a_90_degree_turn(self):
         ctl = CenteringController()
         ctl._start_turn(1.0, math.pi / 2.0, "junction")

@@ -207,6 +207,26 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertEqual(ctl.turn_cause, "deadend")
         self.assertAlmostEqual(abs(ctl.turn_target), math.pi)
 
+    def test_fresh_side_clearance_selects_left_route_before_probe(self):
+        ctl = CenteringController()
+        for _ in range(30):
+            ctl.update(0.10, 0.10, 0.22, 0.06, 0.0, 0.02)
+            if ctl.state == "TURN":
+                break
+        self.assertEqual(ctl.state, "TURN")
+        self.assertEqual(ctl.turn_cause, "junction")
+        self.assertGreater(ctl.turn_target, 0.0)
+
+    def test_fresh_side_clearance_selects_right_route_before_probe(self):
+        ctl = CenteringController()
+        for _ in range(30):
+            ctl.update(0.10, 0.10, 0.06, 0.22, 0.0, 0.02)
+            if ctl.state == "TURN":
+                break
+        self.assertEqual(ctl.state, "TURN")
+        self.assertEqual(ctl.turn_cause, "junction")
+        self.assertLess(ctl.turn_target, 0.0)
+
     def test_gateway_wall_follow_ignores_entrance_jamb_single_ray(self):
         ctl = CenteringController()
         ctl.state = "FOLLOW"
@@ -458,13 +478,13 @@ class ControllerRegressionTests(unittest.TestCase):
                     abs(right - left) / (left + right),
                     FOLLOW_STEER_RATIO, delta=0.251)
 
-    def test_both_close_front_rays_start_a_left_probe(self):
+    def test_both_close_front_rays_use_symmetric_side_route_choice(self):
         ctl = CenteringController()
         for _ in range(15):
             ctl.update(0.10, 0.10, 0.18, 0.18, 0.0, 0.02)
         self.assertEqual(ctl.state, "REVERSE")
         self.assertNotEqual(ctl.spin_dir, 0.0)
-        self.assertEqual(ctl.turn_cause, "deadend_probe")
+        self.assertEqual(ctl.turn_cause, "junction")
         self.assertAlmostEqual(abs(ctl.turn_target), 3.141592653589793 / 2.0)
 
     def test_blocked_front_turns_toward_classified_open_side(self):

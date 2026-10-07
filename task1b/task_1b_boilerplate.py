@@ -138,6 +138,7 @@ RECOVER_DIST = 0.10    # back-out distance per recovery (m, estimated)
 K_LIN = 0.017          # m/s per wheel rad/s (binary MJCF wheel radius)
 CRUISE_LINEAR_MPS = 0.06   # faster long-corridor cruise
 MAX_LINEAR_MPS = 0.12      # s2c ceiling (only if scoring rewards speed)
+GATEWAY_LINEAR_MPS = 0.04  # keep entrance probing at the validated speed
 
 # Saturation model (Stage 2). SAT_MODE="ceiling": a reading at the cap
 # is a lower bound ("at least 0.3"), never a distance. The current
@@ -151,6 +152,8 @@ SAT_MODE = "distance"   # 0.300 m is a measured distance
 FOLLOW_ESTABLISH_S = 1.0  # sustained single-wall follow before gaps count
 GAP_OPEN_S = 0.5         # follow wall lost this long -> seek it (90 deg)
 FOLLOW_SIDE_PREFERENCE = 1.0  # stable tie-break when both corridor walls are present
+SIDE_ROUTE_MIN_M = 0.14       # fresh numeric side clearance usable for routing
+SIDE_ROUTE_TIE_DB = 0.03
 BLIND_TURN_S = 15.0      # fully blind this long -> 180 deg turn-back;
 # a second consecutive blind stretch latches HOLD (stop, don't wander).
 # Gateway probe (maze2/3 spawn: entrance gap ahead BETWEEN the
@@ -241,10 +244,13 @@ def _controller_constants():
         "SPIN_SPEED": SPIN_SPEED,
         "K_LIN": K_LIN, "CRUISE_LINEAR_MPS": CRUISE_LINEAR_MPS,
         "MAX_LINEAR_MPS": MAX_LINEAR_MPS,
+        "GATEWAY_LINEAR_MPS": GATEWAY_LINEAR_MPS,
         "SENSOR_CAP_M": SENSOR_CAP_M, "SAT_MODE": SAT_MODE,
         "FOLLOW_ESTABLISH_S": FOLLOW_ESTABLISH_S,
         "GAP_OPEN_S": GAP_OPEN_S,
         "FOLLOW_SIDE_PREFERENCE": FOLLOW_SIDE_PREFERENCE,
+        "SIDE_ROUTE_MIN_M": SIDE_ROUTE_MIN_M,
+        "SIDE_ROUTE_TIE_DB": SIDE_ROUTE_TIE_DB,
         "BLIND_TURN_S": BLIND_TURN_S,
         "GATEWAY_FRONT_MAX": GATEWAY_FRONT_MAX,
         "GATEWAY_SYM_DB": GATEWAY_SYM_DB,
@@ -1121,7 +1127,7 @@ class CenteringController:
             else:
                 # Creep forward with all feedback bounded for the narrow
                 # frame; front rays can be asymmetric while clearing posts.
-                v_gw = CRUISE_LINEAR_MPS * GATEWAY_V_FRAC
+                v_gw = GATEWAY_LINEAR_MPS * GATEWAY_V_FRAC
                 base_gw = v_gw / K_LIN
                 steer_front_gw = max(
                     -GATEWAY_FRONT_STEER_MAX,
@@ -1323,6 +1329,10 @@ class CenteringController:
         self._from_backup = False
         side_left_open = self.observation.left == "open"
         side_right_open = self.observation.right == "open"
+        side_left_numeric = (c.sl_num and self.sl_f >= SIDE_ROUTE_MIN_M)
+        side_right_numeric = (c.sr_num and self.sr_f >= SIDE_ROUTE_MIN_M)
+        sensor_left_route = side_left_open or side_left_numeric
+        sensor_right_route = side_right_open or side_right_numeric
         self.flood.observe(
             front=c.blocked,
             left=None if self.observation.left == "uncertain"
@@ -1330,7 +1340,7 @@ class CenteringController:
             right=None if self.observation.right == "uncertain"
             else not side_right_open,
         )
-        deadend = c.blocked and not (side_left_open or side_right_open)
+        deadend = c.blocked and not (sensor_left_route or sensor_right_route)
         if deadend and not self.deadend_probe_used:
             # A newly blocked entrance may have no persistent side opening
             # yet. Probe left once before committing to a U-turn.
@@ -1345,13 +1355,17 @@ class CenteringController:
         if self.retry_dir is not None:
             tdir = self.retry_dir  # hard-timeout retry: same dir
             self.retry_dir = None
-        elif c.blocked and (side_left_open or side_right_open):
+        elif c.blocked and (sensor_left_route or sensor_right_route):
             # Route choice follows observed traversability, not
             # whichever side merely has a few centimetres more
             # range. At a two-way choice, keep the latched hand.
-            if side_left_open and side_right_open:
+            if sensor_left_route and sensor_right_route:
                 local_dir = (self.follow_side or FOLLOW_SIDE_PREFERENCE)
-                if self.turn_cause == "deadend_probe":
+                side_delta = self.sl_f - self.sr_f if c.sl_num and c.sr_num else 0.0
+                if abs(side_delta) > SIDE_ROUTE_TIE_DB:
+                    tdir = 1.0 if side_delta > 0 else -1.0
+                    self.flood_route = "side_clearance"
+                elif self.turn_cause == "deadend_probe":
                     # The first post-probe check belongs to the probe route;
                     # do not let an uncalibrated flood-map tie-break reverse
                     # the intended left exploration immediately.
@@ -1362,8 +1376,8 @@ class CenteringController:
                     tdir = flood_dir if flood_dir is not None else local_dir
                     self.flood_route = "flood" if flood_dir is not None else "local"
             else:
-                tdir = 1.0 if side_left_open else -1.0
-                self.flood_route = "local_single_open"
+                tdir = 1.0 if sensor_left_route else -1.0
+                self.flood_route = "side_sensor"
             turn_cause = "junction"
         else:
             pass  # dead-end direction was selected above
@@ -1574,7 +1588,8 @@ class CenteringController:
         crawl when the front is unknown."""
         front_clear = c.front_clear
         if (c.front_center_clear is not None
-                and self.observation.front == "clear"
+                and c.front_center_clear >= 0.18
+                and c.front_clear is not None and c.front_clear >= 0.08
                 and not self.state_reason.startswith("gateway_")):
             # Use centreline clearance for speed once the path is confirmed;
             # obstacle classification still uses the nearest-ray safety path.

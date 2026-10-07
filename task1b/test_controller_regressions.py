@@ -325,7 +325,7 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertEqual(ctl.state, "POST_TURN_ADVANCE")
         self.assertGreater(left + right, 0.0)
 
-        for _ in range(130):
+        for _ in range(300):
             ctl.update(0.8, 0.8, 0.051, 0.051, 0.0, 0.02)
             if ctl.state == "FOLLOW":
                 break

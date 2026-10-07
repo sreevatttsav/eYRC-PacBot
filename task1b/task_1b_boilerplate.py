@@ -802,6 +802,12 @@ class CenteringController:
         if self.post_turn_stage == "settle":
             self.post_turn_t += c.dt
             front_fresh = c.fl_s == "valid" and c.fr_s == "valid"
+            probe_path_confirmed = (
+                self.turn_cause != "deadend_probe"
+                or (c.front_open_l and c.front_open_r)
+                or self.observation.left == "open"
+                or self.observation.right == "open"
+            )
             verify_blocked = (
                 self.observation.front == "blocked"
                 or (self.observation.hazard == "emergency" and
@@ -814,10 +820,19 @@ class CenteringController:
                 self.gateway_rearm_latched = True
                 c.blocked = True
             elif (self.post_turn_t >= POST_TURN_SETTLE_S and front_fresh
-                  and self.observation.front != "blocked"):
+                  and self.observation.front != "blocked"
+                  and probe_path_confirmed):
                 self.post_turn_stage = "advance"
                 self.post_turn_distance = 0.0
                 self.post_turn_clear_t = 0.0
+            elif (self.post_turn_t >= POST_TURN_SETTLE_S and front_fresh
+                  and not probe_path_confirmed):
+                # A left probe is exploratory, not proof of a left route.
+                # If fresh sensors still show no usable path, return to route
+                # selection so the controller can escalate to the U-turn.
+                self.post_turn_stage = "none"
+                self.route_latched = False
+                c.blocked = True
             elif self.post_turn_t >= POST_TURN_VERIFY_MAX_S:
                 # Unknown is not clear. Return to the route selector instead
                 # of advancing blindly on stale front data.

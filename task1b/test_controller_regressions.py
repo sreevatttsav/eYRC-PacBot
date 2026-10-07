@@ -344,6 +344,20 @@ class ControllerRegressionTests(unittest.TestCase):
 
         self.assertEqual(ctl.state, "POST_TURN_ADVANCE")
 
+    def test_failed_left_probe_escalates_instead_of_claiming_a_path(self):
+        ctl = CenteringController()
+        ctl.post_turn_stage = "settle"
+        ctl.turn_cause = "deadend_probe"
+        ctl.state = "POST_TURN_VERIFY"
+
+        for _ in range(20):
+            ctl.update(0.30, 0.15, 0.051, 0.051, 0.0, 0.02)
+            if ctl.state in ("REVERSE", "TURN"):
+                break
+
+        self.assertIn(ctl.state, ("REVERSE", "TURN"))
+        self.assertNotEqual(ctl.state, "POST_TURN_ADVANCE")
+
     def test_post_turn_blockage_returns_to_route_selection(self):
         ctl = CenteringController()
         ctl.post_turn_stage = "settle"

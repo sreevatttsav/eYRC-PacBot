@@ -332,6 +332,18 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertEqual(ctl.state, "FOLLOW")
         self.assertEqual(ctl.state_reason, "post_turn_acquired")
 
+    def test_post_turn_single_front_ray_does_not_reject_open_path(self):
+        ctl = CenteringController()
+        ctl.post_turn_stage = "settle"
+        ctl.state = "POST_TURN_VERIFY"
+
+        for _ in range(20):
+            ctl.update(0.30, 0.15, 0.30, 0.30, 0.0, 0.02)
+            if ctl.state == "POST_TURN_ADVANCE":
+                break
+
+        self.assertEqual(ctl.state, "POST_TURN_ADVANCE")
+
     def test_post_turn_blockage_returns_to_route_selection(self):
         ctl = CenteringController()
         ctl.post_turn_stage = "settle"

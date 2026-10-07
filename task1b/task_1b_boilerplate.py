@@ -819,8 +819,6 @@ class CenteringController:
             post_blocked = (
                 self.observation.front == "blocked"
                 or self.observation.hazard == "emergency"
-                or (c.front_clear is not None
-                    and c.front_clear < FRONT_STOP_DIST)
             )
             if post_blocked:
                 self.post_turn_stage = "none"

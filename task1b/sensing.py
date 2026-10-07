@@ -46,8 +46,11 @@ class WallObservation:
 class WallPerception:
     """Debounced wall and front-path classifications from fresh measurements."""
 
-    def __init__(self, wall_max=0.14, open_min=0.20, dwell=0.12):
+    def __init__(self, wall_max=0.14, open_min=0.20, dwell=0.12,
+                 front_center_min=0.18, front_ray_guard=0.08):
         self.wall_max, self.open_min, self.dwell = wall_max, open_min, dwell
+        self.front_center_min = front_center_min
+        self.front_ray_guard = front_ray_guard
         self.side = ["uncertain", "uncertain"]
         self.candidate = [None, None]
         self.elapsed = [0.0, 0.0]
@@ -83,8 +86,8 @@ class WallPerception:
         # ray cannot falsely declare a path clear.
         front_clear = (
             front_center is not None
-            and front_center >= self.open_min
-            and min(l, r) >= 0.10
+            and front_center >= self.front_center_min
+            and min(l, r) >= self.front_ray_guard
         )
         front = "blocked" if self.blocked_t >= self.dwell else (
             "clear" if front_clear else "uncertain")

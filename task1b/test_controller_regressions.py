@@ -302,7 +302,7 @@ class ControllerRegressionTests(unittest.TestCase):
         for _ in range(60):
             ctl.update(0.30, 0.30, 0.10, 0.70, 0.0, 0.02)
         for _ in range(30):
-            ctl.update(0.30, 0.16, 0.10, 0.70, 0.0, 0.02)
+            ctl.update(0.12, 0.20, 0.10, 0.70, 0.0, 0.02)
             if ctl.state in ("REVERSE", "TURN"):
                 break
         self.assertIn(ctl.state, ("REVERSE", "TURN"))

@@ -1204,6 +1204,7 @@ class CenteringController:
             and (self.observation.left == "open"
                  or self.observation.right == "open")
             and self.follow_t >= FOLLOW_ESTABLISH_S
+            and self.observation.front != "clear"
             and not self.gateway_wall_follow_active
         )
         if near_front_junction:
@@ -1241,6 +1242,7 @@ class CenteringController:
         if (self.state == "FOLLOW" and self.spin_dir == 0.0
                 and not self.gateway_wall_follow_active
                 and self.follow_t >= FOLLOW_ESTABLISH_S
+                and self.observation.front != "clear"
                 and self.observation.hazard == "single_ray"):
             self.front_check_t += dt
             # A grazing ray gets a bounded cautious approach. If the same

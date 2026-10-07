@@ -16,7 +16,8 @@ except ImportError:
                         'paho.mqtt.client': client})
 
 from sensing import Tof, WallPerception
-from task_1b_boilerplate import CenteringController, K_LIN, YAW_GAIN_K
+from task_1b_boilerplate import (CenteringController, FOLLOW_ESTABLISH_S,
+                                 K_LIN, YAW_GAIN_K)
 from flood_fill import FloodFillPlanner
 
 
@@ -69,6 +70,16 @@ class NavigationPolicyTests(unittest.TestCase):
             o = p.update((0.05, 0.40, .05, .05),
                          ('valid',) * 4, .02, math.cos(math.radians(20)))
         self.assertNotEqual(o.front, 'clear')
+
+    def test_centerline_clear_suppresses_single_ray_escape(self):
+        ctl = CenteringController()
+        ctl.follow_t = FOLLOW_ESTABLISH_S
+        for _ in range(20):
+            left, right, *_ = ctl.update(0.10, 0.30,
+                                         0.26, 0.26, 0.0, 0.02)
+        self.assertEqual(ctl.observation.front, 'clear')
+        self.assertEqual(ctl.state, 'FOLLOW')
+        self.assertGreater(left + right, 0.0)
 
     def test_uniform_corridor_never_routes_on_unchanged_ranges(self):
         ctl = CenteringController()

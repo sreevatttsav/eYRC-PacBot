@@ -111,6 +111,11 @@ POST_TURN_SETTLE_S = 0.15   # stop and collect fresh ranges after rotation
 POST_TURN_VERIFY_MAX_S = 0.50  # bounded wait when front samples are stale
 POST_TURN_ADVANCE_M = 0.06  # acquire the outgoing corridor before rearming
 POST_TURN_SPEED_MPS = 0.025
+POST_TURN_CENTER_GAIN = 0.15
+POST_TURN_CENTER_MAX_W = 0.25
+POST_TURN_HEADING_TOL = 0.12
+POST_TURN_LATERAL_TOL = 0.035
+POST_TURN_CLEAR_DWELL_S = 0.08
 
 # Stuck detection + recovery (fix 2, retuned Stage 1b, rescaled for the
 # MEASURED gain: 0.3 was calibrated at K=0.13; at K=0.0914 the same
@@ -277,6 +282,11 @@ def _controller_constants():
         "POST_TURN_VERIFY_MAX_S": POST_TURN_VERIFY_MAX_S,
         "POST_TURN_ADVANCE_M": POST_TURN_ADVANCE_M,
         "POST_TURN_SPEED_MPS": POST_TURN_SPEED_MPS,
+        "POST_TURN_CENTER_GAIN": POST_TURN_CENTER_GAIN,
+        "POST_TURN_CENTER_MAX_W": POST_TURN_CENTER_MAX_W,
+        "POST_TURN_HEADING_TOL": POST_TURN_HEADING_TOL,
+        "POST_TURN_LATERAL_TOL": POST_TURN_LATERAL_TOL,
+        "POST_TURN_CLEAR_DWELL_S": POST_TURN_CLEAR_DWELL_S,
         "TURN_TIMEOUT_BASE": TURN_TIMEOUT_BASE,
         "TURN_TIMEOUT_PER_RAD": TURN_TIMEOUT_PER_RAD,
         "NO_PROGRESS_START": NO_PROGRESS_START,
@@ -370,6 +380,9 @@ class CenteringController:
         self.post_turn_stage = "none"
         self.post_turn_t = 0.0
         self.post_turn_distance = 0.0
+        self.post_turn_clear_t = 0.0
+        self.route_dir = 0.0
+        self.route_latched = False
         # Exploration state (maze1 pack): wall follow + blind driving.
         self.follow_side = 0.0   # +1 left / -1 right / 0 none latched
         self.follow_t = 0.0
@@ -804,6 +817,7 @@ class CenteringController:
                   and self.observation.front != "blocked"):
                 self.post_turn_stage = "advance"
                 self.post_turn_distance = 0.0
+                self.post_turn_clear_t = 0.0
             elif self.post_turn_t >= POST_TURN_VERIFY_MAX_S:
                 # Unknown is not clear. Return to the route selector instead
                 # of advancing blindly on stale front data.
@@ -829,19 +843,37 @@ class CenteringController:
                 v_post = min(POST_TURN_SPEED_MPS, MAX_LINEAR_MPS)
                 base_post = v_post / K_LIN
                 # The outgoing corridor is acquired immediately after a
-                # completed gyro turn. Reusing wall-follow steering here can
-                # rotate the robot back toward the old corridor during the
-                # relatively slow 6 cm advance. Hold the verified heading;
-                # normal wall-follow steering resumes after acquisition.
-                steer_post = max(-0.2, min(
-                    KP_HEADING * self._wrap(self.corridor_heading
-                                             - self.gyro_th), 0.2))
+                # Hold the new heading while using a bounded lateral-PD
+                # correction to move toward the selected corridor centre.
+                heading_post = KP_HEADING * self._wrap(
+                    self.corridor_heading - self.gyro_th)
+                center_post = (POST_TURN_CENTER_GAIN * c.steer_lat
+                               if c.e_lat is not None else 0.0)
+                steer_post = max(-POST_TURN_CENTER_MAX_W,
+                                 min(POST_TURN_CENTER_MAX_W,
+                                     heading_post + center_post))
                 left_post = base_post - steer_post
                 right_post = base_post + steer_post
                 self.post_turn_distance += v_post * c.dt
-                if self.post_turn_distance >= POST_TURN_ADVANCE_M:
+                heading_ok = abs(self._wrap(
+                    self.corridor_heading - self.gyro_th
+                )) <= POST_TURN_HEADING_TOL
+                lateral_ok = (c.e_lat is None
+                              or abs(c.e_lat) <= POST_TURN_LATERAL_TOL)
+                clear_ok = (self.observation.front != "blocked"
+                            and self.observation.hazard != "emergency")
+                self.post_turn_clear_t = (
+                    self.post_turn_clear_t + c.dt if clear_ok else 0.0
+                )
+                acquired = (
+                    self.post_turn_distance >= POST_TURN_ADVANCE_M
+                    and heading_ok and lateral_ok
+                    and self.post_turn_clear_t >= POST_TURN_CLEAR_DWELL_S
+                )
+                if acquired:
                     self.post_turn_stage = "none"
                     self.post_turn_t = 0.0
+                    self.post_turn_clear_t = 0.0
                     self.front_check_t = 0.0
                     self.backout_signature_count = 0
                     self.corridor_heading = self.gyro_th
@@ -849,6 +881,7 @@ class CenteringController:
                         self.flood.advance()
                         self.flood_pending_move = False
                     self.deadend_probe_used = False
+                    self.route_latched = False
                     self._set_state("FOLLOW", "post_turn_acquired")
                 else:
                     self._set_state("POST_TURN_ADVANCE", "acquire_corridor")
@@ -1317,6 +1350,8 @@ class CenteringController:
             tdir = self.spin_dir
             self.flip_next = False
         self._start_turn(tdir, mag, turn_cause)
+        self.route_dir = tdir
+        self.route_latched = True
         if abs(mag - math.pi / 2.0) < 0.01:
             self.flood.rotate(1 if tdir > 0 else -1)
             self.flood_pending_move = True

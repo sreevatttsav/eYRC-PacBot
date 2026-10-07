@@ -185,6 +185,28 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertEqual(ctl.state_reason, "tof_open")
         self.assertGreaterEqual(abs(ctl.gyro_th), math.radians(60.0))
 
+    def test_first_unclassified_deadend_probes_left_before_uturn(self):
+        ctl = CenteringController()
+        for _ in range(40):
+            ctl.update(0.10, 0.10, 0.10, 0.10, 0.0, 0.02)
+            if ctl.state == "TURN":
+                break
+
+        self.assertEqual(ctl.state, "TURN")
+        self.assertEqual(ctl.turn_cause, "deadend_probe")
+        self.assertAlmostEqual(abs(ctl.turn_target), math.pi / 2.0)
+
+        # Once the probe has been used, a still-blocked route escalates to a
+        # real 180-degree escape rather than repeating left quarter-turns.
+        ctl = CenteringController()
+        ctl.deadend_probe_used = True
+        for _ in range(40):
+            ctl.update(0.10, 0.10, 0.10, 0.10, 0.0, 0.02)
+            if ctl.state == "TURN":
+                break
+        self.assertEqual(ctl.turn_cause, "deadend")
+        self.assertAlmostEqual(abs(ctl.turn_target), math.pi)
+
     def test_gateway_wall_follow_ignores_entrance_jamb_single_ray(self):
         ctl = CenteringController()
         ctl.state = "FOLLOW"
@@ -410,13 +432,14 @@ class ControllerRegressionTests(unittest.TestCase):
                     abs(right - left) / (left + right),
                     FOLLOW_STEER_RATIO, delta=0.251)
 
-    def test_both_close_front_rays_still_trigger_escape(self):
+    def test_both_close_front_rays_start_a_left_probe(self):
         ctl = CenteringController()
         for _ in range(15):
             ctl.update(0.10, 0.10, 0.18, 0.18, 0.0, 0.02)
         self.assertEqual(ctl.state, "REVERSE")
         self.assertNotEqual(ctl.spin_dir, 0.0)
-        self.assertAlmostEqual(abs(ctl.turn_target), 3.141592653589793)
+        self.assertEqual(ctl.turn_cause, "deadend_probe")
+        self.assertAlmostEqual(abs(ctl.turn_target), 3.141592653589793 / 2.0)
 
     def test_blocked_front_turns_toward_classified_open_side(self):
         ctl = CenteringController()

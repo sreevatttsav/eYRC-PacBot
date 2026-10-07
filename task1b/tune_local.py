@@ -168,6 +168,10 @@ def run_turn_test(name, target_deg, plant_gain=TURN_PLANT_GAIN,
     else:
         # The right branch is open; the left wall remains present.
         sl0, sr0 = 0.12, 0.30
+    if mag > 100:
+        # This harness isolates 180-degree execution. In navigation, the
+        # controller first performs a left 90-degree dead-end probe.
+        ctl.deadend_probe_used = True
     plant = TurnPlant(gain=plant_gain, stall=stall, seed=seed)
     turned = 0.0
     aborts = []

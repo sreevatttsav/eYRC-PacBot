@@ -353,6 +353,7 @@ class CenteringController:
         self.turn_wall_start_r = None
         self.turn_tof_jump_t = 0.0
         self.turn_stop_reason = ""
+        self.deadend_probe_used = False
         self.retry_used = False
         self._from_backup = False
         self.np_t0 = 0.0         # no-progress window start (turn-time)
@@ -849,6 +850,7 @@ class CenteringController:
                     if self.flood_pending_move:
                         self.flood.advance()
                         self.flood_pending_move = False
+                    self.deadend_probe_used = False
                     self._set_state("FOLLOW", "post_turn_acquired")
                 else:
                     self._set_state("POST_TURN_ADVANCE", "acquire_corridor")
@@ -1275,8 +1277,17 @@ class CenteringController:
             else not side_right_open,
         )
         deadend = c.blocked and not (side_left_open or side_right_open)
-        mag = math.pi if deadend else math.pi / 2.0
-        turn_cause = "deadend" if deadend else "blocked"
+        if deadend and not self.deadend_probe_used:
+            # A newly blocked entrance may have no persistent side opening
+            # yet. Probe left once before committing to a U-turn.
+            mag = math.pi / 2.0
+            tdir = 1.0
+            turn_cause = "deadend_probe"
+            self.deadend_probe_used = True
+        else:
+            mag = math.pi if deadend else math.pi / 2.0
+            turn_cause = "deadend" if deadend else "blocked"
+            tdir = 1.0
         if self.retry_dir is not None:
             tdir = self.retry_dir  # hard-timeout retry: same dir
             self.retry_dir = None
@@ -1294,7 +1305,7 @@ class CenteringController:
                 self.flood_route = "local_single_open"
             turn_cause = "junction"
         else:
-            tdir = 1.0  # deterministic U-turn direction
+            pass  # dead-end direction was selected above
         self.spin_dir = tdir
         if self.flip_next:
             self.spin_dir = -self.spin_dir

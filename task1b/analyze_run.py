@@ -32,6 +32,9 @@ import sys
 CAP_M = 0.300          # lateral metric needs both sides below the cap
 FINAL_ERR_DEG = 5.0
 REVERSAL_BAND_DEG = 8.0
+# |R-L| below this is arming/quantization dust, not a direction reversal:
+# one 2 ms tick at +/-0.004 rad/s rotates the chassis ~16 microradians.
+FLIP_WHEEL_DB = 0.05
 HEADING_FLAG_RAD = math.radians(20.0)
 HEADING_FLAG_DWELL_S = 5.0
 STEER_COMPONENT_MIN = 1.0
@@ -150,7 +153,7 @@ def analyze_turns(rep):
             if r.get("state") != "TURN":
                 continue
             d = (_f(r, "R", 0.0) or 0.0) - (_f(r, "L", 0.0) or 0.0)
-            s = 1 if d > 0 else (-1 if d < 0 else 0)
+            s = 1 if d > FLIP_WHEEL_DB else (-1 if d < -FLIP_WHEEL_DB else 0)
             if s and prev and s != prev:
                 flips += 1
                 flip_at.append(math.degrees(r["_th"] - ticks[e0]["_th"]))

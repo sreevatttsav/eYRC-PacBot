@@ -1,9 +1,10 @@
 """Regression tests for newly surfaced run failure modes."""
+import math
 import unittest
 
 from analyze_run import (
     analyze_heading_drift, analyze_repeated_state_signatures,
-    analyze_steer_cancellation,
+    analyze_steer_cancellation, analyze_turns,
 )
 
 

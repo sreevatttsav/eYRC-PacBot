@@ -23,7 +23,9 @@ from task_1b_boilerplate import (
     FRONT_SPEED_TAPER_END, K_LIN,
     YAW_GAIN_K, FOLLOW_ESTABLISH_S,
 )
-from task_1b_boilerplate import GATEWAY_APPROACH_M, GATEWAY_CORRIDOR_S
+from task_1b_boilerplate import (
+    GATEWAY_APPROACH_M, GATEWAY_CORRIDOR_S, POST_GATEWAY_SUPPRESS_S,
+)
 
 
 class ControllerRegressionTests(unittest.TestCase):
@@ -196,6 +198,7 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertEqual(ctl.state, "BRAKE")
         self.assertEqual(ctl.state_reason, "tof_open")
         self.assertGreaterEqual(abs(ctl.gyro_th), math.radians(85.0))
+        self.assertAlmostEqual(abs(ctl.turn_target), math.radians(90.0))
 
     def test_unclassified_deadend_uses_direct_uturn(self):
         ctl = CenteringController()
@@ -242,6 +245,8 @@ class ControllerRegressionTests(unittest.TestCase):
     def test_gateway_wall_follow_ignores_entrance_jamb_single_ray(self):
         ctl = CenteringController()
         ctl.state = "FOLLOW"
+        ctl.gateway_active = False
+        ctl.gateway_rearm_latched = True
         ctl.gateway_wall_follow_active = True
         ctl.follow_t = FOLLOW_ESTABLISH_S
 
@@ -391,10 +396,11 @@ class ControllerRegressionTests(unittest.TestCase):
         ctl.route_dir = 1.0
         ctl.state = "POST_TURN_VERIFY"
 
-        # The left splayed ray still sees the corner, but the centreline is
-        # clear.  Acquisition must own the wheels rather than back out.
+        # The left splayed ray still sees the corner, but it has released
+        # beyond the emergency hysteresis and the centreline is clear.
+        # Acquisition may then hand off to FOLLOW.
         for _ in range(20):
-            ctl.update(0.10, 0.30, 0.051, 0.051, 0.0, 0.02)
+            ctl.update(0.13, 0.30, 0.051, 0.051, 0.0, 0.02)
             if ctl.state == "POST_TURN_ADVANCE":
                 break
 
@@ -402,7 +408,7 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertTrue(ctl.route_latched)
 
         for _ in range(160):
-            ctl.update(0.10, 0.30, 0.051, 0.051, 0.0, 0.02)
+            ctl.update(0.13, 0.30, 0.051, 0.051, 0.0, 0.02)
             if ctl.state == "FOLLOW":
                 break
 
@@ -516,7 +522,7 @@ class ControllerRegressionTests(unittest.TestCase):
         self.assertEqual(ctl.state, "POST_TURN_ADVANCE")
 
         for _ in range(160):
-            ctl.update(0.47, 0.08, 0.30, 0.30, 0.0, 0.02)
+            ctl.update(0.47, 0.13, 0.30, 0.30, 0.0, 0.02)
             if ctl.state == "FOLLOW":
                 break
         self.assertEqual(ctl.state, "FOLLOW")
@@ -878,6 +884,227 @@ class ControllerRegressionTests(unittest.TestCase):
 
         self.assertFalse(ctl.gateway_wall_follow_active)
 
+
+
+    def test_corridor_pid_deadband_ignores_sub_noise_error(self):
+        ctl = CenteringController()
+        for _ in range(10):
+            ctl.update(0.30, 0.30, 0.053, 0.051, 0.0, 0.02)
+
+        self.assertEqual(ctl.state, "FOLLOW")
+        self.assertEqual(ctl.steer_lat, 0.0)
+        self.assertEqual(ctl.lat_integral, 0.0)
+
+    def test_corridor_pid_derivative_is_low_passed(self):
+        ctl = CenteringController()
+        for _ in range(8):
+            ctl.update(0.30, 0.30, 0.060, 0.050, 0.0, 0.02)
+        for _ in range(3):
+            ctl.update(0.30, 0.30, 0.070, 0.050, 0.0, 0.02)
+
+        # The ToF median holds the step back, then the low-pass admits
+        # only a fraction of the raw differencing per tick: strictly
+        # attenuated, never the full raw kick.
+        self.assertGreater(ctl.lat_deriv_filt, 0.0)
+        self.assertLess(ctl.lat_deriv_filt, 0.25)
+
+    def test_repeated_same_wall_backout_forces_route_turn(self):
+        ctl = CenteringController()
+        # Sides between wall and open thresholds: uncertain, so the
+        # tight-corridor rule stays out and the single close ray takes
+        # the emergency-backout path.
+        ctl.update(0.075, 0.30, 0.15, 0.15, 0.0, 0.02)
+        self.assertEqual(ctl.state, "FRONT_BACKOUT")
+
+        # Back out until release, then creep forward.
+        for _ in range(100):
+            ctl.update(0.30, 0.30, 0.15, 0.15, 0.0, 0.02)
+            if ctl.state == "FOLLOW":
+                break
+        self.assertEqual(ctl.state, "FOLLOW")
+
+        # Same wall signature again: the median/low-pass filters take a
+        # few ticks to re-assert the close ray (persistence, not noise),
+        # then the controller must route instead of backing out again.
+        for _ in range(15):
+            ctl.update(0.075, 0.30, 0.15, 0.15, 0.0, 0.02)
+            if ctl.state in ("REVERSE", "TURN", "FRONT_BACKOUT"):
+                break
+        self.assertIn(ctl.state, ("REVERSE", "TURN"))
+        self.assertNotEqual(ctl.state, "FRONT_BACKOUT")
+
+    def test_start_turn_unlatches_brake_direction(self):
+        ctl = CenteringController()
+        ctl.brake_w = -0.5
+        ctl._start_turn(1.0, math.pi / 2.0, "junction")
+        self.assertEqual(ctl.brake_w, 0.0)
+
+    def test_no_junction_turn_right_after_gateway_exit(self):
+        ctl = CenteringController()
+        ctl.gateway_exit_t = ctl.t
+        # Spawn-frame geometry: left post close, right open, sides open.
+        for _ in range(75):
+            ctl.update(0.083, 0.80, 0.22, 0.21, 0.0, 0.02)
+            self.assertNotIn(ctl.state, ("TURN", "REVERSE"))
+
+    def test_gateway_latch_releases_on_persistent_blocked_pair(self):
+        ctl = CenteringController()
+        ctl.state = "FOLLOW"
+        ctl.gateway_active = False
+        ctl.gateway_rearm_latched = True
+        ctl.gateway_wall_follow_active = True
+        ctl.gateway_exit_t = ctl.t - POST_GATEWAY_SUPPRESS_S
+
+        for _ in range(40):
+            ctl.update(0.095, 0.105, 0.75, 0.75, 0.0, 0.02)
+            if ctl.state in ("ROUTE_BUFFER", "REVERSE", "TURN"):
+                break
+
+        self.assertFalse(ctl.gateway_wall_follow_active)
+        self.assertIn(ctl.state, ("ROUTE_BUFFER", "REVERSE", "TURN"))
+
+    def test_near_target_stall_does_not_abort_turn(self):
+        ctl = CenteringController()
+        ctl._start_turn(1.0, math.pi / 2.0, "junction")
+        ctl.state = "TURN"
+        # Drive to ~6 deg short of target, then stall completely.
+        for _ in range(200):
+            ctl.update(0.80, 0.80, 0.30, 0.30, 0.6, 0.02)
+            if abs(ctl.turn_target - ctl.turn_angle) <= 0.11:
+                break
+        for _ in range(80):
+            ctl.update(0.80, 0.80, 0.30, 0.30, 0.0, 0.02)
+            self.assertNotEqual(ctl.abort_reason, "no_progress")
+        self.assertNotEqual(ctl.state, "BACKUP")
+
+    def test_advance_seeks_visible_wall_with_one_side_open(self):
+        ctl = CenteringController()
+        ctl.post_turn_stage = "advance"
+        ctl.corridor_heading = 0.0
+        ctl.route_dir = 1.0
+        ctl.route_latched = True
+        ctl.state = "POST_TURN_ADVANCE"
+        left = right = 0.0
+        for _ in range(10):
+            left, right, *_ = ctl.update(0.80, 0.80, 0.12, 0.50,
+                                         0.0, 0.02)
+        # Left wall visible but far: steer left toward it.
+        self.assertEqual(ctl.state, "POST_TURN_ADVANCE")
+        self.assertLess(left, right)
+
+    def test_advance_curves_toward_route_side_when_blind(self):
+        ctl = CenteringController()
+        ctl.post_turn_stage = "advance"
+        ctl.corridor_heading = 0.0
+        ctl.route_dir = -1.0
+        ctl.route_latched = True
+        ctl.state = "POST_TURN_ADVANCE"
+        left, right, *_ = ctl.update(0.80, 0.80, 0.50, 0.50,
+                                     0.0, 0.02)
+        # No walls at all: curve right toward the selected side.
+        self.assertGreater(left, right)
+
+    def test_post_turn_entry_single_ray_guard_uses_creep_distance(self):
+        ctl = CenteringController()
+        ctl.state = "FOLLOW"
+        ctl.corridor_entry_active = True
+        ctl.corridor_entry_distance = 0.0
+        ctl.follow_t = 10.0
+
+        # acqfix6 pattern after the first turn: one front ray remains close
+        # to the side wall and both side readings are still open.  Six seconds
+        # of cautious crawl is not enough physical distance to treat this as
+        # a real blocked-front route decision.
+        for _ in range(int(6.0 / 0.02)):
+            ctl.update(0.995, 0.085, 0.22, 0.22, 0.0, 0.02)
+            self.assertNotIn(ctl.state, ("REVERSE", "TURN"))
+
+        self.assertTrue(ctl.corridor_entry_active)
+
+    def test_post_turn_acquires_centered_two_wall_grazing_front_ray(self):
+        ctl = CenteringController()
+        ctl.post_turn_stage = "advance"
+        ctl.corridor_heading = 0.0
+        ctl.route_latched = True
+        ctl.state = "POST_TURN_ADVANCE"
+
+        for _ in range(220):
+            ctl.update(0.34, 0.075, 0.051, 0.051, 0.0, 0.02)
+            if ctl.state == "FOLLOW":
+                break
+
+        self.assertEqual(ctl.state, "FOLLOW")
+        self.assertEqual(ctl.state_reason, "post_turn_acquired")
+
+    def test_post_turn_centered_two_wall_overrides_heading_error(self):
+        ctl = CenteringController()
+        ctl.post_turn_stage = "advance"
+        ctl.corridor_heading = 0.4
+        ctl.route_latched = True
+        ctl.state = "POST_TURN_ADVANCE"
+
+        for _ in range(220):
+            ctl.update(0.34, 0.075, 0.051, 0.051, 0.0, 0.02)
+            if ctl.state == "FOLLOW":
+                break
+
+        self.assertEqual(ctl.state, "FOLLOW")
+        self.assertEqual(ctl.state_reason, "post_turn_acquired")
+
+    def test_post_turn_does_not_acquire_open_space_emergency_ray(self):
+        ctl = CenteringController()
+        ctl.post_turn_stage = "advance"
+        ctl.corridor_heading = 0.0
+        ctl.route_latched = True
+        ctl.state = "POST_TURN_ADVANCE"
+
+        for _ in range(220):
+            ctl.update(0.34, 0.075, 0.30, 0.30, 0.0, 0.02)
+            self.assertNotEqual(ctl.state, "FOLLOW")
+
+    def test_advance_front_pair_steers_away_from_close_ray(self):
+        ctl = CenteringController()
+        ctl.post_turn_stage = "advance"
+        ctl.corridor_heading = 0.0
+        ctl.route_dir = 1.0
+        ctl.route_latched = True
+        ctl.state = "POST_TURN_ADVANCE"
+
+        left, right, *_ = ctl.update(0.05, 0.16, 0.50, 0.50,
+                                     0.0, 0.02)
+        self.assertGreater(left, right)  # close left front -> steer right
+
+        ctl = CenteringController()
+        ctl.post_turn_stage = "advance"
+        ctl.corridor_heading = 0.0
+        ctl.route_dir = -1.0
+        ctl.route_latched = True
+        ctl.state = "POST_TURN_ADVANCE"
+        left, right, *_ = ctl.update(0.16, 0.05, 0.50, 0.50,
+                                     0.0, 0.02)
+        self.assertLess(left, right)  # close right front -> steer left
+
+    def test_advance_balances_wide_mouth_side_split_before_pid(self):
+        ctl = CenteringController()
+        ctl.post_turn_stage = "advance"
+        ctl.corridor_heading = 0.0
+        ctl.route_dir = 1.0
+        ctl.route_latched = True
+        ctl.state = "POST_TURN_ADVANCE"
+
+        left, right, *_ = ctl.update(0.40, 0.40, 0.25, 0.45,
+                                     0.0, 0.02)
+        self.assertGreater(left, right)  # left side closer -> steer right
+
+        ctl = CenteringController()
+        ctl.post_turn_stage = "advance"
+        ctl.corridor_heading = 0.0
+        ctl.route_dir = -1.0
+        ctl.route_latched = True
+        ctl.state = "POST_TURN_ADVANCE"
+        left, right, *_ = ctl.update(0.40, 0.40, 0.45, 0.25,
+                                     0.0, 0.02)
+        self.assertLess(left, right)  # right side closer -> steer left
 
 
 if __name__ == "__main__":

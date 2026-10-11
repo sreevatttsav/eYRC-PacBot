@@ -79,7 +79,25 @@ class WallPerception:
                     self.candidate[i], self.elapsed[i] = None, 0.0
         l = fl * front_cos if fs_l == "valid" and fl is not None else None
         r = fr * front_cos if fs_r == "valid" and fr is not None else None
-        emergency = any(v is not None and v <= 0.08 for v in (l, r))
+        close_ray = any(v is not None and v <= self.front_ray_guard
+                        for v in (l, r))
+        # A splayed ray can remain close to the corner just left behind after
+        # a turn.  If the opposite ray is clear enough and both side rays
+        # show a wide mouth, this is a corner/opening signature rather than
+        # centreline contact.  Keep it as single_ray evidence so the motion
+        # layer can continue through the opening without emergency reverse.
+        wide_single_ray = (
+            l is not None and r is not None
+            and min(l, r) <= self.front_ray_guard
+            and max(l, r) >= 0.12
+            and sl is not None and sr is not None
+            and ss_l == "valid" and ss_r == "valid"
+            # Use a small release margin here.  The normal side classifier
+            # may flicker at its 0.20 m boundary while this safety decision
+            # must not turn a corner ray into an emergency reverse.
+            and sl >= self.open_min - 0.02
+            and sr >= self.open_min - 0.02)
+        emergency = close_ray and not wide_single_ray
         both_close = l is not None and r is not None and l < 0.15 and r < 0.15
         self.blocked_t = self.blocked_t + dt if both_close else 0.0
         front_center = ((l + r) * 0.5
@@ -93,7 +111,8 @@ class WallPerception:
             and front_center >= self.front_center_min
             and min(l, r) >= self.front_ray_guard
         )
-        front = "blocked" if self.blocked_t >= self.dwell else (
+        front_blocked = self.blocked_t >= self.dwell and not wide_single_ray
+        front = "blocked" if front_blocked else (
             "clear" if front_clear else "uncertain")
         hazard = "emergency" if emergency else (
             "blocked_pair" if front == "blocked" else

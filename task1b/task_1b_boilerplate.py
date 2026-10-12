@@ -69,6 +69,10 @@ FRONT_ALIGN_SYM_DB = 0.05   # both splayed rays must see nearly same range
 FRONT_MIN_SPEED_MPS = 0.02  # keep a useful crawl above emergency threshold
 BACKOUT_REPEAT_TOL_M = 0.01
 BACKOUT_REPEAT_LIMIT = 3
+FORWARD_WATCHDOG_S = 2.5
+FORWARD_WATCHDOG_FRONT_M = 0.45
+FORWARD_WATCHDOG_DELTA_M = 0.004
+FORWARD_RECOVERY_REPEAT_LIMIT = 2
 
 MAX_RANGE = 2.0        # clip ToF readings to this (meters)
 FILTER_TAU = 0.05      # low-pass time constant for ToF (seconds)
@@ -91,8 +95,8 @@ WEDGE_CLEARANCE_TIE_DB = 0.015
 # Gyro-terminated turns (fix 3, reworked Stage 1b). Turn rate now comes
 # from the MEASURED yaw gain (step test), not wheel-size estimates.
 YAW_GAIN_K = 0.0914   # from step_test s1_step summary.json
-TURN_KP = 2.0          # P gain on angle error (rad/s per rad)
-TURN_KI = 0.05         # bounded integral correction for turn bias
+TURN_KP = 1.8          # softened approach to reduce small turn overshoot
+TURN_KI = 0.0          # no accumulated bias during the final approach
 TURN_KD_RATE = 0.25    # yaw-rate damping for turn PID
 TURN_INTEGRAL_MAX = 0.20
 TURN_MIN_W = 1.2       # minimum wheel speed in a turn (rad/s)
@@ -125,6 +129,7 @@ POST_TURN_SETTLE_S = 0.15   # stop and collect fresh ranges after rotation
 POST_TURN_VERIFY_MAX_S = 0.50  # bounded wait when front samples are stale
 POST_TURN_ADVANCE_M = 0.06  # acquire the outgoing corridor before rearming
 POST_TURN_SPEED_MPS = 0.025
+POST_TURN_MAX_HOLD_S = 8.0
 POST_TURN_CENTER_GAIN = 0.3
 POST_TURN_CENTER_MAX_W = 0.28
 POST_TURN_HEADING_GAIN = 0.16  # weak hold; avoid long acquisition arcs
@@ -349,6 +354,7 @@ def _controller_constants():
         "POST_TURN_VERIFY_MAX_S": POST_TURN_VERIFY_MAX_S,
         "POST_TURN_ADVANCE_M": POST_TURN_ADVANCE_M,
         "POST_TURN_SPEED_MPS": POST_TURN_SPEED_MPS,
+        "POST_TURN_MAX_HOLD_S": POST_TURN_MAX_HOLD_S,
         "POST_TURN_CENTER_GAIN": POST_TURN_CENTER_GAIN,
         "POST_TURN_CENTER_MAX_W": POST_TURN_CENTER_MAX_W,
         "POST_TURN_HEADING_GAIN": POST_TURN_HEADING_GAIN,
@@ -447,8 +453,15 @@ class CenteringController:
         self.route_hint = 0.0
         self.route_buffer_distance = 0.0
         self.reverse_t = 0.0
+        self.forward_watch_t = 0.0
+        self.forward_watch_ref = None
+        self.forward_recovery_only = False
+        self.post_turn_recovery_only = False
+        self.forward_recovery_count = 0
+        self.forward_recovery_signature = None
         self.post_turn_distance = 0.0
         self.post_turn_t = 0.0
+        self.post_turn_timeout_count = 0
         self.front_single_t = 0.0
         self.post_turn_grace_t = 0.0
 
@@ -525,6 +538,32 @@ class CenteringController:
         if self.front_clear is not None and self.front_clear <= FRONT_EMERGENCY_DIST:
             return True
         return False
+
+    def _forward_progress_stalled(self, dt, near_only=True):
+        """Detect a forward wedge without creating route evidence."""
+        values = (self.fl_forward, self.fr_forward, self.sl_f, self.sr_f)
+        if any(v is None for v in values):
+            self.forward_watch_t = 0.0
+            self.forward_watch_ref = None
+            return False
+        if (near_only and self.front_center_clear is not None
+                and self.front_center_clear > FORWARD_WATCHDOG_FRONT_M):
+            self.forward_watch_t = 0.0
+            self.forward_watch_ref = None
+            return False
+        signature = tuple(round(v, 3) for v in values)
+        if self.forward_watch_ref is None:
+            self.forward_watch_ref = signature
+            self.forward_watch_t = 0.0
+            return False
+        delta = max(abs(a - b) for a, b in
+                    zip(signature, self.forward_watch_ref))
+        if delta <= FORWARD_WATCHDOG_DELTA_M:
+            self.forward_watch_t += dt
+        else:
+            self.forward_watch_ref = signature
+            self.forward_watch_t = 0.0
+        return self.forward_watch_t >= FORWARD_WATCHDOG_S
 
     def _front_single_route(self, dt):
         if self.fl_forward is None or self.fr_forward is None:
@@ -656,9 +695,12 @@ class CenteringController:
             # routing immediately from that looks like a hardcoded turn.  Hand
             # off only once at least one side wall is visible, or after a
             # bounded approach distance as a fail-safe.
+            # A gateway timeout is not route evidence.  With symmetric
+            # blocked front rays and symmetric open sides, _choose_route()
+            # would otherwise resolve the tie using its fixed left preference
+            # and create an unsupported 90-degree turn.
             if (self.observation.left == "wall"
-                    or self.observation.right == "wall"
-                    or self.gateway_distance >= GATEWAY_APPROACH_M):
+                    or self.observation.right == "wall"):
                 self._set_state("FOLLOW", "gateway_clear")
             return self._finish(base - steer, base + steer, steer,
                                 e_lat, e_front, dt, yaw_rate)
@@ -676,12 +718,32 @@ class CenteringController:
         if self.state in ("REVERSE", "BACKUP"):
             self.reverse_t += dt
             if self.reverse_t >= self.REVERSE_S:
+                if self.post_turn_recovery_only:
+                    self.post_turn_recovery_only = False
+                    self.post_turn_t = 0.0
+                    self.post_turn_distance = 0.0
+                    self.forward_watch_t = 0.0
+                    self.forward_watch_ref = None
+                    self._set_state("POST_TURN_ADVANCE", "post_turn_recovered")
+                    return self._finish(0.0, 0.0, 0.0,
+                                        e_lat, e_front, dt, yaw_rate)
+                if self.forward_recovery_only:
+                    self.forward_recovery_only = False
+                    self.forward_watch_t = 0.0
+                    self.forward_watch_ref = None
+                    self.post_turn_grace_t = 0.5
+                    self._set_state("FOLLOW", "forward_recovered")
+                    return self._finish(0.0, 0.0, 0.0,
+                                        e_lat, e_front, dt, yaw_rate)
                 direction, magnitude = self._choose_route()
                 self._start_turn(direction, magnitude,
                                  "junction_" + ("left" if direction > 0 else "right"))
                 return self._finish(0.0, 0.0, 0.0, e_lat, e_front, dt, yaw_rate)
             return self._finish(-REVERSE_WHEEL_W, -REVERSE_WHEEL_W, 0.0,
                                 e_lat, e_front, dt, yaw_rate)
+
+        if self.state == "RECOVERY_HOLD":
+            return self._finish(0.0, 0.0, 0.0, e_lat, e_front, dt, yaw_rate)
 
         if self.state == "TURN":
             return self._run_turn(yaw_rate, dt, e_lat, e_front)
@@ -706,6 +768,30 @@ class CenteringController:
             self.route_buffer_distance = 0.0
             self._set_state("ROUTE_BUFFER", "front_blocked")
             return self._finish(0.0, 0.0, 0.0, e_lat, e_front, dt, yaw_rate)
+
+        if self._forward_progress_stalled(dt):
+            signature = tuple(round(v, 2) for v in
+                             (self.fl_forward, self.fr_forward,
+                              self.sl_f, self.sr_f))
+            repeated = (
+                self.forward_recovery_signature is not None
+                and all(abs(a - b) <= 0.02 for a, b in
+                        zip(signature, self.forward_recovery_signature)))
+            self.forward_recovery_count = (
+                self.forward_recovery_count + 1 if repeated else 1)
+            self.forward_recovery_signature = signature
+            self.forward_watch_t = 0.0
+            self.forward_watch_ref = None
+            self.reverse_t = 0.0
+            if self.forward_recovery_count >= FORWARD_RECOVERY_REPEAT_LIMIT:
+                self.forward_recovery_count = 0
+                self.forward_recovery_signature = None
+                self._set_state("RECOVERY_HOLD", "forward_recovery_exhausted")
+            else:
+                self.forward_recovery_only = True
+                self._set_state("REVERSE", "forward_stalled")
+            return self._finish(0.0, 0.0, 0.0,
+                                e_lat, e_front, dt, yaw_rate)
 
         # Slow down as front gets close; otherwise cruise.
         v = CRUISE_LINEAR_MPS
@@ -778,6 +864,7 @@ class CenteringController:
             self.turn_active = False
             self.post_turn_distance = 0.0
             self.post_turn_t = 0.0
+            self.post_turn_timeout_count = 0
             self._set_state("POST_TURN_ADVANCE", "turn_complete")
             return self._finish(0.0, 0.0, 0.0, e_lat, e_front, dt, yaw_rate)
         if self.brake_t >= BRAKE_TIMEOUT:
@@ -786,6 +873,7 @@ class CenteringController:
                 self.turn_active = False
                 self.post_turn_distance = 0.0
                 self.post_turn_t = 0.0
+                self.post_turn_timeout_count = 0
                 self._set_state("POST_TURN_ADVANCE", "turn_complete")
                 return self._finish(0.0, 0.0, 0.0, e_lat, e_front, dt, yaw_rate)
             # Still short: resume the same gyro target for a residual trim.
@@ -799,6 +887,35 @@ class CenteringController:
         base = v / K_LIN
         self.post_turn_distance += v * dt
         self.post_turn_t += dt
+
+        if self.post_turn_t >= POST_TURN_MAX_HOLD_S:
+            self.post_turn_timeout_count += 1
+            self.post_turn_t = 0.0
+            self.post_turn_distance = 0.0
+            self.forward_watch_t = 0.0
+            self.forward_watch_ref = None
+            if self.post_turn_timeout_count >= 2:
+                self.post_turn_timeout_count = 0
+                self._set_state("RECOVERY_HOLD", "post_turn_timeout_exhausted")
+            else:
+                self.post_turn_recovery_only = True
+                self.reverse_t = 0.0
+                self._set_state("REVERSE", "post_turn_timeout")
+            return self._finish(0.0, 0.0, 0.0,
+                                e_lat, e_front, dt, yaw_rate)
+
+        # POST_TURN_ADVANCE is also forward motion.  If its geometry freezes,
+        # use the same bounded reverse recovery as FOLLOW; never route from
+        # this failure signal.
+        if (self.post_turn_t >= 0.5
+                and self._forward_progress_stalled(dt, near_only=False)):
+            self.forward_recovery_only = True
+            self.reverse_t = 0.0
+            self.forward_watch_t = 0.0
+            self.forward_watch_ref = None
+            self._set_state("REVERSE", "post_turn_forward_stalled")
+            return self._finish(0.0, 0.0, 0.0,
+                                e_lat, e_front, dt, yaw_rate)
 
         # Acquisition steering: gentle, bounded, no special-case loops.
         steer = 0.0
@@ -823,9 +940,13 @@ class CenteringController:
         # following through into the selected corridor.
         front_ok = (self.front_clear is None
                     or self.front_clear >= FRONT_EMERGENCY_DIST)
-        if (front_ok and ((self.post_turn_t >= 0.20 and one_wall)
-                          or (self.post_turn_distance >= POST_TURN_ADVANCE_M
-                              and (centered or self.post_turn_t > 1.0)))):
+        # Re-arm FOLLOW only after multiple independent exit signals agree:
+        # safe front, a real side wall, centered lateral geometry, and enough
+        # measured forward travel.  A timer or a single ray alone must not
+        # immediately reopen route selection after a turn.
+        if (front_ok and one_wall and centered
+                and self.post_turn_distance >= POST_TURN_ADVANCE_M):
+            self.post_turn_timeout_count = 0
             self.post_turn_grace_t = 1.0
             self._set_state("FOLLOW", "post_turn_acquired")
         return self._finish(base - steer, base + steer, steer,

@@ -1,0 +1,17 @@
+/tmp/opencode/lattice-controller-review/task1b/task_1b_boilerplate.py:77: DeprecationWarning: Callback API version 1 is deprecated, update to latest version
+  client = mqtt.Client()
+[lattice] logs: /tmp/opencode/lattice-controller-review/task1b/logs/20261016T044021Z_clean_start
+Traceback (most recent call last):
+  File "/tmp/opencode/lattice-controller-review/task1b/task_1b_boilerplate.py", line 141, in <module>
+    main()
+  File "/tmp/opencode/lattice-controller-review/task1b/task_1b_boilerplate.py", line 136, in main
+    run(args.label, args.log_dir, Settings(dock_range=args.dock_range),
+  File "/tmp/opencode/lattice-controller-review/task1b/task_1b_boilerplate.py", line 117, in run
+    client.loop_forever()
+  File "/home/sreevatsav/.local/lib/python3.10/site-packages/paho/mqtt/client.py", line 2297, in loop_forever
+    rc = self._loop(timeout)
+  File "/home/sreevatsav/.local/lib/python3.10/site-packages/paho/mqtt/client.py", line 1663, in _loop
+    socklist = select.select(rlist, wlist, [], timeout)
+  File "/tmp/opencode/lattice-controller-review/task1b/task_1b_boilerplate.py", line 110, in stop_signal
+    raise KeyboardInterrupt(f"received signal {signum}")
+KeyboardInterrupt: received signal 15

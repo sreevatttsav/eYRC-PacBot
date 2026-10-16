@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 from controller import LatticeController
-from lattice import Frame, K_LINEAR, LatticeEstimator, PITCH
+from lattice import Frame, K_LINEAR, LatticeEstimator, PITCH, RangeHold
 from task_1b_boilerplate import RunLog
 from controller import Settings
 
@@ -61,6 +61,26 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(est.edge_count, 1)
         self.assertEqual(est.duplicate_edges, 1)
 
+    def test_front_classification_uses_independent_rays(self):
+        self.assertEqual(frame(fl=0.09, fr=0.30).front_label, "wall")
+        self.assertEqual(frame(fl=0.30, fr=0.25).front_label, "open")
+        self.assertEqual(frame(fl=0.13, fr=0.13).front_label, "open")
+        self.assertEqual(frame(fl=None, fr=None).front_label, "unknown")
+
+    def test_range_hold_is_per_ray_and_expires(self):
+        hold = RangeHold(0.12)
+        first = Frame.from_payload({"fl": 0.08, "fr": 0.30, "sl": 0.05,
+                                    "sr": 0.05, "gyro": [0, 0, 0], "dt": 0.02}, hold)
+        dropout = Frame.from_payload({"fl": None, "fr": 0.30, "sl": None,
+                                      "sr": 0.05, "gyro": [0, 0, 0], "dt": 0.04}, hold)
+        self.assertEqual(dropout.fl.value, first.fl.value)
+        self.assertEqual(dropout.sl.value, first.sl.value)
+        expired = None
+        for _ in range(3):
+            expired = Frame.from_payload({"fr": 0.30, "sr": 0.05,
+                                          "gyro": [0, 0, 0], "dt": 0.05}, hold)
+        self.assertEqual(expired.fl.kind, "unknown")
+
 
 class ControllerTests(unittest.TestCase):
     def controller_at_center(self):
@@ -95,10 +115,14 @@ class ControllerTests(unittest.TestCase):
 
     def test_gate_probe_and_unknown_input_stop(self):
         ctl = LatticeController()
-        left, right = ctl.step(frame(fl=0.10, fr=0.10, sl=0.300, sr=0.300))
+        left, right = 0.0, 0.0
+        for _ in range(100):
+            left, right = ctl.step(frame(fl=0.10, fr=0.10,
+                                         sl=0.300, sr=0.300))
         self.assertEqual(ctl.state, "GATE")
         self.assertGreater(left, 0)
         self.assertGreater(right, 0)
+        self.assertGreater(ctl.est.travel, 0.02)
         self.assertEqual(ctl.step(Frame.from_payload({"dt": 0.02})), (0.0, 0.0))
 
     def test_gate_survives_asymmetric_post_ray(self):
@@ -127,6 +151,47 @@ class ControllerTests(unittest.TestCase):
         ctl._recover(frame(fl=0.10, fr=0.10), "first_attempt_failed")
         self.assertEqual(ctl.recovery_direction, -first_direction)
 
+    def test_reverse_heading_servo_is_stable_and_converges(self):
+        for initial in (0.0, math.radians(20)):
+            ctl = LatticeController()
+            ctl.est.psi = initial
+            ctl.est.psi_valid = True
+            distance = 0.0
+            dt = 0.01
+            for _ in range(1000):
+                yaw = ctl.cfg.yaw_gain * (ctl.last_wheels[1] - ctl.last_wheels[0])
+                ctl._track(frame(yaw=yaw, dt=dt), -0.025)
+                yaw = ctl.cfg.yaw_gain * (ctl.last_wheels[1] - ctl.last_wheels[0])
+                ctl.est.psi += yaw * dt
+                distance += K_LINEAR * abs(sum(ctl.last_wheels) / 2) * dt
+                if distance >= 0.08:
+                    break
+            self.assertLess(abs(ctl.est.psi), math.radians(5))
+        self.assertLess(abs(ctl.est.psi), math.radians(5))
+
+    def test_decide_unknown_waits_without_recovery(self):
+        ctl = self.controller_at_center()
+        for _ in range(50):
+            ctl.step(frame(fl=None, fr=None, sl=None, sr=None))
+        self.assertEqual(ctl.state, "DECIDE")
+        self.assertNotIn("decision_unknown", [e.get("reason") for e in ctl.events])
+        self.assertLessEqual(ctl.decision_probe_distance, 0.02)
+
+    def test_recovery_cycles_enter_hold_at_limit(self):
+        ctl = LatticeController()
+        for _ in range(4):
+            ctl._recover(frame(), "test")
+        self.assertEqual(ctl.recovery_phase, "HOLD")
+        self.assertEqual(ctl.step(frame()), (0.0, 0.0))
+
+    def test_gate_startup_grace_avoids_immediate_recovery(self):
+        ctl = LatticeController()
+        for _ in range(10):
+            ctl.step(frame(fl=0.04, fr=0.30, sl=0.22, sr=0.22))
+        self.assertEqual(ctl.state, "GATE")
+        self.assertFalse(any(e.get("reason") == "front_contact_guard"
+                             for e in ctl.events))
+
     def test_dock_stall_escalates_by_commanded_distance(self):
         ctl = LatticeController()
         ctl.state = "DOCK"
@@ -144,11 +209,26 @@ class ControllerTests(unittest.TestCase):
     def test_result_is_written_to_run_folder(self):
         with tempfile.TemporaryDirectory() as directory:
             log = RunLog(Path(directory), "case", Settings())
+            ctl = LatticeController()
+            ctl.step(frame())
+            raw = {"fl": 0.3, "fr": 0.3, "sl": 0.05, "sr": 0.05,
+                   "gyro": [0, 0, 0], "dt": 0.02}
+            log.record(ctl, raw)
+            log.ticks.flush()
+            tick = json.loads((log.directory / "ticks.jsonl").read_text())
+            self.assertEqual(tick["raw"], raw)
             payload = {"solved": False, "collisions": 2, "score": 0.0}
             log.result(payload)
             log.close()
             self.assertEqual(json.loads((log.directory / "result.json").read_text()),
                              payload)
+
+    def test_missing_simulator_result_is_marked_explicitly(self):
+        with tempfile.TemporaryDirectory() as directory:
+            log = RunLog(Path(directory), "no_verdict", Settings())
+            log.close()
+            result = json.loads((log.directory / "result.json").read_text())
+            self.assertEqual(result["status"], "not_received")
 
 
 if __name__ == "__main__":

@@ -26,6 +26,7 @@ def clamp(value: float, low: float, high: float) -> float:
 class Range:
     value: float | None
     kind: str  # distance, bound (0.300 saturation), or unknown
+    age: float = 0.0
 
     @classmethod
     def read(cls, raw: object) -> "Range":
@@ -62,9 +63,10 @@ class Frame:
     sr: Range
     yaw: float | None
     dt: float
+    raw: dict | None = None
 
     @classmethod
-    def from_payload(cls, data: dict) -> "Frame":
+    def from_payload(cls, data: dict, hold: "RangeHold | None" = None) -> "Frame":
         gyro = data.get("gyro")
         try:
             yaw = float(gyro[2])
@@ -78,12 +80,14 @@ class Frame:
             dt = 0.0
         if not math.isfinite(dt) or dt <= 0.0 or dt > 0.2:
             dt = 0.0
-        return cls(*(Range.read(data.get(k)) for k in ("fl", "fr", "sl", "sr")),
-                   yaw, dt)
+        ranges = tuple(Range.read(data.get(k)) for k in ("fl", "fr", "sl", "sr"))
+        if hold is not None:
+            ranges = hold.update(ranges, dt)
+        return cls(*ranges, yaw, dt, dict(data))
 
     @property
     def front_wall_range(self) -> float | None:
-        """Axial projection, only when two rays plausibly see one plane."""
+        """Axial projection, when two rays plausibly see one plane."""
         left, right = self.fl.distance, self.fr.distance
         if left is None or right is None or abs(left - right) > 0.035:
             return None
@@ -91,8 +95,18 @@ class Frame:
 
     @property
     def front_hazard(self) -> bool:
-        return any(v is not None and v * FRONT_COS < 0.055
-                   for v in (self.fl.distance, self.fr.distance))
+        return any(r.distance is not None and r.distance * FRONT_COS < 0.055
+                   for r in (self.fl, self.fr))
+
+    @property
+    def front_label(self) -> str:
+        rays = (self.fl, self.fr)
+        if any(r.distance is not None and r.distance * FRONT_COS < 0.10
+               for r in rays):
+            return "wall"
+        if any(r.kind != "unknown" for r in rays):
+            return "open"
+        return "unknown"
 
     @property
     def front_open(self) -> bool:
@@ -112,8 +126,36 @@ class Frame:
         side_room = all(r.kind == "bound" or
                         (r.distance is not None and r.distance >= 0.14)
                         for r in sides)
-        fronts_seen = all(r.kind != "unknown" for r in (self.fl, self.fr))
-        return side_room and fronts_seen and not self.front_hazard
+        one_ray_sees_through = any(r.open or
+                                   (r.distance is not None and r.distance >= 0.20)
+                                   for r in (self.fl, self.fr))
+        return side_room and one_ray_sees_through
+
+
+class RangeHold:
+    """Per-ray hold for brief ToF dropouts; held readings retain their age."""
+
+    def __init__(self, hold_s: float = 0.12) -> None:
+        self.hold_s = hold_s
+        self.last: list[Range | None] = [None, None, None, None]
+        self.age = [float("inf")] * 4
+
+    def update(self, current: tuple[Range, ...], dt: float) -> tuple[Range, ...]:
+        held = []
+        for i, reading in enumerate(current):
+            if reading.kind != "unknown":
+                self.last[i] = reading
+                self.age[i] = 0.0
+                held.append(reading)
+                continue
+            self.age[i] += max(dt, 0.0)
+            previous = self.last[i]
+            if previous is not None and self.age[i] <= self.hold_s:
+                held.append(Range(previous.value, previous.kind, self.age[i]))
+            else:
+                self.last[i] = None
+                held.append(reading)
+        return tuple(held)
 
 
 class LatticeEstimator:

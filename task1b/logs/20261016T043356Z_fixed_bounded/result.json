@@ -1,0 +1,4 @@
+{
+  "status": "not_received",
+  "reason": "controller and simulator stopped at the 120-second wall-clock limit before a simulator verdict"
+}

@@ -6,7 +6,7 @@ from collections import Counter
 from dataclasses import dataclass
 import math
 
-from lattice import Frame, LatticeEstimator, PITCH, K_LINEAR, clamp
+from lattice import Frame, LatticeEstimator, PITCH, K_LINEAR, RangeHold, clamp
 
 
 @dataclass(frozen=True)
@@ -17,6 +17,7 @@ class Settings:
     max_wheel: float = 10.0
     yaw_gain: float = 0.0914
     decision_dwell: float = 0.15
+    decision_max_dwell: float = 1.0
     center_tolerance: float = 0.018
     pivot_y_limit: float = 0.008
     pivot_180_y_limit: float = 0.005
@@ -53,6 +54,11 @@ class LatticeController:
         self.last_turn_direction = -1
         self.visits = Counter()
         self.dock_progress: tuple[float, float] | None = None
+        self.range_hold = RangeHold(0.12)
+        self.decision_probe_distance = 0.0
+        self.hazard_dwell = 0.0
+        self.recovery_probe_distance = 0.0
+        self.recovery_probe_used = False
 
     def _set_state(self, state: str, reason: str) -> None:
         assert state in self.STATES
@@ -72,7 +78,7 @@ class LatticeController:
     def _track(self, frame: Frame, speed: float) -> tuple[float, float]:
         """Lateral error -> desired heading -> yaw-rate servo."""
         y = self.est.y
-        if y is None or not self.est.psi_valid:
+        if speed < 0.0 or y is None or not self.est.psi_valid:
             reference = 0.0
         else:
             reference = clamp(5.0 * y, -math.radians(12), math.radians(12))
@@ -83,8 +89,6 @@ class LatticeController:
         steer = clamp(yaw_request / (2.0 * self.cfg.yaw_gain),
                       -0.70 * abs(base), 0.70 * abs(base))
         # For reverse the lateral feedback direction is inverted.
-        if speed < 0:
-            steer = -steer
         return self._wheels(base - steer, base + steer)
 
     def _begin_cruise(self, reason: str) -> None:
@@ -95,11 +99,17 @@ class LatticeController:
         self.decision_time = 0.0
         self.votes.clear()
         self.pending_turn = 0
+        self.decision_probe_distance = 0.0
         self.recovery_cycles = 0
         self.last_recovery_direction = None
+        self.recovery_probe_used = False
         self._set_state("DECIDE", reason)
 
     def _recover(self, frame: Frame, reason: str) -> None:
+        if self.recovery_cycles >= 3:
+            self.recovery_phase = "HOLD"
+            self._set_state("RECOVER", "recovery_limit_hold")
+            return
         self.recovery_cycles += 1
         self.recovery_phase = "BACK"
         self.recovery_start_travel = self.est.travel
@@ -135,14 +145,7 @@ class LatticeController:
     def _vote(self, frame: Frame) -> None:
         self.votes[("left", self._side_vote(frame.sl))] += 1
         self.votes[("right", self._side_vote(frame.sr))] += 1
-        front = frame.front_wall_range
-        if front is not None and front < 0.10:
-            label = "wall"
-        elif frame.front_open:
-            label = "open"
-        else:
-            label = "unknown"
-        self.votes[("front", label)] += 1
+        self.votes[("front", frame.front_label)] += 1
 
     def _majority(self, direction: str) -> str:
         labels = ("wall", "open", "unknown")
@@ -167,8 +170,18 @@ class LatticeController:
             elif front == "wall" and left == "wall" and right == "wall":
                 self.pending_turn = 2
             else:
-                # Unknown is a real state: do not invent an opening.
-                self._recover(frame, "decision_unknown")
+                # Give transient ambiguity a bounded extra sample window and
+                # at most 2 cm of safe forward creep. Unknown never routes.
+                if self.decision_time < self.cfg.decision_max_dwell:
+                    if (self.decision_probe_distance < 0.02 and
+                            not frame.front_hazard):
+                        distance = min(self.cfg.crawl_mps * frame.dt,
+                                       0.02 - self.decision_probe_distance)
+                        self.decision_probe_distance += distance
+                        return self._track(frame, self.cfg.crawl_mps)
+                    return self._wheels(0.0, 0.0)
+                self.votes.clear()
+                self.decision_time = 0.0
                 return self._wheels(0.0, 0.0)
             key = (*self.est.cell, self.est.heading)
             self.visits[key] += 1
@@ -230,6 +243,19 @@ class LatticeController:
         return command
 
     def _recovery(self, frame: Frame) -> tuple[float, float]:
+        if self.recovery_phase == "HOLD":
+            return self._wheels(0.0, 0.0)
+        if self.recovery_phase == "PROBE":
+            if frame.front_label != "open" or frame.front_hazard:
+                self.recovery_phase = "HOLD"
+                return self._wheels(0.0, 0.0)
+            self.recovery_probe_distance += self.cfg.crawl_mps * frame.dt
+            if self.recovery_probe_distance >= 0.02:
+                self.recovery_phase = "BACK"
+                self.gate_start_travel = self.est.travel
+                self._set_state("GATE", "recovery_probe_complete")
+                return self._wheels(0.0, 0.0)
+            return self._track(frame, self.cfg.crawl_mps)
         if self.recovery_phase == "BACK":
             progressed = self.recovery_cmd_distance
             front = frame.front_wall_range
@@ -262,7 +288,12 @@ class LatticeController:
                 self.recovery_cmd_distance += -K_LINEAR * previous_average * frame.dt
         self.est.observe(frame, self.last_wheels,
                          anchor=self.state in ("GATE", "CRUISE", "DECIDE", "DOCK"))
-        if self.state != "RECOVER" and self.state != "PIVOT" and frame.front_hazard:
+        if frame.front_hazard:
+            self.hazard_dwell += frame.dt
+        else:
+            self.hazard_dwell = 0.0
+        if (self.state not in ("RECOVER", "PIVOT", "GATE") and
+                self.sim_time >= 0.30 and self.hazard_dwell >= 0.10):
             self._recover(frame, "front_contact_guard")
             return self._wheels(0.0, 0.0)
         if self.state == "GATE":
@@ -272,9 +303,38 @@ class LatticeController:
             if self.est.travel - self.gate_start_travel > self.cfg.gate_max_travel:
                 self._recover(frame, "no_gate_landmark")
                 return self._wheels(0.0, 0.0)
-            if frame.front_open or frame.entrance_probe:
+            if self.sim_time < 0.30:
+                if frame.entrance_probe or frame.front_label == "open":
+                    return self._track(frame, self.cfg.crawl_mps)
+                # A symmetric close pair can be the two entrance posts. Keep
+                # probing while both sides show room; the persistent physical
+                # contact guard below still bounds this path.
+                side_room = self.est._side_class(frame.sl) == "open" and self.est._side_class(frame.sr) == "open"
+                if side_room and not frame.front_hazard:
+                    return self._track(frame, self.cfg.crawl_mps)
+                return self._wheels(0.0, 0.0)
+            if frame.front_hazard and not frame.entrance_probe and self.hazard_dwell >= 0.10:
+                self._recover(frame, "front_contact_guard")
+                return self._wheels(0.0, 0.0)
+            if self.recovery_cycles >= 2 and not self.recovery_probe_used:
+                self.recovery_phase = "PROBE"
+                self.recovery_probe_distance = 0.0
+                self.recovery_probe_used = True
+                self._set_state("RECOVER", "recovery_forward_probe")
+                return self._wheels(0.0, 0.0)
+            if self.recovery_probe_used:
+                self.recovery_phase = "HOLD"
+                self._set_state("RECOVER", "recovery_exhausted_hold")
+                return self._wheels(0.0, 0.0)
+            if frame.front_label == "open" or frame.entrance_probe:
                 return self._track(frame, self.cfg.crawl_mps)
-            self._recover(frame, "gate_front_uncertain")
+            side_room = self.est._side_class(frame.sl) == "open" and self.est._side_class(frame.sr) == "open"
+            if side_room and not frame.front_hazard:
+                return self._track(frame, self.cfg.crawl_mps)
+            if self.recovery_cycles:
+                self._recover(frame, "gate_front_uncertain")
+            else:
+                return self._wheels(0.0, 0.0)
             return self._wheels(0.0, 0.0)
         if self.state == "CRUISE":
             if self.est.s is None:

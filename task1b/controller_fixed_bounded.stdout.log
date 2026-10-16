@@ -1,0 +1,3 @@
+/tmp/opencode/lattice-controller-review/task1b/task_1b_boilerplate.py:76: DeprecationWarning: Callback API version 1 is deprecated, update to latest version
+  client = mqtt.Client()
+[lattice] logs: /tmp/opencode/lattice-controller-review/task1b/logs/20261016T043356Z_fixed_bounded

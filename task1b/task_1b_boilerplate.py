@@ -10,6 +10,7 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import signal
 
 from controller import LatticeController, Settings
 from lattice import Frame
@@ -33,14 +34,21 @@ class RunLog:
         self.ticks = (self.directory / "ticks.jsonl").open("w")
         self.events = (self.directory / "events.jsonl").open("w")
         self.event_cursor = 0
+        self.result_received = False
 
-    def record(self, controller: LatticeController) -> None:
-        if controller.tick % 10 == 0:
-            self.ticks.write(json.dumps(controller.snapshot()) + "\n")
+    def record(self, controller: LatticeController, payload: dict) -> None:
+        sample = controller.snapshot()
+        sample["raw"] = payload
+        self.ticks.write(json.dumps(sample) + "\n")
+        if controller.state == "DECIDE":
+            controller.events.append({"t": round(controller.sim_time, 4),
+                                      "event": "decision_votes",
+                                      "votes": {f"{k[0]}:{k[1]}": v
+                                                for k, v in controller.votes.items()}})
         for event in controller.events[self.event_cursor:]:
             self.events.write(json.dumps(event) + "\n")
         self.event_cursor = len(controller.events)
-        if controller.tick % 250 == 0:
+        if controller.tick % 50 == 0:
             self.ticks.flush()
             self.events.flush()
 
@@ -48,8 +56,13 @@ class RunLog:
         (self.directory / "result.json").write_text(
             json.dumps(payload, indent=2) + "\n"
         )
+        self.result_received = True
 
     def close(self) -> None:
+        if not self.result_received:
+            (self.directory / "result.json").write_text(json.dumps(
+                {"status": "not_received", "reason": "run ended before simulator verdict"},
+                indent=2) + "\n")
         self.ticks.close()
         self.events.close()
 
@@ -79,18 +92,25 @@ def run(label: str, log_parent: Path, settings: Settings,
             return
         if message.topic != SENSORS:
             return
+        payload = {}
         try:
             payload = json.loads(message.payload)
-            frame = Frame.from_payload(payload)
+            frame = Frame.from_payload(payload, controller.range_hold)
             left, right = controller.step(frame)
         except (UnicodeDecodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
             print(f"[sensor error] {exc}", flush=True)
             left, right = 0.0, 0.0
         mqtt_client.publish(WHEELS, json.dumps({"left": left, "right": right}))
-        log.record(controller)
+        log.record(controller, payload)
 
     client.on_connect = on_connect
     client.on_message = on_message
+
+    def stop_signal(signum, _frame):
+        raise SystemExit(0)
+
+    signal.signal(signal.SIGTERM, stop_signal)
+    signal.signal(signal.SIGINT, stop_signal)
     try:
         client.connect(host, port, keepalive=60)
         print(f"[lattice] logs: {log.directory}", flush=True)

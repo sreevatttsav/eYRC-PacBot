@@ -20,6 +20,16 @@
 - It stayed in `GATE`, did not recover, and received no simulator verdict.
 - Also inconclusive. The latest change is not validated in a sustained closed-loop trial.
 
+## `compat_run` (2026-10-16)
+
+- Used the earlier non-`setsid` launch pattern: simulator first, controller second.
+- An independent MQTT subscriber captured 16,355 sensor messages; the controller recorded 25,148 ticks over 50.296 simulated seconds.
+- `GATE` reached `CRUISE` at 8.362 s; the first cell decision occurred at 12.580 s.
+- A decision-driven 180-degree pivot completed with 1.227-degree error.
+- Docking then stalled and initiated one bounded recovery. The 8 cm reverse changed estimated heading by about -3.2 degrees; the recovery 90-degree pivot completed with 1.804-degree error.
+- Returned to `GATE` after the recovery pivot and remained there at the 60-second wall-clock cutoff. No simulator verdict was received.
+- This shows sustained sensor delivery and first-cell navigation work with the compatibility launch; it does not conclusively identify why the earlier sessions stopped publishing. It also does not demonstrate a full run or solve the post-recovery gate-anchor problem.
+
 ## Offline checks
 
 - Unit tests: 19 passed.

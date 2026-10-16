@@ -1,0 +1,85 @@
+{"t": 8.362, "from": "GATE", "to": "CRUISE", "reason": "wall_anchor_found", "cell": [0, 0], "heading": 0, "s": 0.192}
+{"t": 12.58, "from": "CRUISE", "to": "DECIDE", "reason": "cell_center_reached", "cell": [1, 0], "heading": 0, "s": 0.09201482005157144}
+{"t": 12.58, "event": "decision_votes", "votes": {}}
+{"t": 12.582, "event": "decision_votes", "votes": {"left:wall": 1, "right:wall": 1, "front:wall": 1}}
+{"t": 12.584, "event": "decision_votes", "votes": {"left:wall": 2, "right:wall": 2, "front:wall": 2}}
+{"t": 12.586, "event": "decision_votes", "votes": {"left:wall": 3, "right:wall": 3, "front:wall": 3}}
+{"t": 12.588, "event": "decision_votes", "votes": {"left:wall": 4, "right:wall": 4, "front:wall": 4}}
+{"t": 12.59, "event": "decision_votes", "votes": {"left:wall": 5, "right:wall": 5, "front:wall": 5}}
+{"t": 12.592, "event": "decision_votes", "votes": {"left:wall": 6, "right:wall": 6, "front:wall": 6}}
+{"t": 12.594, "event": "decision_votes", "votes": {"left:wall": 7, "right:wall": 7, "front:wall": 7}}
+{"t": 12.596, "event": "decision_votes", "votes": {"left:wall": 8, "right:wall": 8, "front:wall": 8}}
+{"t": 12.598, "event": "decision_votes", "votes": {"left:wall": 9, "right:wall": 9, "front:wall": 9}}
+{"t": 12.6, "event": "decision_votes", "votes": {"left:wall": 10, "right:wall": 10, "front:wall": 10}}
+{"t": 12.602, "event": "decision_votes", "votes": {"left:wall": 11, "right:wall": 11, "front:wall": 11}}
+{"t": 12.604, "event": "decision_votes", "votes": {"left:wall": 12, "right:wall": 12, "front:wall": 12}}
+{"t": 12.606, "event": "decision_votes", "votes": {"left:wall": 13, "right:wall": 13, "front:wall": 13}}
+{"t": 12.608, "event": "decision_votes", "votes": {"left:wall": 14, "right:wall": 14, "front:wall": 14}}
+{"t": 12.61, "event": "decision_votes", "votes": {"left:wall": 15, "right:wall": 15, "front:wall": 15}}
+{"t": 12.612, "event": "decision_votes", "votes": {"left:wall": 16, "right:wall": 16, "front:wall": 16}}
+{"t": 12.614, "event": "decision_votes", "votes": {"left:wall": 17, "right:wall": 17, "front:wall": 16, "front:open": 1}}
+{"t": 12.616, "event": "decision_votes", "votes": {"left:wall": 18, "right:wall": 18, "front:wall": 16, "front:open": 2}}
+{"t": 12.618, "event": "decision_votes", "votes": {"left:wall": 19, "right:wall": 19, "front:wall": 16, "front:open": 3}}
+{"t": 12.62, "event": "decision_votes", "votes": {"left:wall": 20, "right:wall": 20, "front:wall": 16, "front:open": 4}}
+{"t": 12.622, "event": "decision_votes", "votes": {"left:wall": 21, "right:wall": 21, "front:wall": 16, "front:open": 5}}
+{"t": 12.624, "event": "decision_votes", "votes": {"left:wall": 22, "right:wall": 22, "front:wall": 16, "front:open": 6}}
+{"t": 12.626, "event": "decision_votes", "votes": {"left:wall": 23, "right:wall": 23, "front:wall": 16, "front:open": 7}}
+{"t": 12.628, "event": "decision_votes", "votes": {"left:wall": 24, "right:wall": 24, "front:wall": 16, "front:open": 8}}
+{"t": 12.63, "event": "decision_votes", "votes": {"left:wall": 25, "right:wall": 25, "front:wall": 16, "front:open": 9}}
+{"t": 12.632, "event": "decision_votes", "votes": {"left:wall": 26, "right:wall": 26, "front:wall": 16, "front:open": 10}}
+{"t": 12.634, "event": "decision_votes", "votes": {"left:wall": 27, "right:wall": 27, "front:wall": 16, "front:open": 11}}
+{"t": 12.636, "event": "decision_votes", "votes": {"left:wall": 28, "right:wall": 28, "front:wall": 16, "front:open": 12}}
+{"t": 12.638, "event": "decision_votes", "votes": {"left:wall": 29, "right:wall": 29, "front:wall": 16, "front:open": 13}}
+{"t": 12.64, "event": "decision_votes", "votes": {"left:wall": 30, "right:wall": 30, "front:wall": 16, "front:open": 14}}
+{"t": 12.642, "event": "decision_votes", "votes": {"left:wall": 31, "right:wall": 31, "front:wall": 16, "front:open": 15}}
+{"t": 12.644, "event": "decision_votes", "votes": {"left:wall": 32, "right:wall": 32, "front:wall": 17, "front:open": 15}}
+{"t": 12.646, "event": "decision_votes", "votes": {"left:wall": 33, "right:wall": 33, "front:wall": 18, "front:open": 15}}
+{"t": 12.648, "event": "decision_votes", "votes": {"left:wall": 34, "right:wall": 34, "front:wall": 19, "front:open": 15}}
+{"t": 12.65, "event": "decision_votes", "votes": {"left:wall": 35, "right:wall": 35, "front:wall": 20, "front:open": 15}}
+{"t": 12.652, "event": "decision_votes", "votes": {"left:wall": 36, "right:wall": 36, "front:wall": 21, "front:open": 15}}
+{"t": 12.654, "event": "decision_votes", "votes": {"left:wall": 37, "right:wall": 37, "front:wall": 22, "front:open": 15}}
+{"t": 12.656, "event": "decision_votes", "votes": {"left:wall": 38, "right:wall": 38, "front:wall": 23, "front:open": 15}}
+{"t": 12.658, "event": "decision_votes", "votes": {"left:wall": 39, "right:wall": 39, "front:wall": 24, "front:open": 15}}
+{"t": 12.66, "event": "decision_votes", "votes": {"left:wall": 40, "right:wall": 40, "front:wall": 25, "front:open": 15}}
+{"t": 12.662, "event": "decision_votes", "votes": {"left:wall": 41, "right:wall": 41, "front:wall": 26, "front:open": 15}}
+{"t": 12.664, "event": "decision_votes", "votes": {"left:wall": 42, "right:wall": 42, "front:wall": 27, "front:open": 15}}
+{"t": 12.666, "event": "decision_votes", "votes": {"left:wall": 43, "right:wall": 43, "front:wall": 28, "front:open": 15}}
+{"t": 12.668, "event": "decision_votes", "votes": {"left:wall": 44, "right:wall": 44, "front:wall": 29, "front:open": 15}}
+{"t": 12.67, "event": "decision_votes", "votes": {"left:wall": 45, "right:wall": 45, "front:wall": 30, "front:open": 15}}
+{"t": 12.672, "event": "decision_votes", "votes": {"left:wall": 46, "right:wall": 46, "front:wall": 31, "front:open": 15}}
+{"t": 12.674, "event": "decision_votes", "votes": {"left:wall": 47, "right:wall": 47, "front:wall": 32, "front:open": 15}}
+{"t": 12.676, "event": "decision_votes", "votes": {"left:wall": 48, "right:wall": 48, "front:wall": 33, "front:open": 15}}
+{"t": 12.678, "event": "decision_votes", "votes": {"left:wall": 49, "right:wall": 49, "front:wall": 34, "front:open": 15}}
+{"t": 12.68, "event": "decision_votes", "votes": {"left:wall": 50, "right:wall": 50, "front:wall": 35, "front:open": 15}}
+{"t": 12.682, "event": "decision_votes", "votes": {"left:wall": 51, "right:wall": 51, "front:wall": 36, "front:open": 15}}
+{"t": 12.684, "event": "decision_votes", "votes": {"left:wall": 52, "right:wall": 52, "front:wall": 37, "front:open": 15}}
+{"t": 12.686, "event": "decision_votes", "votes": {"left:wall": 53, "right:wall": 53, "front:wall": 38, "front:open": 15}}
+{"t": 12.688, "event": "decision_votes", "votes": {"left:wall": 54, "right:wall": 54, "front:wall": 39, "front:open": 15}}
+{"t": 12.69, "event": "decision_votes", "votes": {"left:wall": 55, "right:wall": 55, "front:wall": 40, "front:open": 15}}
+{"t": 12.692, "event": "decision_votes", "votes": {"left:wall": 56, "right:wall": 56, "front:wall": 41, "front:open": 15}}
+{"t": 12.694, "event": "decision_votes", "votes": {"left:wall": 57, "right:wall": 57, "front:wall": 42, "front:open": 15}}
+{"t": 12.696, "event": "decision_votes", "votes": {"left:wall": 58, "right:wall": 58, "front:wall": 43, "front:open": 15}}
+{"t": 12.698, "event": "decision_votes", "votes": {"left:wall": 59, "right:wall": 59, "front:wall": 44, "front:open": 15}}
+{"t": 12.7, "event": "decision_votes", "votes": {"left:wall": 60, "right:wall": 60, "front:wall": 45, "front:open": 15}}
+{"t": 12.702, "event": "decision_votes", "votes": {"left:wall": 61, "right:wall": 61, "front:wall": 46, "front:open": 15}}
+{"t": 12.704, "event": "decision_votes", "votes": {"left:wall": 62, "right:wall": 62, "front:wall": 47, "front:open": 15}}
+{"t": 12.706, "event": "decision_votes", "votes": {"left:wall": 63, "right:wall": 63, "front:wall": 48, "front:open": 15}}
+{"t": 12.708, "event": "decision_votes", "votes": {"left:wall": 64, "right:wall": 64, "front:wall": 49, "front:open": 15}}
+{"t": 12.71, "event": "decision_votes", "votes": {"left:wall": 65, "right:wall": 65, "front:wall": 50, "front:open": 15}}
+{"t": 12.712, "event": "decision_votes", "votes": {"left:wall": 66, "right:wall": 66, "front:wall": 51, "front:open": 15}}
+{"t": 12.714, "event": "decision_votes", "votes": {"left:wall": 67, "right:wall": 67, "front:wall": 52, "front:open": 15}}
+{"t": 12.716, "event": "decision_votes", "votes": {"left:wall": 68, "right:wall": 68, "front:wall": 53, "front:open": 15}}
+{"t": 12.718, "event": "decision_votes", "votes": {"left:wall": 69, "right:wall": 69, "front:wall": 54, "front:open": 15}}
+{"t": 12.72, "event": "decision_votes", "votes": {"left:wall": 70, "right:wall": 70, "front:wall": 55, "front:open": 15}}
+{"t": 12.722, "event": "decision_votes", "votes": {"left:wall": 71, "right:wall": 71, "front:wall": 56, "front:open": 15}}
+{"t": 12.724, "event": "decision_votes", "votes": {"left:wall": 72, "right:wall": 72, "front:wall": 57, "front:open": 15}}
+{"t": 12.726, "event": "decision_votes", "votes": {"left:wall": 73, "right:wall": 73, "front:wall": 58, "front:open": 15}}
+{"t": 12.728, "event": "decision_votes", "votes": {"left:wall": 74, "right:wall": 74, "front:wall": 59, "front:open": 15}}
+{"t": 12.73, "from": "DECIDE", "to": "PIVOT", "reason": "cell_center_choice", "cell": [1, 0], "heading": 0, "s": 0.09201482005157144}
+{"t": 17.804, "event": "turn_complete", "target_deg": 180.0, "actual_deg": 178.77310315143495, "error_deg": 1.2268968485650336, "center_error_m": 0.017985179948428562, "lateral_m": null, "recovery": false}
+{"t": 17.804, "from": "PIVOT", "to": "CRUISE", "reason": "pivot_complete", "cell": [1, 0], "heading": 2, "s": 0.11}
+{"t": 19.612, "from": "CRUISE", "to": "DOCK", "reason": "front_wall_near_center", "cell": [1, 0], "heading": 2, "s": 0.18162906846304638}
+{"t": 22.292, "from": "DOCK", "to": "RECOVER", "reason": "dock_no_range_progress", "cell": [0, 0], "heading": 2, "s": 0.0016588191645069772}
+{"t": 25.496, "from": "RECOVER", "to": "PIVOT", "reason": "recovery_backed_by_range_or_distance", "cell": [1, 0], "heading": 2, "s": 0.14166105688199804}
+{"t": 29.936, "event": "turn_complete", "target_deg": -90.0, "actual_deg": -88.19642736412459, "error_deg": -1.8035726358754145, "center_error_m": 0.03166105688199804, "lateral_m": 1.532748731628855e-07, "recovery": true}
+{"t": 29.936, "from": "PIVOT", "to": "GATE", "reason": "recovery_pivot_complete", "cell": [1, 0], "heading": 1, "s": null}

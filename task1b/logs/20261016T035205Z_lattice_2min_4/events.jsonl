@@ -1,0 +1,10 @@
+{"t": 0.004, "from": "GATE", "to": "RECOVER", "reason": "gate_front_uncertain", "cell": [0, 0], "heading": 0, "s": null}
+{"t": 3.208, "from": "RECOVER", "to": "PIVOT", "reason": "recovery_backed_by_range_or_distance", "cell": [0, 0], "heading": 0, "s": null}
+{"t": 7.358, "event": "turn_complete", "target_deg": 90.0, "actual_deg": 88.29589650428937, "error_deg": 1.704103495710628, "center_error_m": null, "lateral_m": -0.0268073366954776, "recovery": true}
+{"t": 7.358, "from": "PIVOT", "to": "GATE", "reason": "recovery_pivot_complete", "cell": [0, 0], "heading": 1, "s": null}
+{"t": 7.364, "from": "GATE", "to": "RECOVER", "reason": "gate_front_uncertain", "cell": [0, 0], "heading": 1, "s": null}
+{"t": 10.568, "from": "RECOVER", "to": "PIVOT", "reason": "recovery_backed_by_range_or_distance", "cell": [0, 0], "heading": 1, "s": null}
+{"t": 14.726, "event": "turn_complete", "target_deg": -90.0, "actual_deg": -88.0461000836416, "error_deg": -1.9538999163583908, "center_error_m": null, "lateral_m": null, "recovery": true}
+{"t": 14.726, "from": "PIVOT", "to": "GATE", "reason": "recovery_pivot_complete", "cell": [0, 0], "heading": 0, "s": null}
+{"t": 14.728, "from": "GATE", "to": "RECOVER", "reason": "gate_front_uncertain", "cell": [0, 0], "heading": 0, "s": null}
+{"t": 17.932, "from": "RECOVER", "to": "PIVOT", "reason": "recovery_backed_by_range_or_distance", "cell": [0, 0], "heading": 0, "s": null}

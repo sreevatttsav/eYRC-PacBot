@@ -1,0 +1,17 @@
+{
+  "controller": "lattice-from-scratch",
+  "created_utc": "20261016T034801Z",
+  "settings": {
+    "cruise_mps": 0.04,
+    "crawl_mps": 0.015,
+    "dock_range": 0.06,
+    "max_wheel": 10.0,
+    "yaw_gain": 0.0914,
+    "decision_dwell": 0.15,
+    "center_tolerance": 0.018,
+    "pivot_y_limit": 0.008,
+    "pivot_180_y_limit": 0.005,
+    "gate_max_travel": 0.45,
+    "reverse_distance": 0.08
+  }
+}

@@ -7,6 +7,7 @@ import unittest
 from controller import LatticeController
 from lattice import Frame, K_LINEAR, LatticeEstimator, PITCH, RangeHold
 from task_1b_boilerplate import RunLog
+from run_trial import early_dropout
 from controller import Settings
 
 
@@ -63,6 +64,14 @@ class GeometryTests(unittest.TestCase):
         self.assertGreater(est.position_uncertainty_m, 0.01)
         self.assertGreater(est.travel - est.last_position_anchor_travel, 0.02)
 
+    def test_commanded_travel_loses_position_before_inventing_many_cells(self):
+        est = LatticeEstimator()
+        est.observe(frame(fl=0.10, fr=0.10), (0, 0))
+        for _ in range(1000):
+            est.observe(frame(fl=0.30, fr=0.30), (2.0, 2.0))
+        self.assertIsNone(est.s)
+        self.assertLessEqual(est.cell[0], 2)
+
     def test_approaching_front_wall_is_observed_progress(self):
         est = LatticeEstimator()
         for distance in (0.11, 0.106, 0.102, 0.098):
@@ -81,8 +90,11 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(est.duplicate_edges, 1)
 
     def test_front_classification_requires_a_consistent_wall_pair(self):
-        self.assertEqual(frame(fl=0.09, fr=0.30).front_label, "unknown")
+        self.assertEqual(frame(fl=0.09, fr=0.30).front_label, "open")
         self.assertEqual(frame(fl=0.10, fr=0.10).front_label, "wall")
+        self.assertEqual(frame(fl=0.09, fr=None).front_label, "wall")
+        self.assertEqual(frame(fl=0.106, fr=0.754, sl=0.082,
+                               sr=0.085).front_label, "open")
         # Recorded at the first wrong U-turn in the sustained validation run.
         self.assertEqual(frame(fl=0.106305, fr=0.754407,
                                sl=0.081682, sr=0.084432).front_label, "open")
@@ -112,6 +124,8 @@ class ControllerTests(unittest.TestCase):
         ctl.est.last_position_anchor_travel = ctl.est.travel
         ctl.est.position_uncertainty_m = 0.01
         ctl.est.psi_valid = True
+        ctl.channel_acquired = True
+        ctl.channel_samples.append((ctl.est.travel - 0.051, 0.051, 0.051))
         ctl.state = "DECIDE"
         return ctl
 
@@ -132,9 +146,9 @@ class ControllerTests(unittest.TestCase):
         for _ in range(800):
             yaw = ctl.cfg.yaw_gain * (ctl.last_wheels[1] - ctl.last_wheels[0])
             ctl.step(frame(sl=0.300, sr=0.051, yaw=yaw))
-            if ctl.state == "CRUISE":
+            if ctl.state == "GATE":
                 break
-        self.assertEqual(ctl.state, "CRUISE")
+        self.assertEqual(ctl.state, "GATE")
         self.assertEqual(ctl.est.heading, 1)
         self.assertLess(abs(ctl.est.psi), math.radians(5))
 
@@ -165,9 +179,10 @@ class ControllerTests(unittest.TestCase):
     def test_gate_probe_and_unknown_input_stop(self):
         ctl = LatticeController()
         left, right = 0.0, 0.0
-        for _ in range(100):
+        for i in range(100):
             left, right = ctl.step(frame(fl=0.10, fr=0.10,
-                                         sl=0.300, sr=0.300))
+                                         sl=0.25 - 0.0005 * i,
+                                         sr=0.25 - 0.0005 * i))
         self.assertEqual(ctl.state, "GATE")
         self.assertGreater(left, 0)
         self.assertGreater(right, 0)
@@ -254,12 +269,62 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(ctl.state, "GATE")
         for _ in range(30):
             ctl.step(frame(fl=0.300, fr=0.300, sl=0.300, sr=0.051))
+        for _ in range(240):
+            ctl.step(frame(fl=0.300, fr=0.300, sl=0.051, sr=0.051))
             if ctl.state == "CRUISE":
                 break
         self.assertEqual(ctl.state, "CRUISE")
         self.assertFalse(ctl.recovery_reacquire)
         self.assertEqual(ctl.recovery_cycles, 0)
         self.assertEqual(ctl.events[-1]["reason"], "recovery_landmark_found")
+
+    def test_gate_needs_stable_parallel_walls_not_entrance_funnel(self):
+        ctl = LatticeController()
+        for i in range(100):
+            distance = 0.15 - 0.0008 * i
+            ctl.step(frame(fl=0.30, fr=0.30, sl=distance, sr=distance))
+        self.assertEqual(ctl.state, "GATE")
+        self.assertFalse(ctl.channel_stable)
+        self.assertIsNotNone(ctl.channel_width_slope)
+        for _ in range(250):
+            ctl.step(frame(fl=0.30, fr=0.30, sl=0.051, sr=0.051))
+        self.assertTrue(ctl.channel_stable)
+        self.assertGreater(ctl.channel_width_m, 0.10)
+        self.assertEqual(ctl.state, "GATE")  # no fresh cell anchor
+
+    def test_uturn_needs_long_confirmed_pair_and_corridor(self):
+        ctl = self.controller_at_center()
+        for _ in range(9):
+            ctl.step(frame(fl=0.064, fr=0.064))
+        self.assertEqual(ctl.state, "DECIDE")
+        for _ in range(25):
+            ctl.step(frame(fl=0.064, fr=0.064))
+        self.assertEqual(ctl.state, "PIVOT")
+        self.assertEqual(ctl.pending_turn, 2)
+
+    def test_static_tof_forward_command_flags_stall_and_backs_straight(self):
+        ctl = LatticeController()
+        for _ in range(80):
+            ctl.step(frame(fl=0.10, fr=0.10, sl=0.20, sr=0.20))
+            if ctl.state == "RECOVER":
+                break
+        self.assertEqual(ctl.state, "RECOVER")
+        self.assertEqual(ctl.events[-1]["reason"], "tof_stall_suspected")
+        left, right = ctl.step(frame(fl=0.10, fr=0.10, sl=0.20, sr=0.20))
+        self.assertLess(left, 0)
+        self.assertLess(right, 0)
+        ctl.step(frame(fl=0.19, fr=0.19, sl=0.20, sr=0.20))
+        self.assertEqual(ctl.state, "GATE")
+        self.assertEqual(ctl.recovery_pivots, 0)
+
+    def test_open_uniform_corridor_flags_ambiguity_without_turning(self):
+        ctl = LatticeController()
+        for _ in range(80):
+            ctl.step(frame(fl=0.30, fr=0.30, sl=0.051, sr=0.051))
+        self.assertEqual(ctl.state, "GATE")
+        self.assertTrue(any(e.get("event") == "tof_stall_suspected"
+                            for e in ctl.events))
+        self.assertFalse(any(e.get("to") == "PIVOT" for e in ctl.events))
 
     def test_recovery_gate_holds_at_one_pitch_without_landmark(self):
         ctl = LatticeController()
@@ -309,7 +374,7 @@ class ControllerTests(unittest.TestCase):
             if ctl.state == "RECOVER":
                 break
         self.assertEqual(ctl.state, "RECOVER")
-        self.assertEqual(ctl.events[-1]["reason"], "dock_no_range_progress")
+        self.assertEqual(ctl.events[-1]["reason"], "tof_stall_suspected")
 
     def test_result_is_written_to_run_folder(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -334,6 +399,11 @@ class ControllerTests(unittest.TestCase):
             log.close()
             result = json.loads((log.directory / "result.json").read_text())
             self.assertEqual(result["status"], "not_received")
+
+    def test_harness_discards_early_frame_dropout_only(self):
+        self.assertFalse(early_dropout(0.08, 3.0, 7.0))
+        self.assertTrue(early_dropout(0.08, 3.0, 8.0))
+        self.assertFalse(early_dropout(1.01, 3.0, 8.0))
 
 
 if __name__ == "__main__":

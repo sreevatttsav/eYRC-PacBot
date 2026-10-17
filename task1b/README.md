@@ -56,6 +56,33 @@ Analyze a completed run with
 Run the unit tests with `python3 -m unittest discover -s task1b -v` from
 the repository root.
 
+For a single controlled validation run, with Mosquitto already running and
+the official simulator executable installed on that machine:
+
+```sh
+python3 task1b/run_trial.py --sim /absolute/path/to/task_1b_launch --timeout 120 --label lattice_gate_trial
+```
+
+The harness starts the simulator, an independent MQTT monitor, then the
+controller. It records `harness.json`, simulator/controller stdout, all
+sensor/result messages, and the controller's own run folder. A stream that
+stops before one simulated second is marked `invalid_early_sensor_dropout`;
+such a run must not count as validation. A run ends on a simulator verdict or
+the wall-clock limit. `time_limit` without a verdict is not a solve.
+
+The entrance funnel remains in `GATE` until two near side walls establish a
+stable measured channel width (within 1 cm over 5 cm of commanded travel) and
+a position anchor exists. Channel width and its slope are logged per tick.
+If commanded travel outlives the anchor, the estimator invalidates cell
+position rather than continuing to count unverified cells. A one-second
+near-static four-ray/gyro signature raises a *suspected* stall. When the front
+is not clearly open, it tries a straight range-confirmed backout; when the
+front is open, it logs the ambiguity without inventing a turn. The signature
+cannot by itself distinguish wheel slip from a uniform corridor. If a backout
+has no range evidence,
+the controller holds instead of making a speculative recovery pivot. This
+conservative behavior requires live pose or wheel feedback to resolve fully.
+
 ## Validation gates and current limits
 
 1. Record a straight run with at least two distinct side-wall edges.

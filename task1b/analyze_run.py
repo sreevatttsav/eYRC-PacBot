@@ -39,6 +39,14 @@ def analyze(directory: Path) -> dict:
         "seconds_logged": ticks[-1]["t"] if ticks else 0.0,
         "last_state": ticks[-1]["state"] if ticks else None,
         "last_cell": ticks[-1]["cell"] if ticks else None,
+        "last_channel_width_m": (ticks[-1].get("channel_width_m")
+                                 if ticks else None),
+        "last_channel_width_slope": (ticks[-1].get("channel_width_slope")
+                                     if ticks else None),
+        "channel_acquired": (ticks[-1].get("channel_acquired")
+                             if ticks else None),
+        "suspected_stalls": sum(e.get("event") == "tof_stall_suspected"
+                                for e in events),
         "turns": len(turns),
         "turn_errors_deg": [round(e["error_deg"], 2) for e in turns],
         "turns_within_5deg": sum(abs(e["error_deg"]) <= 5 for e in turns),

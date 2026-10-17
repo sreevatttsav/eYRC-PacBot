@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, deque
 from dataclasses import dataclass
 import math
 
@@ -26,6 +26,7 @@ class Settings:
     pivot_180_y_limit: float = 0.005
     gate_max_travel: float = 0.45
     reverse_distance: float = 0.08
+    max_recovery_pivots: int = 3
 
 
 class LatticeController:
@@ -65,6 +66,67 @@ class LatticeController:
         self.pivot_centered = False
         self.unverified_gate_reported = False
         self.recovery_reacquire = False
+        self.recovery_pivots = 0
+        self.recovery_stall = False
+        self.post_pivot_reverse_m = 0.0
+        self.channel_samples = deque()
+        self.channel_width_m: float | None = None
+        self.channel_width_slope: float | None = None
+        self.channel_stable = False
+        self.channel_acquired = False
+        self.stall_start: tuple[float, tuple[float, ...]] | None = None
+        self.stall_reported = False
+
+    def _channel(self, frame: Frame) -> None:
+        """Only a stable, measured pair of near side walls defines a channel."""
+        left, right = frame.sl.distance, frame.sr.distance
+        self.channel_stable = False
+        if (left is None or right is None or left > 0.16 or right > 0.16 or
+                frame.sl.age > 0.0 or frame.sr.age > 0.0):
+            self.channel_samples.clear()
+            self.channel_width_m = None
+            self.channel_width_slope = None
+            return
+        width = left + right
+        self.channel_width_m = width
+        self.channel_samples.append((self.est.travel, left, right))
+        while (len(self.channel_samples) > 1 and
+               self.est.travel - self.channel_samples[0][0] > 0.06):
+            self.channel_samples.popleft()
+        start, start_l, start_r = self.channel_samples[0]
+        distance = self.est.travel - start
+        self.channel_width_slope = ((width - start_l - start_r) / distance
+                                    if distance >= 0.005 else None)
+        if distance >= 0.05:
+            self.channel_stable = (
+                max(a + b for _, a, b in self.channel_samples) -
+                min(a + b for _, a, b in self.channel_samples) <= 0.01 and
+                max(a for _, a, _ in self.channel_samples) -
+                min(a for _, a, _ in self.channel_samples) <= 0.01 and
+                max(b for _, _, b in self.channel_samples) -
+                min(b for _, _, b in self.channel_samples) <= 0.01)
+            if self.channel_stable:
+                self.channel_acquired = True
+
+    def _stall(self, frame: Frame) -> bool:
+        moving = (self.state in ("GATE", "CRUISE", "DOCK", "DECIDE") or
+                  (self.state == "RECOVER" and self.recovery_phase == "PROBE"))
+        forward = K_LINEAR * sum(self.last_wheels) / 2.0 > 0.005
+        readings = (frame.fl, frame.fr, frame.sl, frame.sr)
+        if (not moving or not forward or abs(frame.yaw or 0.0) > 0.03 or
+                any(r.value is None or r.age > 0 for r in readings)):
+            self.stall_start = None
+            return False
+        current = tuple(r.value for r in readings)
+        if self.stall_start is None:
+            self.stall_start = (self.sim_time, current)
+            return False
+        start_t, start = self.stall_start
+        if any(abs(a - b) >= 0.003 for a, b in zip(current, start)):
+            self.stall_start = (self.sim_time, current)
+            self.stall_reported = False
+            return False
+        return self.sim_time - start_t >= 1.0
 
     def _set_state(self, state: str, reason: str) -> None:
         assert state in self.STATES
@@ -104,13 +166,13 @@ class LatticeController:
         self._set_state("CRUISE", reason)
 
     def _begin_decision(self, reason: str) -> None:
+        if (not self.channel_acquired or
+                (self.channel_width_m is not None and not self.channel_stable)):
+            return
         self.decision_time = 0.0
         self.votes.clear()
         self.pending_turn = 0
         self.decision_probe_distance = 0.0
-        self.recovery_cycles = 0
-        self.last_recovery_direction = None
-        self.recovery_probe_used = False
         self._set_state("DECIDE", reason)
 
     def _recover(self, frame: Frame, reason: str) -> None:
@@ -123,6 +185,7 @@ class LatticeController:
         self.recovery_start_travel = self.est.travel
         self.recovery_cmd_distance = 0.0
         self.recovery_front_start = frame.front_wall_range
+        self.recovery_stall = reason == "tof_stall_suspected"
         self.recovery_direction = (-self.last_recovery_direction
                                    if self.last_recovery_direction is not None
                                    else -self.last_turn_direction)
@@ -131,11 +194,13 @@ class LatticeController:
     def _can_pivot(self, frame: Frame, quarters: int) -> bool:
         limit = (self.cfg.pivot_180_y_limit if abs(quarters) == 2
                  else self.cfg.pivot_y_limit)
+        center_limit = (0.020 if abs(quarters) == 2
+                        else self.cfg.pivot_center_tolerance)
         return (frame.sl.kind != "unknown" and frame.sr.kind != "unknown" and
                 self.est.y is not None and abs(self.est.y) <= limit and
                 self.est.psi_valid and abs(self.est.psi) <= math.radians(15) and
                 self.est.s is not None and
-                abs(self.est.s - PITCH / 2) <= self.cfg.pivot_center_tolerance and
+                abs(self.est.s - PITCH / 2) <= center_limit and
                 self.est.last_position_anchor_travel is not None and
                 abs(self.est.travel - self.est.last_position_anchor_travel) <= PITCH and
                 self.est.position_uncertainty_m is not None and
@@ -183,12 +248,18 @@ class LatticeController:
             elif right == "open":
                 self.pending_turn = -1
             elif front == "wall" and left == "wall" and right == "wall":
-                self.pending_turn = 2
+                pair = frame.front_wall_range
+                if (self.channel_stable and self.decision_time >= 0.50 and
+                        pair is not None and pair < 0.10 and
+                        frame.fl.distance is not None and
+                        frame.fr.distance is not None):
+                    self.pending_turn = 2
             else:
                 # Give transient ambiguity a bounded extra sample window and
                 # at most 2 cm of safe forward creep. Unknown never routes.
                 if self.decision_time < self.cfg.decision_max_dwell:
-                    if (self.decision_probe_distance < 0.02 and
+                    if (front != "wall" and
+                            self.decision_probe_distance < 0.02 and
                             not frame.front_hazard):
                         distance = min(self.cfg.crawl_mps * frame.dt,
                                        0.02 - self.decision_probe_distance)
@@ -205,7 +276,19 @@ class LatticeController:
                                     "event": "repeated_cell_heading", "key": key,
                                     "visits": self.visits[key]})
         choice = self.pending_turn
+        if choice == 0:
+            if self.decision_time >= self.cfg.decision_max_dwell:
+                self.votes.clear()
+                self.decision_time = 0.0
+            return self._wheels(0.0, 0.0)
         if self._can_pivot(frame, choice):
+            if choice == 2 and (not self.channel_stable or
+                    frame.front_wall_range is None or
+                    frame.front_wall_range >= 0.10):
+                self.pending_turn = 0
+                self.votes.clear()
+                self.decision_time = 0.0
+                return self._wheels(0.0, 0.0)
             self._start_pivot(choice, "cell_center_choice")
             return self._wheels(0.0, 0.0)
         # A short measured advance can finish centering before the turn.
@@ -236,11 +319,20 @@ class LatticeController:
                                 "recovery": not centered})
             self.est.finish_turn(self.pending_turn, centered=centered)
             self.last_turn_direction = 1 if self.pending_turn > 0 else -1
+            self.channel_samples.clear()
+            self.channel_acquired = False
             if centered:
-                self._begin_cruise("pivot_complete")
+                self.gate_start_travel = self.est.travel
+                self._set_state("GATE", "pivot_complete_reacquire_channel")
             else:
                 self.gate_start_travel = self.est.travel
                 self.recovery_reacquire = True
+                if (frame.sl.distance is not None and frame.sr.distance is not None and
+                        frame.sl.distance < 0.07 and frame.sr.distance < 0.07):
+                    self.post_pivot_reverse_m = 0.03
+                    self.events.append({"t": round(self.sim_time, 4),
+                                        "event": "post_pivot_tight_channel_backout",
+                                        "commanded_limit_m": 0.03})
                 self._set_state("GATE", "recovery_pivot_complete")
             self.recovery_phase = "BACK"
             return self._wheels(0.0, 0.0)
@@ -282,6 +374,22 @@ class LatticeController:
                               self.cfg.reverse_distance)
             if not range_progress and progressed < self.cfg.reverse_distance:
                 return self._track(frame, -0.025)
+            if self.recovery_stall:
+                if not range_progress:
+                    self.recovery_phase = "HOLD"
+                    self._set_state("RECOVER", "stall_backout_unverified_hold")
+                    return self._wheels(0.0, 0.0)
+                self.recovery_stall = False
+                self.gate_start_travel = self.est.travel
+                self.recovery_reacquire = True
+                self.channel_samples.clear()
+                self.channel_acquired = False
+                self._set_state("GATE", "stall_backout_range_confirmed")
+                return self._wheels(0.0, 0.0)
+            if self.recovery_pivots >= self.cfg.max_recovery_pivots:
+                self.recovery_phase = "HOLD"
+                self._set_state("RECOVER", "recovery_pivot_limit_hold")
+                return self._wheels(0.0, 0.0)
             self.recovery_phase = "TURN"
             direction = self.recovery_direction
             if self.last_recovery_direction is None:
@@ -290,6 +398,7 @@ class LatticeController:
                 elif frame.sr.open and not frame.sl.open:
                     direction = -1
             self.last_recovery_direction = direction
+            self.recovery_pivots += 1
             self._start_pivot(direction, "recovery_backed_by_range_or_distance")
             return self._wheels(0.0, 0.0)
         raise AssertionError("unreachable recovery phase")
@@ -305,6 +414,18 @@ class LatticeController:
                 self.recovery_cmd_distance += -K_LINEAR * previous_average * frame.dt
         self.est.observe(frame, self.last_wheels,
                          anchor=self.state in ("GATE", "CRUISE", "DECIDE", "DOCK"))
+        self._channel(frame)
+        if self._stall(frame):
+            if not self.stall_reported:
+                self.events.append({"t": round(self.sim_time, 4),
+                                    "event": "tof_stall_suspected", "state": self.state})
+                self.stall_reported = True
+            if frame.front_label != "open" or frame.front_hazard:
+                self._recover(frame, "tof_stall_suspected")
+                self.stall_start = None
+                return self._wheels(0.0, 0.0)
+        if self.stall_start is None:
+            self.stall_reported = False
         if frame.front_hazard:
             self.hazard_dwell += frame.dt
         else:
@@ -314,6 +435,18 @@ class LatticeController:
             self._recover(frame, "front_contact_guard")
             return self._wheels(0.0, 0.0)
         if self.state == "GATE":
+            if self.post_pivot_reverse_m > 0:
+                previous_average = sum(self.last_wheels) / 2.0
+                if previous_average < 0:
+                    self.post_pivot_reverse_m -= -K_LINEAR * previous_average * frame.dt
+                if self.post_pivot_reverse_m > 0:
+                    return self._track(frame, -0.020)
+                self.post_pivot_reverse_m = 0.0
+                self.gate_start_travel = self.est.travel
+                self.channel_samples.clear()
+                self.events.append({"t": round(self.sim_time, 4),
+                                    "event": "post_pivot_backout_complete"})
+                return self._wheels(0.0, 0.0)
             if (not self.unverified_gate_reported and
                     self.est.s is None and
                     self.est.travel - self.gate_start_travel >= 0.08):
@@ -322,11 +455,12 @@ class LatticeController:
                                     "state": "GATE",
                                     "commanded_m": self.est.travel - self.gate_start_travel})
                 self.unverified_gate_reported = True
-            if self.est.s is not None:
+            if self.est.s is not None and self.channel_stable:
                 reason = ("recovery_landmark_found" if self.recovery_reacquire
                           else "wall_anchor_found")
                 self.recovery_reacquire = False
                 self.recovery_cycles = 0
+                self.recovery_pivots = 0
                 self.recovery_probe_used = False
                 self._begin_cruise(reason)
                 return self._track(frame, self.cfg.cruise_mps)
@@ -344,8 +478,10 @@ class LatticeController:
                     self._set_state("RECOVER", "recovery_reanchor_front_uncertain")
                     return self._wheels(0.0, 0.0)
                 return self._track(frame, self.cfg.crawl_mps)
-            if self.est.travel - self.gate_start_travel > self.cfg.gate_max_travel:
-                self._recover(frame, "no_gate_landmark")
+            if (self.est.travel - self.gate_start_travel > self.cfg.gate_max_travel and
+                    frame.front_label != "open" and not frame.entrance_probe):
+                self.recovery_phase = "HOLD"
+                self._set_state("RECOVER", "unanchored_gate_front_uncertain_hold")
                 return self._wheels(0.0, 0.0)
             if self.sim_time < 0.30:
                 if frame.entrance_probe or frame.front_label == "open":
@@ -381,7 +517,7 @@ class LatticeController:
                 return self._wheels(0.0, 0.0)
             return self._wheels(0.0, 0.0)
         if self.state == "CRUISE":
-            if self.est.s is None:
+            if self.est.s is None or not self.channel_acquired:
                 self.gate_start_travel = self.est.travel
                 self._set_state("GATE", "lost_cell_anchor")
                 return self._wheels(0.0, 0.0)
@@ -390,7 +526,7 @@ class LatticeController:
                 self.dock_progress = (self.est.travel, front)
                 self._set_state("DOCK", "front_wall_near_center")
                 return self._wheels(0.0, 0.0)
-            if (self.est.crossings >= self.target_crossing and
+            if (self.channel_acquired and self.est.crossings >= self.target_crossing and
                     self.est.s >= PITCH / 2 - self.cfg.center_tolerance):
                 self._begin_decision("cell_center_reached")
                 return self._wheels(0.0, 0.0)
@@ -441,6 +577,11 @@ class LatticeController:
                 "last_edge_spacing": (self.est.edge_spacings[-1]
                                       if self.est.edge_spacings else None),
                 "recovery_reacquire": self.recovery_reacquire,
+                "channel_width_m": self.channel_width_m,
+                "channel_width_slope": self.channel_width_slope,
+                "channel_stable": self.channel_stable,
+                "channel_acquired": self.channel_acquired,
+                "recovery_pivots": self.recovery_pivots,
                 "duplicate_edges": self.est.duplicate_edges,
                 "front_anchors": self.est.front_count,
                 "rejected_anchors": self.est.rejected_anchors}

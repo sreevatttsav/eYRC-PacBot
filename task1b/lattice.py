@@ -11,6 +11,7 @@ import math
 
 
 PITCH = 0.22
+MAX_POSITION_UNCERTAINTY_M = 0.04
 SIDE_AHEAD_OF_AXLE = 0.028
 FRONT_AXLE_OFFSET = 0.069
 FRONT_COS = math.cos(math.radians(20.0))
@@ -104,13 +105,21 @@ class Frame:
         # through the corridor.  Only a consistent pair describes an axial
         # wall; the close-ray contact guard remains independent of routing.
         wall = self.front_wall_range
+        rays = (self.fl, self.fr)
+        sees_through = any(r.open or (r.distance is not None and
+                           r.distance >= 0.20) for r in rays)
+        if sees_through:
+            return "open"
         if wall is not None and wall < 0.10:
+            return "wall"
+        short = [r for r in rays if r.distance is not None and
+                 r.distance * FRONT_COS < 0.10]
+        if len(short) == 1 and any(r.kind == "unknown" for r in rays):
             return "wall"
         if wall is not None:
             return "open"
         if self.front_open:
             return "open"
-        rays = (self.fl, self.fr)
         if (any(r.open for r in rays) and
                 all(r.distance is None or r.distance * FRONT_COS >= 0.09
                     for r in rays) and
@@ -329,6 +338,12 @@ class LatticeEstimator:
                 # Wheel commands predict motion; they are not encoder data.
                 self.position_uncertainty_m += 0.10 * abs(ds)
             self.s += ds
+            if (self.position_uncertainty_m is not None and
+                    self.position_uncertainty_m > MAX_POSITION_UNCERTAINTY_M):
+                self.s = None
+                self.last_position_anchor_travel = None
+                self.position_uncertainty_m = None
+        if self.s is not None:
             while self.s >= PITCH:
                 self.s -= PITCH
                 self.crossings += 1

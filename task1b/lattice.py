@@ -100,11 +100,21 @@ class Frame:
 
     @property
     def front_label(self) -> str:
-        rays = (self.fl, self.fr)
-        if any(r.distance is not None and r.distance * FRONT_COS < 0.10
-               for r in rays):
+        # One splayed ray can hit a post or side wall while the other sees
+        # through the corridor.  Only a consistent pair describes an axial
+        # wall; the close-ray contact guard remains independent of routing.
+        wall = self.front_wall_range
+        if wall is not None and wall < 0.10:
             return "wall"
-        if any(r.kind != "unknown" for r in rays):
+        if wall is not None:
+            return "open"
+        if self.front_open:
+            return "open"
+        rays = (self.fl, self.fr)
+        if (any(r.open for r in rays) and
+                all(r.distance is None or r.distance * FRONT_COS >= 0.09
+                    for r in rays) and
+                all(r.kind != "unknown" for r in rays)):
             return "open"
         return "unknown"
 
@@ -175,8 +185,13 @@ class LatticeEstimator:
         self.edge_spacings: list[float] = []
         self.duplicate_edges = 0
         self.front_count = 0
+        self.last_front_anchor_range: float | None = None
+        self.front_motion_evidence_m = 0.0
         self.rejected_anchors = 0
         self.travel = 0.0
+        self.last_position_anchor_travel: float | None = None
+        # Heuristic uncertainty budget, not a physical worst-case bound.
+        self.position_uncertainty_m: float | None = None
         self.side_state: list[str | None] = [None, None]
         self.side_candidate: list[str | None] = [None, None]
         self.side_dwell = [0.0, 0.0]
@@ -224,6 +239,8 @@ class LatticeEstimator:
             expected = PITCH - SIDE_AHEAD_OF_AXLE
             if self.s is None or abs(self.s - expected) <= 0.075:
                 self.s = expected
+                self.last_position_anchor_travel = self.travel
+                self.position_uncertainty_m = 0.01
                 self.edge_count += 1
                 if self.last_edge_travel is not None:
                     self.edge_spacings.append(self.travel - self.last_edge_travel)
@@ -232,15 +249,26 @@ class LatticeEstimator:
             self.rejected_anchors += 1
         return False
 
-    def _anchor_front(self, frame: Frame) -> None:
+    def _anchor_front(self, frame: Frame, ds: float) -> None:
         r = frame.front_wall_range
-        if r is None or r >= 0.15 or not (frame.sl.wall or frame.sr.wall):
+        # At larger ranges two splayed rays can both hit parallel side walls.
+        # A close, changing pair is a safer axial position landmark.
+        if r is None or r >= 0.12 or not (frame.sl.wall or frame.sr.wall):
+            self.last_front_anchor_range = None
             return
+        previous = self.last_front_anchor_range
+        if previous is not None and abs(r - previous) < 0.003:
+            return  # the same range is not new evidence of translation
         estimate = PITCH - (r + FRONT_AXLE_OFFSET)
         if not -0.02 <= estimate <= PITCH:
             return
         if self.s is None or abs(self.s - estimate) <= 0.075:
             self.s = estimate
+            if previous is not None and ds > 0.0 and previous > r:
+                self.front_motion_evidence_m += previous - r
+            self.last_front_anchor_range = r
+            self.last_position_anchor_travel = self.travel
+            self.position_uncertainty_m = 0.01
             self.front_count += 1
             # Equal wall rays are an absolute corridor-heading landmark.
             if self.psi_valid and self.fl_fr_heading(frame) is not None:
@@ -297,6 +325,9 @@ class LatticeEstimator:
         ds = v * frame.dt * (math.cos(self.psi) if self.psi_valid else 1.0)
         self.travel += ds
         if self.s is not None:
+            if self.position_uncertainty_m is not None:
+                # Wheel commands predict motion; they are not encoder data.
+                self.position_uncertainty_m += 0.10 * abs(ds)
             self.s += ds
             while self.s >= PITCH:
                 self.s -= PITCH
@@ -310,7 +341,7 @@ class LatticeEstimator:
                 self.cell = (self.cell[0] - dx, self.cell[1] - dy)
         edge = self._edge(frame, ds) if anchor and abs(self.psi) < 0.30 else False
         if anchor:
-            self._anchor_front(frame)
+            self._anchor_front(frame, ds)
         self.both_walls = frame.sl.wall and frame.sr.wall
         if self.psi_valid:
             correction = math.cos(self.psi)
@@ -331,9 +362,16 @@ class LatticeEstimator:
         return edge
 
     def finish_turn(self, quarter_turns: int, centered: bool) -> None:
+        center_error = abs(self.s - PITCH / 2.0) if self.s is not None else None
         self.psi -= quarter_turns * math.pi / 2.0
         self.heading = (self.heading + quarter_turns) % 4
         self.s = PITCH / 2.0 if centered else None
+        self.position_uncertainty_m = (
+            (self.position_uncertainty_m or 0.0) + center_error
+            if centered and center_error is not None else None)
+        if not centered:
+            self.last_position_anchor_travel = None
+        self.last_front_anchor_range = None
         self.y = None
         self.side_state = [None, None]
         self.side_candidate = [None, None]

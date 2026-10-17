@@ -23,6 +23,17 @@ anchor. The first entrance probe accepts asymmetric front rays because
 one ray can still see a gate post after the other sees through the gap.
 Both range and commanded travel bound the probe; a close front ray stops it.
 
+The front-route label requires a consistent close pair before calling a wall;
+an asymmetric pair with one open ray and no close hazard may be cautiously
+followed. A planned pivot requires a recent position anchor and a predicted
+cell-center error no larger than 1 cm. Logs distinguish commanded travel from
+observed front-range progress and include a heuristic position-uncertainty
+budget (not a guaranteed error bound). Unchanged
+ToF values alone cannot prove a stall in a uniform straight corridor, so GATE
+reports unverified travel rather than treating every flat sensor trace as a
+collision. Live simulator pose or wheel feedback is needed to verify actual
+translation in that case.
+
 ## Run
 
 Install the MQTT client dependency with

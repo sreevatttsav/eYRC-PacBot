@@ -19,6 +19,7 @@ class Settings:
     decision_dwell: float = 0.15
     decision_max_dwell: float = 1.0
     center_tolerance: float = 0.018
+    pivot_center_tolerance: float = 0.010
     pivot_y_limit: float = 0.008
     pivot_180_y_limit: float = 0.005
     gate_max_travel: float = 0.45
@@ -59,6 +60,8 @@ class LatticeController:
         self.hazard_dwell = 0.0
         self.recovery_probe_distance = 0.0
         self.recovery_probe_used = False
+        self.pivot_centered = False
+        self.unverified_gate_reported = False
 
     def _set_state(self, state: str, reason: str) -> None:
         assert state in self.STATES
@@ -69,6 +72,8 @@ class LatticeController:
                             "cell": self.est.cell, "heading": self.est.heading,
                             "s": self.est.s})
         self.state = state
+        if state == "GATE":
+            self.unverified_gate_reported = False
 
     def _wheels(self, left: float, right: float) -> tuple[float, float]:
         limit = self.cfg.max_wheel
@@ -125,10 +130,17 @@ class LatticeController:
                  else self.cfg.pivot_y_limit)
         return (frame.sl.kind != "unknown" and frame.sr.kind != "unknown" and
                 self.est.y is not None and abs(self.est.y) <= limit and
-                self.est.psi_valid and abs(self.est.psi) <= math.radians(15))
+                self.est.psi_valid and abs(self.est.psi) <= math.radians(15) and
+                self.est.s is not None and
+                abs(self.est.s - PITCH / 2) <= self.cfg.pivot_center_tolerance and
+                self.est.last_position_anchor_travel is not None and
+                abs(self.est.travel - self.est.last_position_anchor_travel) <= PITCH and
+                self.est.position_uncertainty_m is not None and
+                self.est.position_uncertainty_m <= 0.035)
 
     def _start_pivot(self, quarters: int, reason: str) -> None:
         self.pending_turn = quarters
+        self.pivot_centered = reason == "cell_center_choice"
         self.turn_start_psi = self.est.psi
         self.turn_cmd_window = 0.0
         self.turn_measured_window = 0.0
@@ -194,7 +206,8 @@ class LatticeController:
             self._start_pivot(choice, "cell_center_choice")
             return self._wheels(0.0, 0.0)
         # A short measured advance can finish centering before the turn.
-        if (self.est.s is not None and self.est.s < PITCH / 2 + 0.025
+        if (self.est.s is not None and
+                self.est.s < PITCH / 2 - self.cfg.pivot_center_tolerance
                 and not frame.front_hazard and
                 (frame.front_wall_range is None or
                  frame.front_wall_range > self.cfg.dock_range + 0.012)):
@@ -208,7 +221,7 @@ class LatticeController:
         error = target - achieved
         yaw = frame.yaw or 0.0
         if abs(error) <= math.radians(2.0) and abs(yaw) <= 0.12:
-            centered = self.recovery_phase != "TURN" and self.est.s is not None
+            centered = self.pivot_centered
             self.events.append({"t": round(self.sim_time, 4),
                                 "event": "turn_complete",
                                 "target_deg": math.degrees(target),
@@ -297,6 +310,14 @@ class LatticeController:
             self._recover(frame, "front_contact_guard")
             return self._wheels(0.0, 0.0)
         if self.state == "GATE":
+            if (not self.unverified_gate_reported and
+                    self.est.s is None and
+                    self.est.travel - self.gate_start_travel >= 0.08):
+                self.events.append({"t": round(self.sim_time, 4),
+                                    "event": "translation_unverified",
+                                    "state": "GATE",
+                                    "commanded_m": self.est.travel - self.gate_start_travel})
+                self.unverified_gate_reported = True
             if self.est.s is not None:
                 self._begin_cruise("wall_anchor_found")
                 return self._track(frame, self.cfg.cruise_mps)
@@ -388,6 +409,9 @@ class LatticeController:
         return {"t": round(self.sim_time, 4), "state": self.state,
                 "cell": self.est.cell, "heading": self.est.heading,
                 "s": self.est.s, "s_valid": self.est.s is not None,
+                "s_uncertainty_m": self.est.position_uncertainty_m,
+                "last_position_anchor_travel_m": self.est.last_position_anchor_travel,
+                "front_motion_evidence_m": self.est.front_motion_evidence_m,
                 "psi": self.est.psi, "psi_valid": self.est.psi_valid,
                 "y": self.est.y, "y_valid": self.est.y is not None,
                 "wheels": self.last_wheels, "edges": self.est.edge_count,

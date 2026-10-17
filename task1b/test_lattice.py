@@ -46,9 +46,28 @@ class GeometryTests(unittest.TestCase):
         est = LatticeEstimator()
         est.observe(frame(fl=0.10, fr=0.10, sl=0.300, sr=0.300), (0, 0))
         self.assertIsNone(est.s)  # entrance posts are not a front wall anchor
+        est.observe(frame(fl=0.15, fr=0.15), (0, 0))
+        self.assertIsNone(est.s)  # symmetric rays may both hit corridor walls
         est.observe(frame(fl=0.10, fr=0.10, sl=0.051, sr=0.051), (0, 0))
         self.assertAlmostEqual(est.s, PITCH - (0.10 * math.cos(math.radians(20)) + 0.069))
         self.assertIsNone(frame(fl=0.10, fr=0.18).front_wall_range)
+
+    def test_stationary_front_range_is_not_repeated_position_evidence(self):
+        est = LatticeEstimator()
+        observed = frame(fl=0.10, fr=0.10)
+        est.observe(observed, (0, 0))
+        for _ in range(100):
+            est.observe(observed, (0.88, 0.88))
+        self.assertEqual(est.front_count, 1)
+        self.assertEqual(est.front_motion_evidence_m, 0.0)
+        self.assertGreater(est.position_uncertainty_m, 0.01)
+        self.assertGreater(est.travel - est.last_position_anchor_travel, 0.02)
+
+    def test_approaching_front_wall_is_observed_progress(self):
+        est = LatticeEstimator()
+        for distance in (0.11, 0.106, 0.102, 0.098):
+            est.observe(frame(fl=distance, fr=distance), (1.0, 1.0))
+        self.assertGreater(est.front_motion_evidence_m, 0.008)
 
     def test_two_side_sensors_on_one_edge_count_once(self):
         est = LatticeEstimator()
@@ -61,8 +80,12 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(est.edge_count, 1)
         self.assertEqual(est.duplicate_edges, 1)
 
-    def test_front_classification_uses_independent_rays(self):
-        self.assertEqual(frame(fl=0.09, fr=0.30).front_label, "wall")
+    def test_front_classification_requires_a_consistent_wall_pair(self):
+        self.assertEqual(frame(fl=0.09, fr=0.30).front_label, "unknown")
+        self.assertEqual(frame(fl=0.10, fr=0.10).front_label, "wall")
+        # Recorded at the first wrong U-turn in the sustained validation run.
+        self.assertEqual(frame(fl=0.106305, fr=0.754407,
+                               sl=0.081682, sr=0.084432).front_label, "open")
         self.assertEqual(frame(fl=0.30, fr=0.25).front_label, "open")
         self.assertEqual(frame(fl=0.13, fr=0.13).front_label, "open")
         self.assertEqual(frame(fl=None, fr=None).front_label, "unknown")
@@ -86,6 +109,8 @@ class ControllerTests(unittest.TestCase):
     def controller_at_center(self):
         ctl = LatticeController()
         ctl.est.s = PITCH / 2
+        ctl.est.last_position_anchor_travel = ctl.est.travel
+        ctl.est.position_uncertainty_m = 0.01
         ctl.est.psi_valid = True
         ctl.state = "DECIDE"
         return ctl
@@ -113,6 +138,30 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(ctl.est.heading, 1)
         self.assertLess(abs(ctl.est.psi), math.radians(5))
 
+    def test_asymmetric_recorded_front_does_not_choose_uturn(self):
+        ctl = self.controller_at_center()
+        for _ in range(9):
+            ctl.step(frame(fl=0.106305, fr=0.754407,
+                           sl=0.081682, sr=0.084432))
+        self.assertEqual(ctl.state, "CRUISE")
+        self.assertFalse(any(e.get("to") == "PIVOT" for e in ctl.events))
+
+    def test_pivot_waits_for_actual_cell_center_and_anchor(self):
+        ctl = self.controller_at_center()
+        ctl.est.s = PITCH / 2 - 0.018
+        for _ in range(9):
+            ctl.step(frame(sl=0.300, sr=0.051))
+        self.assertEqual(ctl.state, "DECIDE")
+        self.assertGreater(ctl.last_wheels[0], 0)
+        self.assertGreater(ctl.last_wheels[1], 0)
+        for _ in range(50):
+            ctl.step(frame(sl=0.300, sr=0.051))
+            if ctl.state == "PIVOT":
+                break
+        self.assertEqual(ctl.state, "PIVOT")
+        self.assertLessEqual(abs(ctl.est.s - PITCH / 2),
+                             ctl.cfg.pivot_center_tolerance)
+
     def test_gate_probe_and_unknown_input_stop(self):
         ctl = LatticeController()
         left, right = 0.0, 0.0
@@ -133,6 +182,15 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(ctl.state, "GATE")
         self.assertGreater(left, 0)
         self.assertGreater(right, 0)
+
+    def test_gate_reports_unverified_commanded_travel(self):
+        ctl = LatticeController()
+        for _ in range(300):
+            ctl.step(frame(fl=0.300, fr=0.1887, sl=0.051, sr=0.051))
+            if any(e.get("event") == "translation_unverified" for e in ctl.events):
+                break
+        self.assertTrue(any(e.get("event") == "translation_unverified"
+                            for e in ctl.events))
 
     def test_distant_single_side_is_not_a_centering_reference(self):
         ctl = LatticeController()

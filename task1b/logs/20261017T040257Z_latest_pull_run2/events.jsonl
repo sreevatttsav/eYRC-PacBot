@@ -1,0 +1,1212 @@
+{"t": 5.336, "event": "translation_unverified", "state": "GATE", "commanded_m": 0.08000999998657948}
+{"t": 8.362, "from": "GATE", "to": "CRUISE", "reason": "wall_anchor_found", "cell": [0, 0], "heading": 0, "s": 0.192}
+{"t": 12.584, "from": "CRUISE", "to": "DECIDE", "reason": "cell_center_reached", "cell": [1, 0], "heading": 0, "s": 0.09200701855523441}
+{"t": 12.584, "event": "decision_votes", "votes": {}}
+{"t": 12.586, "event": "decision_votes", "votes": {"left:wall": 1, "right:wall": 1, "front:unknown": 1}}
+{"t": 12.588, "event": "decision_votes", "votes": {"left:wall": 2, "right:wall": 2, "front:unknown": 2}}
+{"t": 12.59, "event": "decision_votes", "votes": {"left:wall": 3, "right:wall": 3, "front:unknown": 3}}
+{"t": 12.592, "event": "decision_votes", "votes": {"left:wall": 4, "right:wall": 4, "front:unknown": 4}}
+{"t": 12.594, "event": "decision_votes", "votes": {"left:wall": 5, "right:wall": 5, "front:unknown": 5}}
+{"t": 12.596, "event": "decision_votes", "votes": {"left:wall": 6, "right:wall": 6, "front:unknown": 6}}
+{"t": 12.598, "event": "decision_votes", "votes": {"left:wall": 7, "right:wall": 7, "front:unknown": 7}}
+{"t": 12.6, "event": "decision_votes", "votes": {"left:wall": 8, "right:wall": 8, "front:unknown": 8}}
+{"t": 12.602, "event": "decision_votes", "votes": {"left:wall": 9, "right:wall": 9, "front:unknown": 9}}
+{"t": 12.604, "event": "decision_votes", "votes": {"left:wall": 10, "right:wall": 10, "front:unknown": 10}}
+{"t": 12.606, "event": "decision_votes", "votes": {"left:wall": 11, "right:wall": 11, "front:unknown": 11}}
+{"t": 12.608, "event": "decision_votes", "votes": {"left:wall": 12, "right:wall": 12, "front:unknown": 12}}
+{"t": 12.61, "event": "decision_votes", "votes": {"left:wall": 13, "right:wall": 13, "front:unknown": 13}}
+{"t": 12.612, "event": "decision_votes", "votes": {"left:wall": 14, "right:wall": 14, "front:unknown": 14}}
+{"t": 12.614, "event": "decision_votes", "votes": {"left:wall": 15, "right:wall": 15, "front:unknown": 15}}
+{"t": 12.616, "event": "decision_votes", "votes": {"left:wall": 16, "right:wall": 16, "front:unknown": 16}}
+{"t": 12.618, "event": "decision_votes", "votes": {"left:wall": 17, "right:wall": 17, "front:unknown": 17}}
+{"t": 12.62, "event": "decision_votes", "votes": {"left:wall": 18, "right:wall": 18, "front:unknown": 18}}
+{"t": 12.622, "event": "decision_votes", "votes": {"left:wall": 19, "right:wall": 19, "front:unknown": 19}}
+{"t": 12.624, "event": "decision_votes", "votes": {"left:wall": 20, "right:wall": 20, "front:unknown": 20}}
+{"t": 12.626, "event": "decision_votes", "votes": {"left:wall": 21, "right:wall": 21, "front:unknown": 21}}
+{"t": 12.628, "event": "decision_votes", "votes": {"left:wall": 22, "right:wall": 22, "front:unknown": 22}}
+{"t": 12.63, "event": "decision_votes", "votes": {"left:wall": 23, "right:wall": 23, "front:unknown": 23}}
+{"t": 12.632, "event": "decision_votes", "votes": {"left:wall": 24, "right:wall": 24, "front:unknown": 24}}
+{"t": 12.634, "event": "decision_votes", "votes": {"left:wall": 25, "right:wall": 25, "front:unknown": 25}}
+{"t": 12.636, "event": "decision_votes", "votes": {"left:wall": 26, "right:wall": 26, "front:unknown": 26}}
+{"t": 12.638, "event": "decision_votes", "votes": {"left:wall": 27, "right:wall": 27, "front:unknown": 27}}
+{"t": 12.64, "event": "decision_votes", "votes": {"left:wall": 28, "right:wall": 28, "front:unknown": 28}}
+{"t": 12.642, "event": "decision_votes", "votes": {"left:wall": 29, "right:wall": 29, "front:unknown": 29}}
+{"t": 12.644, "event": "decision_votes", "votes": {"left:wall": 30, "right:wall": 30, "front:unknown": 30}}
+{"t": 12.646, "event": "decision_votes", "votes": {"left:wall": 31, "right:wall": 31, "front:unknown": 31}}
+{"t": 12.648, "event": "decision_votes", "votes": {"left:wall": 32, "right:wall": 32, "front:unknown": 32}}
+{"t": 12.65, "event": "decision_votes", "votes": {"left:wall": 33, "right:wall": 33, "front:unknown": 33}}
+{"t": 12.652, "event": "decision_votes", "votes": {"left:wall": 34, "right:wall": 34, "front:unknown": 34}}
+{"t": 12.654, "event": "decision_votes", "votes": {"left:wall": 35, "right:wall": 35, "front:unknown": 35}}
+{"t": 12.656, "event": "decision_votes", "votes": {"left:wall": 36, "right:wall": 36, "front:unknown": 36}}
+{"t": 12.658, "event": "decision_votes", "votes": {"left:wall": 37, "right:wall": 37, "front:unknown": 37}}
+{"t": 12.66, "event": "decision_votes", "votes": {"left:wall": 38, "right:wall": 38, "front:unknown": 38}}
+{"t": 12.662, "event": "decision_votes", "votes": {"left:wall": 39, "right:wall": 39, "front:unknown": 39}}
+{"t": 12.664, "event": "decision_votes", "votes": {"left:wall": 40, "right:wall": 40, "front:unknown": 40}}
+{"t": 12.666, "event": "decision_votes", "votes": {"left:wall": 41, "right:wall": 41, "front:unknown": 41}}
+{"t": 12.668, "event": "decision_votes", "votes": {"left:wall": 42, "right:wall": 42, "front:unknown": 42}}
+{"t": 12.67, "event": "decision_votes", "votes": {"left:wall": 43, "right:wall": 43, "front:unknown": 43}}
+{"t": 12.672, "event": "decision_votes", "votes": {"left:wall": 44, "right:wall": 44, "front:unknown": 44}}
+{"t": 12.674, "event": "decision_votes", "votes": {"left:wall": 45, "right:wall": 45, "front:unknown": 45}}
+{"t": 12.676, "event": "decision_votes", "votes": {"left:wall": 46, "right:wall": 46, "front:unknown": 46}}
+{"t": 12.678, "event": "decision_votes", "votes": {"left:wall": 47, "right:wall": 47, "front:unknown": 47}}
+{"t": 12.68, "event": "decision_votes", "votes": {"left:wall": 48, "right:wall": 48, "front:unknown": 48}}
+{"t": 12.682, "event": "decision_votes", "votes": {"left:wall": 49, "right:wall": 49, "front:unknown": 49}}
+{"t": 12.684, "event": "decision_votes", "votes": {"left:wall": 50, "right:wall": 50, "front:unknown": 50}}
+{"t": 12.686, "event": "decision_votes", "votes": {"left:wall": 51, "right:wall": 51, "front:unknown": 51}}
+{"t": 12.688, "event": "decision_votes", "votes": {"left:wall": 52, "right:wall": 52, "front:unknown": 52}}
+{"t": 12.69, "event": "decision_votes", "votes": {"left:wall": 53, "right:wall": 53, "front:unknown": 53}}
+{"t": 12.692, "event": "decision_votes", "votes": {"left:wall": 54, "right:wall": 54, "front:unknown": 54}}
+{"t": 12.694, "event": "decision_votes", "votes": {"left:wall": 55, "right:wall": 55, "front:unknown": 55}}
+{"t": 12.696, "event": "decision_votes", "votes": {"left:wall": 56, "right:wall": 56, "front:unknown": 56}}
+{"t": 12.698, "event": "decision_votes", "votes": {"left:wall": 57, "right:wall": 57, "front:unknown": 57}}
+{"t": 12.7, "event": "decision_votes", "votes": {"left:wall": 58, "right:wall": 58, "front:unknown": 58}}
+{"t": 12.702, "event": "decision_votes", "votes": {"left:wall": 59, "right:wall": 59, "front:unknown": 59}}
+{"t": 12.704, "event": "decision_votes", "votes": {"left:wall": 60, "right:wall": 60, "front:unknown": 60}}
+{"t": 12.706, "event": "decision_votes", "votes": {"left:wall": 61, "right:wall": 61, "front:unknown": 61}}
+{"t": 12.708, "event": "decision_votes", "votes": {"left:wall": 62, "right:wall": 62, "front:unknown": 62}}
+{"t": 12.71, "event": "decision_votes", "votes": {"left:wall": 63, "right:wall": 63, "front:unknown": 63}}
+{"t": 12.712, "event": "decision_votes", "votes": {"left:wall": 64, "right:wall": 64, "front:unknown": 64}}
+{"t": 12.714, "event": "decision_votes", "votes": {"left:wall": 65, "right:wall": 65, "front:unknown": 65}}
+{"t": 12.716, "event": "decision_votes", "votes": {"left:wall": 66, "right:wall": 66, "front:unknown": 66}}
+{"t": 12.718, "event": "decision_votes", "votes": {"left:wall": 67, "right:wall": 67, "front:unknown": 67}}
+{"t": 12.72, "event": "decision_votes", "votes": {"left:wall": 68, "right:wall": 68, "front:unknown": 68}}
+{"t": 12.722, "event": "decision_votes", "votes": {"left:wall": 69, "right:wall": 69, "front:unknown": 69}}
+{"t": 12.724, "event": "decision_votes", "votes": {"left:wall": 70, "right:wall": 70, "front:unknown": 70}}
+{"t": 12.726, "event": "decision_votes", "votes": {"left:wall": 71, "right:wall": 71, "front:unknown": 71}}
+{"t": 12.728, "event": "decision_votes", "votes": {"left:wall": 72, "right:wall": 72, "front:unknown": 72}}
+{"t": 12.73, "event": "decision_votes", "votes": {"left:wall": 73, "right:wall": 73, "front:unknown": 73}}
+{"t": 12.732, "event": "decision_votes", "votes": {"left:wall": 74, "right:wall": 74, "front:unknown": 74}}
+{"t": 12.734, "event": "decision_votes", "votes": {"left:wall": 75, "right:wall": 75, "front:unknown": 75}}
+{"t": 12.736, "event": "decision_votes", "votes": {"left:wall": 76, "right:wall": 76, "front:unknown": 76}}
+{"t": 12.738, "event": "decision_votes", "votes": {"left:wall": 77, "right:wall": 77, "front:unknown": 77}}
+{"t": 12.74, "event": "decision_votes", "votes": {"left:wall": 78, "right:wall": 78, "front:unknown": 78}}
+{"t": 12.742, "event": "decision_votes", "votes": {"left:wall": 79, "right:wall": 79, "front:unknown": 79}}
+{"t": 12.744, "event": "decision_votes", "votes": {"left:wall": 80, "right:wall": 80, "front:unknown": 80}}
+{"t": 12.746, "event": "decision_votes", "votes": {"left:wall": 81, "right:wall": 81, "front:unknown": 81}}
+{"t": 12.748, "event": "decision_votes", "votes": {"left:wall": 82, "right:wall": 82, "front:unknown": 82}}
+{"t": 12.75, "event": "decision_votes", "votes": {"left:wall": 83, "right:wall": 83, "front:unknown": 83}}
+{"t": 12.752, "event": "decision_votes", "votes": {"left:wall": 84, "right:wall": 84, "front:unknown": 84}}
+{"t": 12.754, "event": "decision_votes", "votes": {"left:wall": 85, "right:wall": 85, "front:unknown": 85}}
+{"t": 12.756, "event": "decision_votes", "votes": {"left:wall": 86, "right:wall": 86, "front:unknown": 86}}
+{"t": 12.758, "event": "decision_votes", "votes": {"left:wall": 87, "right:wall": 87, "front:unknown": 87}}
+{"t": 12.76, "event": "decision_votes", "votes": {"left:wall": 88, "right:wall": 88, "front:unknown": 88}}
+{"t": 12.762, "event": "decision_votes", "votes": {"left:wall": 89, "right:wall": 89, "front:unknown": 89}}
+{"t": 12.764, "event": "decision_votes", "votes": {"left:wall": 90, "right:wall": 90, "front:unknown": 90}}
+{"t": 12.766, "event": "decision_votes", "votes": {"left:wall": 91, "right:wall": 91, "front:unknown": 91}}
+{"t": 12.768, "event": "decision_votes", "votes": {"left:wall": 92, "right:wall": 92, "front:unknown": 92}}
+{"t": 12.77, "event": "decision_votes", "votes": {"left:wall": 93, "right:wall": 93, "front:unknown": 93}}
+{"t": 12.772, "event": "decision_votes", "votes": {"left:wall": 94, "right:wall": 94, "front:unknown": 94}}
+{"t": 12.774, "event": "decision_votes", "votes": {"left:wall": 95, "right:wall": 95, "front:unknown": 95}}
+{"t": 12.776, "event": "decision_votes", "votes": {"left:wall": 96, "right:wall": 96, "front:unknown": 96}}
+{"t": 12.778, "event": "decision_votes", "votes": {"left:wall": 97, "right:wall": 97, "front:unknown": 97}}
+{"t": 12.78, "event": "decision_votes", "votes": {"left:wall": 98, "right:wall": 98, "front:unknown": 98}}
+{"t": 12.782, "event": "decision_votes", "votes": {"left:wall": 99, "right:wall": 99, "front:unknown": 99}}
+{"t": 12.784, "event": "decision_votes", "votes": {"left:wall": 100, "right:wall": 100, "front:unknown": 100}}
+{"t": 12.786, "event": "decision_votes", "votes": {"left:wall": 101, "right:wall": 101, "front:unknown": 101}}
+{"t": 12.788, "event": "decision_votes", "votes": {"left:wall": 102, "right:wall": 102, "front:unknown": 102}}
+{"t": 12.79, "event": "decision_votes", "votes": {"left:wall": 103, "right:wall": 103, "front:unknown": 103}}
+{"t": 12.792, "event": "decision_votes", "votes": {"left:wall": 104, "right:wall": 104, "front:unknown": 104}}
+{"t": 12.794, "event": "decision_votes", "votes": {"left:wall": 105, "right:wall": 105, "front:unknown": 105}}
+{"t": 12.796, "event": "decision_votes", "votes": {"left:wall": 106, "right:wall": 106, "front:unknown": 106}}
+{"t": 12.798, "event": "decision_votes", "votes": {"left:wall": 107, "right:wall": 107, "front:unknown": 107}}
+{"t": 12.8, "event": "decision_votes", "votes": {"left:wall": 108, "right:wall": 108, "front:unknown": 108}}
+{"t": 12.802, "event": "decision_votes", "votes": {"left:wall": 109, "right:wall": 109, "front:unknown": 109}}
+{"t": 12.804, "event": "decision_votes", "votes": {"left:wall": 110, "right:wall": 110, "front:unknown": 110}}
+{"t": 12.806, "event": "decision_votes", "votes": {"left:wall": 111, "right:wall": 111, "front:unknown": 111}}
+{"t": 12.808, "event": "decision_votes", "votes": {"left:wall": 112, "right:wall": 112, "front:unknown": 112}}
+{"t": 12.81, "event": "decision_votes", "votes": {"left:wall": 113, "right:wall": 113, "front:unknown": 113}}
+{"t": 12.812, "event": "decision_votes", "votes": {"left:wall": 114, "right:wall": 114, "front:unknown": 114}}
+{"t": 12.814, "event": "decision_votes", "votes": {"left:wall": 115, "right:wall": 115, "front:unknown": 115}}
+{"t": 12.816, "event": "decision_votes", "votes": {"left:wall": 116, "right:wall": 116, "front:unknown": 116}}
+{"t": 12.818, "event": "decision_votes", "votes": {"left:wall": 117, "right:wall": 117, "front:unknown": 117}}
+{"t": 12.82, "event": "decision_votes", "votes": {"left:wall": 118, "right:wall": 118, "front:unknown": 118}}
+{"t": 12.822, "event": "decision_votes", "votes": {"left:wall": 119, "right:wall": 119, "front:unknown": 119}}
+{"t": 12.824, "event": "decision_votes", "votes": {"left:wall": 120, "right:wall": 120, "front:unknown": 120}}
+{"t": 12.826, "event": "decision_votes", "votes": {"left:wall": 121, "right:wall": 121, "front:unknown": 121}}
+{"t": 12.828, "event": "decision_votes", "votes": {"left:wall": 122, "right:wall": 122, "front:unknown": 122}}
+{"t": 12.83, "event": "decision_votes", "votes": {"left:wall": 123, "right:wall": 123, "front:unknown": 123}}
+{"t": 12.832, "event": "decision_votes", "votes": {"left:wall": 124, "right:wall": 124, "front:unknown": 124}}
+{"t": 12.834, "event": "decision_votes", "votes": {"left:wall": 125, "right:wall": 125, "front:unknown": 125}}
+{"t": 12.836, "event": "decision_votes", "votes": {"left:wall": 126, "right:wall": 126, "front:unknown": 126}}
+{"t": 12.838, "event": "decision_votes", "votes": {"left:wall": 127, "right:wall": 127, "front:unknown": 127}}
+{"t": 12.84, "event": "decision_votes", "votes": {"left:wall": 128, "right:wall": 128, "front:unknown": 128}}
+{"t": 12.842, "event": "decision_votes", "votes": {"left:wall": 129, "right:wall": 129, "front:unknown": 129}}
+{"t": 12.844, "event": "decision_votes", "votes": {"left:wall": 130, "right:wall": 130, "front:unknown": 130}}
+{"t": 12.846, "event": "decision_votes", "votes": {"left:wall": 131, "right:wall": 131, "front:unknown": 131}}
+{"t": 12.848, "event": "decision_votes", "votes": {"left:wall": 132, "right:wall": 132, "front:unknown": 132}}
+{"t": 12.85, "event": "decision_votes", "votes": {"left:wall": 133, "right:wall": 133, "front:unknown": 133}}
+{"t": 12.852, "event": "decision_votes", "votes": {"left:wall": 134, "right:wall": 134, "front:unknown": 134}}
+{"t": 12.854, "event": "decision_votes", "votes": {"left:wall": 135, "right:wall": 135, "front:unknown": 135}}
+{"t": 12.856, "event": "decision_votes", "votes": {"left:wall": 136, "right:wall": 136, "front:unknown": 136}}
+{"t": 12.858, "event": "decision_votes", "votes": {"left:wall": 137, "right:wall": 137, "front:unknown": 137}}
+{"t": 12.86, "event": "decision_votes", "votes": {"left:wall": 138, "right:wall": 138, "front:unknown": 138}}
+{"t": 12.862, "event": "decision_votes", "votes": {"left:wall": 139, "right:wall": 139, "front:unknown": 139}}
+{"t": 12.864, "event": "decision_votes", "votes": {"left:wall": 140, "right:wall": 140, "front:unknown": 140}}
+{"t": 12.866, "event": "decision_votes", "votes": {"left:wall": 141, "right:wall": 141, "front:unknown": 141}}
+{"t": 12.868, "event": "decision_votes", "votes": {"left:wall": 142, "right:wall": 142, "front:unknown": 142}}
+{"t": 12.87, "event": "decision_votes", "votes": {"left:wall": 143, "right:wall": 143, "front:unknown": 142, "front:open": 1}}
+{"t": 12.872, "event": "decision_votes", "votes": {"left:wall": 144, "right:wall": 144, "front:unknown": 142, "front:open": 2}}
+{"t": 12.874, "event": "decision_votes", "votes": {"left:wall": 145, "right:wall": 145, "front:unknown": 142, "front:open": 3}}
+{"t": 12.876, "event": "decision_votes", "votes": {"left:wall": 146, "right:wall": 146, "front:unknown": 142, "front:open": 4}}
+{"t": 12.878, "event": "decision_votes", "votes": {"left:wall": 147, "right:wall": 147, "front:unknown": 142, "front:open": 5}}
+{"t": 12.88, "event": "decision_votes", "votes": {"left:wall": 148, "right:wall": 148, "front:unknown": 142, "front:open": 6}}
+{"t": 12.882, "event": "decision_votes", "votes": {"left:wall": 149, "right:wall": 149, "front:unknown": 142, "front:open": 7}}
+{"t": 12.884, "event": "decision_votes", "votes": {"left:wall": 150, "right:wall": 150, "front:unknown": 142, "front:open": 8}}
+{"t": 12.886, "event": "decision_votes", "votes": {"left:wall": 151, "right:wall": 151, "front:unknown": 142, "front:open": 9}}
+{"t": 12.888, "event": "decision_votes", "votes": {"left:wall": 152, "right:wall": 152, "front:unknown": 142, "front:open": 10}}
+{"t": 12.89, "event": "decision_votes", "votes": {"left:wall": 153, "right:wall": 153, "front:unknown": 142, "front:open": 11}}
+{"t": 12.892, "event": "decision_votes", "votes": {"left:wall": 154, "right:wall": 154, "front:unknown": 142, "front:open": 12}}
+{"t": 12.894, "event": "decision_votes", "votes": {"left:wall": 155, "right:wall": 155, "front:unknown": 142, "front:open": 13}}
+{"t": 12.896, "event": "decision_votes", "votes": {"left:wall": 156, "right:wall": 156, "front:unknown": 142, "front:open": 14}}
+{"t": 12.898, "event": "decision_votes", "votes": {"left:wall": 157, "right:wall": 157, "front:unknown": 142, "front:open": 15}}
+{"t": 12.9, "event": "decision_votes", "votes": {"left:wall": 158, "right:wall": 158, "front:unknown": 142, "front:open": 16}}
+{"t": 12.902, "event": "decision_votes", "votes": {"left:wall": 159, "right:wall": 159, "front:unknown": 142, "front:open": 17}}
+{"t": 12.904, "event": "decision_votes", "votes": {"left:wall": 160, "right:wall": 160, "front:unknown": 142, "front:open": 18}}
+{"t": 12.906, "event": "decision_votes", "votes": {"left:wall": 161, "right:wall": 161, "front:unknown": 142, "front:open": 19}}
+{"t": 12.908, "event": "decision_votes", "votes": {"left:wall": 162, "right:wall": 162, "front:unknown": 142, "front:open": 20}}
+{"t": 12.91, "event": "decision_votes", "votes": {"left:wall": 163, "right:wall": 163, "front:unknown": 142, "front:open": 21}}
+{"t": 12.912, "event": "decision_votes", "votes": {"left:wall": 164, "right:wall": 164, "front:unknown": 142, "front:open": 22}}
+{"t": 12.914, "event": "decision_votes", "votes": {"left:wall": 165, "right:wall": 165, "front:unknown": 142, "front:open": 23}}
+{"t": 12.916, "event": "decision_votes", "votes": {"left:wall": 166, "right:wall": 166, "front:unknown": 142, "front:open": 24}}
+{"t": 12.918, "event": "decision_votes", "votes": {"left:wall": 167, "right:wall": 167, "front:unknown": 142, "front:open": 25}}
+{"t": 12.92, "event": "decision_votes", "votes": {"left:wall": 168, "right:wall": 168, "front:unknown": 142, "front:open": 26}}
+{"t": 12.922, "event": "decision_votes", "votes": {"left:wall": 169, "right:wall": 169, "front:unknown": 142, "front:open": 27}}
+{"t": 12.924, "event": "decision_votes", "votes": {"left:wall": 170, "right:wall": 170, "front:unknown": 142, "front:open": 28}}
+{"t": 12.926, "event": "decision_votes", "votes": {"left:wall": 171, "right:wall": 171, "front:unknown": 142, "front:open": 29}}
+{"t": 12.928, "event": "decision_votes", "votes": {"left:wall": 172, "right:wall": 172, "front:unknown": 142, "front:open": 30}}
+{"t": 12.93, "event": "decision_votes", "votes": {"left:wall": 173, "right:wall": 173, "front:unknown": 142, "front:open": 31}}
+{"t": 12.932, "event": "decision_votes", "votes": {"left:wall": 174, "right:wall": 174, "front:unknown": 142, "front:open": 32}}
+{"t": 12.934, "event": "decision_votes", "votes": {"left:wall": 175, "right:wall": 175, "front:unknown": 142, "front:open": 33}}
+{"t": 12.936, "event": "decision_votes", "votes": {"left:wall": 176, "right:wall": 176, "front:unknown": 142, "front:open": 34}}
+{"t": 12.938, "event": "decision_votes", "votes": {"left:wall": 177, "right:wall": 177, "front:unknown": 142, "front:open": 35}}
+{"t": 12.94, "event": "decision_votes", "votes": {"left:wall": 178, "right:wall": 178, "front:unknown": 142, "front:open": 36}}
+{"t": 12.942, "event": "decision_votes", "votes": {"left:wall": 179, "right:wall": 179, "front:unknown": 142, "front:open": 37}}
+{"t": 12.944, "event": "decision_votes", "votes": {"left:wall": 180, "right:wall": 180, "front:unknown": 142, "front:open": 38}}
+{"t": 12.946, "event": "decision_votes", "votes": {"left:wall": 181, "right:wall": 181, "front:unknown": 142, "front:open": 39}}
+{"t": 12.948, "event": "decision_votes", "votes": {"left:wall": 182, "right:wall": 182, "front:unknown": 142, "front:open": 40}}
+{"t": 12.95, "event": "decision_votes", "votes": {"left:wall": 183, "right:wall": 183, "front:unknown": 142, "front:open": 41}}
+{"t": 12.952, "event": "decision_votes", "votes": {"left:wall": 184, "right:wall": 184, "front:unknown": 142, "front:open": 42}}
+{"t": 12.954, "event": "decision_votes", "votes": {"left:wall": 185, "right:wall": 185, "front:unknown": 142, "front:open": 43}}
+{"t": 12.956, "event": "decision_votes", "votes": {"left:wall": 186, "right:wall": 186, "front:unknown": 142, "front:open": 44}}
+{"t": 12.958, "event": "decision_votes", "votes": {"left:wall": 187, "right:wall": 187, "front:unknown": 142, "front:open": 45}}
+{"t": 12.96, "event": "decision_votes", "votes": {"left:wall": 188, "right:wall": 188, "front:unknown": 142, "front:open": 46}}
+{"t": 12.962, "event": "decision_votes", "votes": {"left:wall": 189, "right:wall": 189, "front:unknown": 142, "front:open": 47}}
+{"t": 12.964, "event": "decision_votes", "votes": {"left:wall": 190, "right:wall": 190, "front:unknown": 142, "front:open": 48}}
+{"t": 12.966, "event": "decision_votes", "votes": {"left:wall": 191, "right:wall": 191, "front:unknown": 142, "front:open": 49}}
+{"t": 12.968, "event": "decision_votes", "votes": {"left:wall": 192, "right:wall": 192, "front:unknown": 142, "front:open": 50}}
+{"t": 12.97, "event": "decision_votes", "votes": {"left:wall": 193, "right:wall": 193, "front:unknown": 142, "front:open": 51}}
+{"t": 12.972, "event": "decision_votes", "votes": {"left:wall": 194, "right:wall": 194, "front:unknown": 142, "front:open": 52}}
+{"t": 12.974, "event": "decision_votes", "votes": {"left:wall": 195, "right:wall": 195, "front:unknown": 142, "front:open": 53}}
+{"t": 12.976, "event": "decision_votes", "votes": {"left:wall": 196, "right:wall": 196, "front:unknown": 142, "front:open": 54}}
+{"t": 12.978, "event": "decision_votes", "votes": {"left:wall": 197, "right:wall": 197, "front:unknown": 142, "front:open": 55}}
+{"t": 12.98, "event": "decision_votes", "votes": {"left:wall": 198, "right:wall": 198, "front:unknown": 142, "front:open": 56}}
+{"t": 12.982, "event": "decision_votes", "votes": {"left:wall": 199, "right:wall": 199, "front:unknown": 142, "front:open": 57}}
+{"t": 12.984, "event": "decision_votes", "votes": {"left:wall": 200, "right:wall": 200, "front:unknown": 142, "front:open": 58}}
+{"t": 12.986, "event": "decision_votes", "votes": {"left:wall": 201, "right:wall": 201, "front:unknown": 142, "front:open": 59}}
+{"t": 12.988, "event": "decision_votes", "votes": {"left:wall": 202, "right:wall": 202, "front:unknown": 142, "front:open": 60}}
+{"t": 12.99, "event": "decision_votes", "votes": {"left:wall": 203, "right:wall": 203, "front:unknown": 142, "front:open": 61}}
+{"t": 12.992, "event": "decision_votes", "votes": {"left:wall": 204, "right:wall": 204, "front:unknown": 142, "front:open": 62}}
+{"t": 12.994, "event": "decision_votes", "votes": {"left:wall": 205, "right:wall": 205, "front:unknown": 142, "front:open": 63}}
+{"t": 12.996, "event": "decision_votes", "votes": {"left:wall": 206, "right:wall": 206, "front:unknown": 142, "front:open": 64}}
+{"t": 12.998, "event": "decision_votes", "votes": {"left:wall": 207, "right:wall": 207, "front:unknown": 142, "front:open": 65}}
+{"t": 13.0, "event": "decision_votes", "votes": {"left:wall": 208, "right:wall": 208, "front:unknown": 142, "front:open": 66}}
+{"t": 13.002, "event": "decision_votes", "votes": {"left:wall": 209, "right:wall": 209, "front:unknown": 142, "front:open": 67}}
+{"t": 13.004, "event": "decision_votes", "votes": {"left:wall": 210, "right:wall": 210, "front:unknown": 142, "front:open": 68}}
+{"t": 13.006, "event": "decision_votes", "votes": {"left:wall": 211, "right:wall": 211, "front:unknown": 142, "front:open": 69}}
+{"t": 13.008, "event": "decision_votes", "votes": {"left:wall": 212, "right:wall": 212, "front:unknown": 142, "front:open": 70}}
+{"t": 13.01, "event": "decision_votes", "votes": {"left:wall": 213, "right:wall": 213, "front:unknown": 142, "front:open": 71}}
+{"t": 13.012, "event": "decision_votes", "votes": {"left:wall": 214, "right:wall": 214, "front:unknown": 142, "front:open": 72}}
+{"t": 13.014, "event": "decision_votes", "votes": {"left:wall": 215, "right:wall": 215, "front:unknown": 142, "front:open": 73}}
+{"t": 13.016, "event": "decision_votes", "votes": {"left:wall": 216, "right:wall": 216, "front:unknown": 142, "front:open": 74}}
+{"t": 13.018, "event": "decision_votes", "votes": {"left:wall": 217, "right:wall": 217, "front:unknown": 142, "front:open": 75}}
+{"t": 13.02, "event": "decision_votes", "votes": {"left:wall": 218, "right:wall": 218, "front:unknown": 142, "front:open": 76}}
+{"t": 13.022, "event": "decision_votes", "votes": {"left:wall": 219, "right:wall": 219, "front:unknown": 142, "front:open": 77}}
+{"t": 13.024, "event": "decision_votes", "votes": {"left:wall": 220, "right:wall": 220, "front:unknown": 142, "front:open": 78}}
+{"t": 13.026, "event": "decision_votes", "votes": {"left:wall": 221, "right:wall": 221, "front:unknown": 142, "front:open": 79}}
+{"t": 13.028, "event": "decision_votes", "votes": {"left:wall": 222, "right:wall": 222, "front:unknown": 142, "front:open": 80}}
+{"t": 13.03, "event": "decision_votes", "votes": {"left:wall": 223, "right:wall": 223, "front:unknown": 142, "front:open": 81}}
+{"t": 13.032, "event": "decision_votes", "votes": {"left:wall": 224, "right:wall": 224, "front:unknown": 142, "front:open": 82}}
+{"t": 13.034, "event": "decision_votes", "votes": {"left:wall": 225, "right:wall": 225, "front:unknown": 142, "front:open": 83}}
+{"t": 13.036, "event": "decision_votes", "votes": {"left:wall": 226, "right:wall": 226, "front:unknown": 142, "front:open": 84}}
+{"t": 13.038, "event": "decision_votes", "votes": {"left:wall": 227, "right:wall": 227, "front:unknown": 142, "front:open": 85}}
+{"t": 13.04, "event": "decision_votes", "votes": {"left:wall": 228, "right:wall": 228, "front:unknown": 142, "front:open": 86}}
+{"t": 13.042, "event": "decision_votes", "votes": {"left:wall": 229, "right:wall": 229, "front:unknown": 142, "front:open": 87}}
+{"t": 13.044, "event": "decision_votes", "votes": {"left:wall": 230, "right:wall": 230, "front:unknown": 142, "front:open": 88}}
+{"t": 13.046, "event": "decision_votes", "votes": {"left:wall": 231, "right:wall": 231, "front:unknown": 142, "front:open": 89}}
+{"t": 13.048, "event": "decision_votes", "votes": {"left:wall": 232, "right:wall": 232, "front:unknown": 142, "front:open": 90}}
+{"t": 13.05, "event": "decision_votes", "votes": {"left:wall": 233, "right:wall": 233, "front:unknown": 142, "front:open": 91}}
+{"t": 13.052, "event": "decision_votes", "votes": {"left:wall": 234, "right:wall": 234, "front:unknown": 142, "front:open": 92}}
+{"t": 13.054, "event": "decision_votes", "votes": {"left:wall": 235, "right:wall": 235, "front:unknown": 142, "front:open": 93}}
+{"t": 13.056, "event": "decision_votes", "votes": {"left:wall": 236, "right:wall": 236, "front:unknown": 142, "front:open": 94}}
+{"t": 13.058, "event": "decision_votes", "votes": {"left:wall": 237, "right:wall": 237, "front:unknown": 142, "front:open": 95}}
+{"t": 13.06, "event": "decision_votes", "votes": {"left:wall": 238, "right:wall": 238, "front:unknown": 142, "front:open": 96}}
+{"t": 13.062, "event": "decision_votes", "votes": {"left:wall": 239, "right:wall": 239, "front:unknown": 142, "front:open": 97}}
+{"t": 13.064, "event": "decision_votes", "votes": {"left:wall": 240, "right:wall": 240, "front:unknown": 142, "front:open": 98}}
+{"t": 13.066, "event": "decision_votes", "votes": {"left:wall": 241, "right:wall": 241, "front:unknown": 142, "front:open": 99}}
+{"t": 13.068, "event": "decision_votes", "votes": {"left:wall": 242, "right:wall": 242, "front:unknown": 142, "front:open": 100}}
+{"t": 13.07, "event": "decision_votes", "votes": {"left:wall": 243, "right:wall": 243, "front:unknown": 142, "front:open": 101}}
+{"t": 13.072, "event": "decision_votes", "votes": {"left:wall": 244, "right:wall": 244, "front:unknown": 142, "front:open": 102}}
+{"t": 13.074, "event": "decision_votes", "votes": {"left:wall": 245, "right:wall": 245, "front:unknown": 142, "front:open": 103}}
+{"t": 13.076, "event": "decision_votes", "votes": {"left:wall": 246, "right:wall": 246, "front:unknown": 142, "front:open": 104}}
+{"t": 13.078, "event": "decision_votes", "votes": {"left:wall": 247, "right:wall": 247, "front:unknown": 142, "front:open": 105}}
+{"t": 13.08, "event": "decision_votes", "votes": {"left:wall": 248, "right:wall": 248, "front:unknown": 142, "front:open": 106}}
+{"t": 13.082, "event": "decision_votes", "votes": {"left:wall": 249, "right:wall": 249, "front:unknown": 142, "front:open": 107}}
+{"t": 13.084, "event": "decision_votes", "votes": {"left:wall": 250, "right:wall": 250, "front:unknown": 142, "front:open": 108}}
+{"t": 13.086, "event": "decision_votes", "votes": {"left:wall": 251, "right:wall": 251, "front:unknown": 142, "front:open": 109}}
+{"t": 13.088, "event": "decision_votes", "votes": {"left:wall": 252, "right:wall": 252, "front:unknown": 142, "front:open": 110}}
+{"t": 13.09, "event": "decision_votes", "votes": {"left:wall": 253, "right:wall": 253, "front:unknown": 142, "front:open": 111}}
+{"t": 13.092, "event": "decision_votes", "votes": {"left:wall": 254, "right:wall": 254, "front:unknown": 142, "front:open": 112}}
+{"t": 13.094, "event": "decision_votes", "votes": {"left:wall": 255, "right:wall": 255, "front:unknown": 142, "front:open": 113}}
+{"t": 13.096, "event": "decision_votes", "votes": {"left:wall": 256, "right:wall": 256, "front:unknown": 142, "front:open": 114}}
+{"t": 13.098, "event": "decision_votes", "votes": {"left:wall": 257, "right:wall": 257, "front:unknown": 142, "front:open": 115}}
+{"t": 13.1, "event": "decision_votes", "votes": {"left:wall": 258, "right:wall": 258, "front:unknown": 142, "front:open": 116}}
+{"t": 13.102, "event": "decision_votes", "votes": {"left:wall": 259, "right:wall": 259, "front:unknown": 142, "front:open": 117}}
+{"t": 13.104, "event": "decision_votes", "votes": {"left:wall": 260, "right:wall": 260, "front:unknown": 142, "front:open": 118}}
+{"t": 13.106, "event": "decision_votes", "votes": {"left:wall": 261, "right:wall": 261, "front:unknown": 142, "front:open": 119}}
+{"t": 13.108, "event": "decision_votes", "votes": {"left:wall": 262, "right:wall": 262, "front:unknown": 142, "front:open": 120}}
+{"t": 13.11, "event": "decision_votes", "votes": {"left:wall": 263, "right:wall": 263, "front:unknown": 142, "front:open": 121}}
+{"t": 13.112, "event": "decision_votes", "votes": {"left:wall": 264, "right:wall": 264, "front:unknown": 142, "front:open": 122}}
+{"t": 13.114, "event": "decision_votes", "votes": {"left:wall": 265, "right:wall": 265, "front:unknown": 142, "front:open": 123}}
+{"t": 13.116, "event": "decision_votes", "votes": {"left:wall": 266, "right:wall": 266, "front:unknown": 142, "front:open": 124}}
+{"t": 13.118, "event": "decision_votes", "votes": {"left:wall": 267, "right:wall": 267, "front:unknown": 142, "front:open": 125}}
+{"t": 13.12, "event": "decision_votes", "votes": {"left:wall": 268, "right:wall": 268, "front:unknown": 142, "front:open": 126}}
+{"t": 13.122, "event": "decision_votes", "votes": {"left:wall": 269, "right:wall": 269, "front:unknown": 142, "front:open": 127}}
+{"t": 13.124, "event": "decision_votes", "votes": {"left:wall": 270, "right:wall": 270, "front:unknown": 142, "front:open": 128}}
+{"t": 13.126, "event": "decision_votes", "votes": {"left:wall": 271, "right:wall": 271, "front:unknown": 142, "front:open": 129}}
+{"t": 13.128, "event": "decision_votes", "votes": {"left:wall": 272, "right:wall": 272, "front:unknown": 142, "front:open": 130}}
+{"t": 13.13, "event": "decision_votes", "votes": {"left:wall": 273, "right:wall": 273, "front:unknown": 142, "front:open": 131}}
+{"t": 13.132, "event": "decision_votes", "votes": {"left:wall": 274, "right:wall": 274, "front:unknown": 142, "front:open": 132}}
+{"t": 13.134, "event": "decision_votes", "votes": {"left:wall": 275, "right:wall": 275, "front:unknown": 142, "front:open": 133}}
+{"t": 13.136, "event": "decision_votes", "votes": {"left:wall": 276, "right:wall": 276, "front:unknown": 142, "front:open": 134}}
+{"t": 13.138, "event": "decision_votes", "votes": {"left:wall": 277, "right:wall": 277, "front:unknown": 142, "front:open": 135}}
+{"t": 13.14, "event": "decision_votes", "votes": {"left:wall": 278, "right:wall": 278, "front:unknown": 142, "front:open": 136}}
+{"t": 13.142, "event": "decision_votes", "votes": {"left:wall": 279, "right:wall": 279, "front:unknown": 142, "front:open": 137}}
+{"t": 13.144, "event": "decision_votes", "votes": {"left:wall": 280, "right:wall": 280, "front:unknown": 142, "front:open": 138}}
+{"t": 13.146, "event": "decision_votes", "votes": {"left:wall": 281, "right:wall": 281, "front:unknown": 142, "front:open": 139}}
+{"t": 13.148, "event": "decision_votes", "votes": {"left:wall": 282, "right:wall": 282, "front:unknown": 142, "front:open": 140}}
+{"t": 13.15, "event": "decision_votes", "votes": {"left:wall": 283, "right:wall": 283, "front:unknown": 142, "front:open": 141}}
+{"t": 13.152, "from": "DECIDE", "to": "CRUISE", "reason": "front_open", "cell": [1, 0], "heading": 0, "s": 0.09827032874333248}
+{"t": 19.716, "from": "CRUISE", "to": "DECIDE", "reason": "cell_center_reached", "cell": [2, 0], "heading": 0, "s": 0.0920081370504047}
+{"t": 19.716, "event": "decision_votes", "votes": {}}
+{"t": 19.718, "event": "decision_votes", "votes": {"left:wall": 1, "right:wall": 1, "front:open": 1}}
+{"t": 19.72, "event": "decision_votes", "votes": {"left:wall": 2, "right:wall": 2, "front:open": 2}}
+{"t": 19.722, "event": "decision_votes", "votes": {"left:wall": 3, "right:wall": 3, "front:open": 3}}
+{"t": 19.724, "event": "decision_votes", "votes": {"left:wall": 4, "right:wall": 4, "front:open": 4}}
+{"t": 19.726, "event": "decision_votes", "votes": {"left:wall": 5, "right:wall": 5, "front:open": 5}}
+{"t": 19.728, "event": "decision_votes", "votes": {"left:wall": 6, "right:wall": 6, "front:open": 6}}
+{"t": 19.73, "event": "decision_votes", "votes": {"left:wall": 7, "right:wall": 7, "front:open": 7}}
+{"t": 19.732, "event": "decision_votes", "votes": {"left:wall": 8, "right:wall": 8, "front:open": 8}}
+{"t": 19.734, "event": "decision_votes", "votes": {"left:wall": 9, "right:wall": 9, "front:open": 9}}
+{"t": 19.736, "event": "decision_votes", "votes": {"left:wall": 10, "right:wall": 10, "front:open": 10}}
+{"t": 19.738, "event": "decision_votes", "votes": {"left:wall": 11, "right:wall": 11, "front:open": 11}}
+{"t": 19.74, "event": "decision_votes", "votes": {"left:wall": 12, "right:wall": 12, "front:open": 12}}
+{"t": 19.742, "event": "decision_votes", "votes": {"left:wall": 13, "right:wall": 13, "front:open": 13}}
+{"t": 19.744, "event": "decision_votes", "votes": {"left:wall": 14, "right:wall": 14, "front:open": 14}}
+{"t": 19.746, "event": "decision_votes", "votes": {"left:wall": 15, "right:wall": 15, "front:open": 15}}
+{"t": 19.748, "event": "decision_votes", "votes": {"left:wall": 16, "right:wall": 16, "front:open": 16}}
+{"t": 19.75, "event": "decision_votes", "votes": {"left:wall": 17, "right:wall": 17, "front:open": 17}}
+{"t": 19.752, "event": "decision_votes", "votes": {"left:wall": 18, "right:wall": 18, "front:open": 18}}
+{"t": 19.754, "event": "decision_votes", "votes": {"left:wall": 19, "right:wall": 19, "front:open": 19}}
+{"t": 19.756, "event": "decision_votes", "votes": {"left:wall": 20, "right:wall": 20, "front:open": 20}}
+{"t": 19.758, "event": "decision_votes", "votes": {"left:wall": 21, "right:wall": 21, "front:open": 21}}
+{"t": 19.76, "event": "decision_votes", "votes": {"left:wall": 22, "right:wall": 22, "front:open": 22}}
+{"t": 19.762, "event": "decision_votes", "votes": {"left:wall": 23, "right:wall": 23, "front:open": 23}}
+{"t": 19.764, "event": "decision_votes", "votes": {"left:wall": 24, "right:wall": 24, "front:open": 24}}
+{"t": 19.766, "event": "decision_votes", "votes": {"left:wall": 25, "right:wall": 25, "front:open": 25}}
+{"t": 19.768, "event": "decision_votes", "votes": {"left:wall": 26, "right:wall": 26, "front:open": 26}}
+{"t": 19.77, "event": "decision_votes", "votes": {"left:wall": 27, "right:wall": 27, "front:open": 27}}
+{"t": 19.772, "event": "decision_votes", "votes": {"left:wall": 28, "right:wall": 28, "front:open": 28}}
+{"t": 19.774, "event": "decision_votes", "votes": {"left:wall": 29, "right:wall": 29, "front:open": 29}}
+{"t": 19.776, "event": "decision_votes", "votes": {"left:wall": 30, "right:wall": 30, "front:open": 30}}
+{"t": 19.778, "event": "decision_votes", "votes": {"left:wall": 31, "right:wall": 31, "front:open": 31}}
+{"t": 19.78, "event": "decision_votes", "votes": {"left:wall": 32, "right:wall": 32, "front:open": 32}}
+{"t": 19.782, "event": "decision_votes", "votes": {"left:wall": 33, "right:wall": 33, "front:open": 33}}
+{"t": 19.784, "event": "decision_votes", "votes": {"left:wall": 34, "right:wall": 34, "front:open": 34}}
+{"t": 19.786, "event": "decision_votes", "votes": {"left:wall": 35, "right:wall": 35, "front:open": 35}}
+{"t": 19.788, "event": "decision_votes", "votes": {"left:wall": 36, "right:wall": 36, "front:open": 36}}
+{"t": 19.79, "event": "decision_votes", "votes": {"left:wall": 37, "right:wall": 37, "front:open": 37}}
+{"t": 19.792, "event": "decision_votes", "votes": {"left:wall": 38, "right:wall": 38, "front:open": 38}}
+{"t": 19.794, "event": "decision_votes", "votes": {"left:wall": 39, "right:wall": 39, "front:open": 39}}
+{"t": 19.796, "event": "decision_votes", "votes": {"left:wall": 40, "right:wall": 40, "front:open": 40}}
+{"t": 19.798, "event": "decision_votes", "votes": {"left:wall": 41, "right:wall": 41, "front:open": 41}}
+{"t": 19.8, "event": "decision_votes", "votes": {"left:wall": 42, "right:wall": 42, "front:open": 42}}
+{"t": 19.802, "event": "decision_votes", "votes": {"left:wall": 43, "right:wall": 43, "front:open": 43}}
+{"t": 19.804, "event": "decision_votes", "votes": {"left:wall": 44, "right:wall": 44, "front:open": 44}}
+{"t": 19.806, "event": "decision_votes", "votes": {"left:wall": 45, "right:wall": 45, "front:open": 45}}
+{"t": 19.808, "event": "decision_votes", "votes": {"left:wall": 46, "right:wall": 46, "front:open": 46}}
+{"t": 19.81, "event": "decision_votes", "votes": {"left:wall": 47, "right:wall": 47, "front:open": 47}}
+{"t": 19.812, "event": "decision_votes", "votes": {"left:wall": 48, "right:wall": 48, "front:open": 48}}
+{"t": 19.814, "event": "decision_votes", "votes": {"left:wall": 49, "right:wall": 49, "front:open": 49}}
+{"t": 19.816, "event": "decision_votes", "votes": {"left:wall": 50, "right:wall": 50, "front:open": 50}}
+{"t": 19.818, "event": "decision_votes", "votes": {"left:wall": 51, "right:wall": 51, "front:open": 51}}
+{"t": 19.82, "event": "decision_votes", "votes": {"left:wall": 52, "right:wall": 52, "front:open": 52}}
+{"t": 19.822, "event": "decision_votes", "votes": {"left:wall": 53, "right:wall": 53, "front:open": 53}}
+{"t": 19.824, "event": "decision_votes", "votes": {"left:wall": 54, "right:wall": 54, "front:open": 54}}
+{"t": 19.826, "event": "decision_votes", "votes": {"left:wall": 55, "right:wall": 55, "front:open": 55}}
+{"t": 19.828, "event": "decision_votes", "votes": {"left:wall": 56, "right:wall": 56, "front:open": 56}}
+{"t": 19.83, "event": "decision_votes", "votes": {"left:wall": 57, "right:wall": 57, "front:open": 57}}
+{"t": 19.832, "event": "decision_votes", "votes": {"left:wall": 58, "right:wall": 58, "front:open": 58}}
+{"t": 19.834, "event": "decision_votes", "votes": {"left:wall": 59, "right:wall": 59, "front:open": 59}}
+{"t": 19.836, "event": "decision_votes", "votes": {"left:wall": 60, "right:wall": 60, "front:open": 60}}
+{"t": 19.838, "event": "decision_votes", "votes": {"left:wall": 61, "right:wall": 61, "front:open": 61}}
+{"t": 19.84, "event": "decision_votes", "votes": {"left:wall": 62, "right:wall": 62, "front:open": 62}}
+{"t": 19.842, "event": "decision_votes", "votes": {"left:wall": 63, "right:wall": 63, "front:open": 63}}
+{"t": 19.844, "event": "decision_votes", "votes": {"left:wall": 64, "right:wall": 64, "front:open": 64}}
+{"t": 19.846, "event": "decision_votes", "votes": {"left:wall": 65, "right:wall": 65, "front:open": 65}}
+{"t": 19.848, "event": "decision_votes", "votes": {"left:wall": 66, "right:wall": 66, "front:open": 66}}
+{"t": 19.85, "event": "decision_votes", "votes": {"left:wall": 67, "right:wall": 67, "front:open": 67}}
+{"t": 19.852, "event": "decision_votes", "votes": {"left:wall": 68, "right:wall": 68, "front:open": 68}}
+{"t": 19.854, "event": "decision_votes", "votes": {"left:wall": 69, "right:wall": 69, "front:open": 69}}
+{"t": 19.856, "event": "decision_votes", "votes": {"left:wall": 70, "right:wall": 70, "front:open": 70}}
+{"t": 19.858, "event": "decision_votes", "votes": {"left:wall": 71, "right:wall": 71, "front:open": 71}}
+{"t": 19.86, "event": "decision_votes", "votes": {"left:wall": 72, "right:wall": 72, "front:open": 72}}
+{"t": 19.862, "event": "decision_votes", "votes": {"left:wall": 73, "right:wall": 73, "front:open": 73}}
+{"t": 19.864, "event": "decision_votes", "votes": {"left:wall": 74, "right:wall": 74, "front:open": 74}}
+{"t": 19.866, "from": "DECIDE", "to": "CRUISE", "reason": "front_open", "cell": [2, 0], "heading": 0, "s": 0.0920081370504047}
+{"t": 26.578, "from": "CRUISE", "to": "DECIDE", "reason": "cell_center_reached", "cell": [3, 0], "heading": 0, "s": 0.09201193328606641}
+{"t": 26.578, "event": "decision_votes", "votes": {}}
+{"t": 26.58, "event": "decision_votes", "votes": {"left:wall": 1, "right:wall": 1, "front:open": 1}}
+{"t": 26.582, "event": "decision_votes", "votes": {"left:wall": 2, "right:wall": 2, "front:open": 2}}
+{"t": 26.584, "event": "decision_votes", "votes": {"left:wall": 3, "right:wall": 3, "front:open": 3}}
+{"t": 26.586, "event": "decision_votes", "votes": {"left:wall": 4, "right:wall": 4, "front:open": 4}}
+{"t": 26.588, "event": "decision_votes", "votes": {"left:wall": 5, "right:wall": 5, "front:open": 5}}
+{"t": 26.59, "event": "decision_votes", "votes": {"left:wall": 6, "right:wall": 6, "front:open": 6}}
+{"t": 26.592, "event": "decision_votes", "votes": {"left:wall": 7, "right:wall": 7, "front:open": 7}}
+{"t": 26.594, "event": "decision_votes", "votes": {"left:wall": 8, "right:wall": 8, "front:open": 8}}
+{"t": 26.596, "event": "decision_votes", "votes": {"left:wall": 9, "right:wall": 9, "front:open": 9}}
+{"t": 26.598, "event": "decision_votes", "votes": {"left:wall": 10, "right:wall": 10, "front:open": 10}}
+{"t": 26.6, "event": "decision_votes", "votes": {"left:wall": 11, "right:wall": 11, "front:open": 11}}
+{"t": 26.602, "event": "decision_votes", "votes": {"left:wall": 12, "right:wall": 12, "front:open": 12}}
+{"t": 26.604, "event": "decision_votes", "votes": {"left:wall": 13, "right:wall": 13, "front:open": 13}}
+{"t": 26.606, "event": "decision_votes", "votes": {"left:wall": 14, "right:wall": 14, "front:open": 14}}
+{"t": 26.608, "event": "decision_votes", "votes": {"left:wall": 15, "right:wall": 15, "front:open": 15}}
+{"t": 26.61, "event": "decision_votes", "votes": {"left:wall": 16, "right:wall": 16, "front:open": 16}}
+{"t": 26.612, "event": "decision_votes", "votes": {"left:wall": 17, "right:wall": 17, "front:open": 17}}
+{"t": 26.614, "event": "decision_votes", "votes": {"left:wall": 18, "right:wall": 18, "front:open": 18}}
+{"t": 26.616, "event": "decision_votes", "votes": {"left:wall": 19, "right:wall": 19, "front:open": 19}}
+{"t": 26.618, "event": "decision_votes", "votes": {"left:wall": 20, "right:wall": 20, "front:open": 20}}
+{"t": 26.62, "event": "decision_votes", "votes": {"left:wall": 21, "right:wall": 21, "front:open": 21}}
+{"t": 26.622, "event": "decision_votes", "votes": {"left:wall": 22, "right:wall": 22, "front:open": 22}}
+{"t": 26.624, "event": "decision_votes", "votes": {"left:wall": 23, "right:wall": 23, "front:open": 23}}
+{"t": 26.626, "event": "decision_votes", "votes": {"left:wall": 24, "right:wall": 24, "front:open": 24}}
+{"t": 26.628, "event": "decision_votes", "votes": {"left:wall": 25, "right:wall": 25, "front:open": 25}}
+{"t": 26.63, "event": "decision_votes", "votes": {"left:wall": 26, "right:wall": 26, "front:open": 26}}
+{"t": 26.632, "event": "decision_votes", "votes": {"left:wall": 27, "right:wall": 27, "front:open": 27}}
+{"t": 26.634, "event": "decision_votes", "votes": {"left:wall": 28, "right:wall": 28, "front:open": 28}}
+{"t": 26.636, "event": "decision_votes", "votes": {"left:wall": 29, "right:wall": 29, "front:open": 29}}
+{"t": 26.638, "event": "decision_votes", "votes": {"left:wall": 30, "right:wall": 30, "front:open": 30}}
+{"t": 26.64, "event": "decision_votes", "votes": {"left:wall": 31, "right:wall": 31, "front:open": 31}}
+{"t": 26.642, "event": "decision_votes", "votes": {"left:wall": 32, "right:wall": 32, "front:open": 32}}
+{"t": 26.644, "event": "decision_votes", "votes": {"left:wall": 33, "right:wall": 33, "front:open": 33}}
+{"t": 26.646, "event": "decision_votes", "votes": {"left:wall": 34, "right:wall": 34, "front:open": 34}}
+{"t": 26.648, "event": "decision_votes", "votes": {"left:wall": 35, "right:wall": 35, "front:open": 35}}
+{"t": 26.65, "event": "decision_votes", "votes": {"left:wall": 36, "right:wall": 36, "front:open": 36}}
+{"t": 26.652, "event": "decision_votes", "votes": {"left:wall": 37, "right:wall": 37, "front:open": 37}}
+{"t": 26.654, "event": "decision_votes", "votes": {"left:wall": 38, "right:wall": 38, "front:open": 38}}
+{"t": 26.656, "event": "decision_votes", "votes": {"left:wall": 39, "right:wall": 39, "front:open": 39}}
+{"t": 26.658, "event": "decision_votes", "votes": {"left:wall": 40, "right:wall": 40, "front:open": 40}}
+{"t": 26.66, "event": "decision_votes", "votes": {"left:wall": 41, "right:wall": 41, "front:open": 41}}
+{"t": 26.662, "event": "decision_votes", "votes": {"left:wall": 42, "right:wall": 42, "front:open": 42}}
+{"t": 26.664, "event": "decision_votes", "votes": {"left:wall": 43, "right:wall": 43, "front:open": 43}}
+{"t": 26.666, "event": "decision_votes", "votes": {"left:wall": 44, "right:wall": 44, "front:open": 44}}
+{"t": 26.668, "event": "decision_votes", "votes": {"left:wall": 45, "right:wall": 45, "front:open": 45}}
+{"t": 26.67, "event": "decision_votes", "votes": {"left:wall": 46, "right:wall": 46, "front:open": 46}}
+{"t": 26.672, "event": "decision_votes", "votes": {"left:wall": 47, "right:wall": 47, "front:open": 47}}
+{"t": 26.674, "event": "decision_votes", "votes": {"left:wall": 48, "right:wall": 48, "front:open": 48}}
+{"t": 26.676, "event": "decision_votes", "votes": {"left:wall": 49, "right:wall": 49, "front:open": 49}}
+{"t": 26.678, "event": "decision_votes", "votes": {"left:wall": 50, "right:wall": 50, "front:open": 50}}
+{"t": 26.68, "event": "decision_votes", "votes": {"left:wall": 51, "right:wall": 51, "front:open": 51}}
+{"t": 26.682, "event": "decision_votes", "votes": {"left:wall": 52, "right:wall": 52, "front:open": 52}}
+{"t": 26.684, "event": "decision_votes", "votes": {"left:wall": 53, "right:wall": 53, "front:open": 53}}
+{"t": 26.686, "event": "decision_votes", "votes": {"left:wall": 54, "right:wall": 54, "front:open": 54}}
+{"t": 26.688, "event": "decision_votes", "votes": {"left:wall": 55, "right:wall": 55, "front:open": 55}}
+{"t": 26.69, "event": "decision_votes", "votes": {"left:wall": 56, "right:wall": 56, "front:open": 56}}
+{"t": 26.692, "event": "decision_votes", "votes": {"left:wall": 57, "right:wall": 57, "front:open": 57}}
+{"t": 26.694, "event": "decision_votes", "votes": {"left:wall": 58, "right:wall": 58, "front:open": 58}}
+{"t": 26.696, "event": "decision_votes", "votes": {"left:wall": 59, "right:wall": 59, "front:open": 59}}
+{"t": 26.698, "event": "decision_votes", "votes": {"left:wall": 60, "right:wall": 60, "front:open": 60}}
+{"t": 26.7, "event": "decision_votes", "votes": {"left:wall": 61, "right:wall": 61, "front:open": 61}}
+{"t": 26.702, "event": "decision_votes", "votes": {"left:wall": 62, "right:wall": 62, "front:open": 62}}
+{"t": 26.704, "event": "decision_votes", "votes": {"left:wall": 63, "right:wall": 63, "front:open": 63}}
+{"t": 26.706, "event": "decision_votes", "votes": {"left:wall": 64, "right:wall": 64, "front:open": 64}}
+{"t": 26.708, "event": "decision_votes", "votes": {"left:wall": 65, "right:wall": 65, "front:open": 65}}
+{"t": 26.71, "event": "decision_votes", "votes": {"left:wall": 66, "right:wall": 66, "front:open": 66}}
+{"t": 26.712, "event": "decision_votes", "votes": {"left:wall": 67, "right:wall": 67, "front:open": 67}}
+{"t": 26.714, "event": "decision_votes", "votes": {"left:wall": 68, "right:wall": 68, "front:open": 68}}
+{"t": 26.716, "event": "decision_votes", "votes": {"left:wall": 69, "right:wall": 69, "front:open": 69}}
+{"t": 26.718, "event": "decision_votes", "votes": {"left:wall": 70, "right:wall": 70, "front:open": 70}}
+{"t": 26.72, "event": "decision_votes", "votes": {"left:wall": 71, "right:wall": 71, "front:open": 71}}
+{"t": 26.722, "event": "decision_votes", "votes": {"left:wall": 72, "right:wall": 72, "front:open": 72}}
+{"t": 26.724, "event": "decision_votes", "votes": {"left:wall": 73, "right:wall": 73, "front:open": 73}}
+{"t": 26.726, "event": "decision_votes", "votes": {"left:wall": 74, "right:wall": 74, "front:open": 74}}
+{"t": 26.728, "from": "DECIDE", "to": "CRUISE", "reason": "front_open", "cell": [3, 0], "heading": 0, "s": 0.09201193328606641}
+{"t": 33.44, "from": "CRUISE", "to": "DECIDE", "reason": "cell_center_reached", "cell": [4, 0], "heading": 0, "s": 0.09200630726444341}
+{"t": 33.44, "event": "decision_votes", "votes": {}}
+{"t": 33.442, "event": "decision_votes", "votes": {"left:wall": 1, "right:wall": 1, "front:open": 1}}
+{"t": 33.444, "event": "decision_votes", "votes": {"left:wall": 2, "right:wall": 2, "front:open": 2}}
+{"t": 33.446, "event": "decision_votes", "votes": {"left:wall": 3, "right:wall": 3, "front:open": 3}}
+{"t": 33.448, "event": "decision_votes", "votes": {"left:wall": 4, "right:wall": 4, "front:open": 4}}
+{"t": 33.45, "event": "decision_votes", "votes": {"left:wall": 5, "right:wall": 5, "front:open": 5}}
+{"t": 33.452, "event": "decision_votes", "votes": {"left:wall": 6, "right:wall": 6, "front:open": 6}}
+{"t": 33.454, "event": "decision_votes", "votes": {"left:wall": 7, "right:wall": 7, "front:open": 7}}
+{"t": 33.456, "event": "decision_votes", "votes": {"left:wall": 8, "right:wall": 8, "front:open": 8}}
+{"t": 33.458, "event": "decision_votes", "votes": {"left:wall": 9, "right:wall": 9, "front:open": 9}}
+{"t": 33.46, "event": "decision_votes", "votes": {"left:wall": 10, "right:wall": 10, "front:open": 10}}
+{"t": 33.462, "event": "decision_votes", "votes": {"left:wall": 11, "right:wall": 11, "front:open": 11}}
+{"t": 33.464, "event": "decision_votes", "votes": {"left:wall": 12, "right:wall": 12, "front:open": 12}}
+{"t": 33.466, "event": "decision_votes", "votes": {"left:wall": 13, "right:wall": 13, "front:open": 13}}
+{"t": 33.468, "event": "decision_votes", "votes": {"left:wall": 14, "right:wall": 14, "front:open": 14}}
+{"t": 33.47, "event": "decision_votes", "votes": {"left:wall": 15, "right:wall": 15, "front:open": 15}}
+{"t": 33.472, "event": "decision_votes", "votes": {"left:wall": 16, "right:wall": 16, "front:open": 16}}
+{"t": 33.474, "event": "decision_votes", "votes": {"left:wall": 17, "right:wall": 17, "front:open": 17}}
+{"t": 33.476, "event": "decision_votes", "votes": {"left:wall": 18, "right:wall": 18, "front:open": 18}}
+{"t": 33.478, "event": "decision_votes", "votes": {"left:wall": 19, "right:wall": 19, "front:open": 19}}
+{"t": 33.48, "event": "decision_votes", "votes": {"left:wall": 20, "right:wall": 20, "front:open": 20}}
+{"t": 33.482, "event": "decision_votes", "votes": {"left:wall": 21, "right:wall": 21, "front:open": 21}}
+{"t": 33.484, "event": "decision_votes", "votes": {"left:wall": 22, "right:wall": 22, "front:open": 22}}
+{"t": 33.486, "event": "decision_votes", "votes": {"left:wall": 23, "right:wall": 23, "front:open": 23}}
+{"t": 33.488, "event": "decision_votes", "votes": {"left:wall": 24, "right:wall": 24, "front:open": 24}}
+{"t": 33.49, "event": "decision_votes", "votes": {"left:wall": 25, "right:wall": 25, "front:open": 25}}
+{"t": 33.492, "event": "decision_votes", "votes": {"left:wall": 26, "right:wall": 26, "front:open": 26}}
+{"t": 33.494, "event": "decision_votes", "votes": {"left:wall": 27, "right:wall": 27, "front:open": 27}}
+{"t": 33.496, "event": "decision_votes", "votes": {"left:wall": 28, "right:wall": 28, "front:open": 28}}
+{"t": 33.498, "event": "decision_votes", "votes": {"left:wall": 29, "right:wall": 29, "front:open": 29}}
+{"t": 33.5, "event": "decision_votes", "votes": {"left:wall": 30, "right:wall": 30, "front:open": 30}}
+{"t": 33.502, "event": "decision_votes", "votes": {"left:wall": 31, "right:wall": 31, "front:open": 31}}
+{"t": 33.504, "event": "decision_votes", "votes": {"left:wall": 32, "right:wall": 32, "front:open": 32}}
+{"t": 33.506, "event": "decision_votes", "votes": {"left:wall": 33, "right:wall": 33, "front:open": 33}}
+{"t": 33.508, "event": "decision_votes", "votes": {"left:wall": 34, "right:wall": 34, "front:open": 34}}
+{"t": 33.51, "event": "decision_votes", "votes": {"left:wall": 35, "right:wall": 35, "front:open": 35}}
+{"t": 33.512, "event": "decision_votes", "votes": {"left:wall": 36, "right:wall": 36, "front:open": 36}}
+{"t": 33.514, "event": "decision_votes", "votes": {"left:wall": 37, "right:wall": 37, "front:open": 37}}
+{"t": 33.516, "event": "decision_votes", "votes": {"left:wall": 38, "right:wall": 38, "front:open": 38}}
+{"t": 33.518, "event": "decision_votes", "votes": {"left:wall": 39, "right:wall": 39, "front:open": 39}}
+{"t": 33.52, "event": "decision_votes", "votes": {"left:wall": 40, "right:wall": 40, "front:open": 40}}
+{"t": 33.522, "event": "decision_votes", "votes": {"left:wall": 41, "right:wall": 41, "front:open": 41}}
+{"t": 33.524, "event": "decision_votes", "votes": {"left:wall": 42, "right:wall": 42, "front:open": 42}}
+{"t": 33.526, "event": "decision_votes", "votes": {"left:wall": 43, "right:wall": 43, "front:open": 43}}
+{"t": 33.528, "event": "decision_votes", "votes": {"left:wall": 44, "right:wall": 44, "front:open": 44}}
+{"t": 33.53, "event": "decision_votes", "votes": {"left:wall": 45, "right:wall": 45, "front:open": 45}}
+{"t": 33.532, "event": "decision_votes", "votes": {"left:wall": 46, "right:wall": 46, "front:open": 46}}
+{"t": 33.534, "event": "decision_votes", "votes": {"left:wall": 47, "right:wall": 47, "front:open": 47}}
+{"t": 33.536, "event": "decision_votes", "votes": {"left:wall": 48, "right:wall": 48, "front:open": 48}}
+{"t": 33.538, "event": "decision_votes", "votes": {"left:wall": 49, "right:wall": 49, "front:open": 49}}
+{"t": 33.54, "event": "decision_votes", "votes": {"left:wall": 50, "right:wall": 50, "front:open": 50}}
+{"t": 33.542, "event": "decision_votes", "votes": {"left:wall": 51, "right:wall": 51, "front:open": 51}}
+{"t": 33.544, "event": "decision_votes", "votes": {"left:wall": 52, "right:wall": 52, "front:open": 52}}
+{"t": 33.546, "event": "decision_votes", "votes": {"left:wall": 53, "right:wall": 53, "front:open": 53}}
+{"t": 33.548, "event": "decision_votes", "votes": {"left:wall": 54, "right:wall": 54, "front:open": 54}}
+{"t": 33.55, "event": "decision_votes", "votes": {"left:wall": 55, "right:wall": 55, "front:open": 55}}
+{"t": 33.552, "event": "decision_votes", "votes": {"left:wall": 56, "right:wall": 56, "front:open": 56}}
+{"t": 33.554, "event": "decision_votes", "votes": {"left:wall": 57, "right:wall": 57, "front:open": 57}}
+{"t": 33.556, "event": "decision_votes", "votes": {"left:wall": 58, "right:wall": 58, "front:open": 58}}
+{"t": 33.558, "event": "decision_votes", "votes": {"left:wall": 59, "right:wall": 59, "front:open": 59}}
+{"t": 33.56, "event": "decision_votes", "votes": {"left:wall": 60, "right:wall": 60, "front:open": 60}}
+{"t": 33.562, "event": "decision_votes", "votes": {"left:wall": 61, "right:wall": 61, "front:open": 61}}
+{"t": 33.564, "event": "decision_votes", "votes": {"left:wall": 62, "right:wall": 62, "front:open": 62}}
+{"t": 33.566, "event": "decision_votes", "votes": {"left:wall": 63, "right:wall": 63, "front:open": 63}}
+{"t": 33.568, "event": "decision_votes", "votes": {"left:wall": 64, "right:wall": 64, "front:open": 64}}
+{"t": 33.57, "event": "decision_votes", "votes": {"left:wall": 65, "right:wall": 65, "front:open": 65}}
+{"t": 33.572, "event": "decision_votes", "votes": {"left:wall": 66, "right:wall": 66, "front:open": 66}}
+{"t": 33.574, "event": "decision_votes", "votes": {"left:wall": 67, "right:wall": 67, "front:open": 67}}
+{"t": 33.576, "event": "decision_votes", "votes": {"left:wall": 68, "right:wall": 68, "front:open": 68}}
+{"t": 33.578, "event": "decision_votes", "votes": {"left:wall": 69, "right:wall": 69, "front:open": 69}}
+{"t": 33.58, "event": "decision_votes", "votes": {"left:wall": 70, "right:wall": 70, "front:open": 70}}
+{"t": 33.582, "event": "decision_votes", "votes": {"left:wall": 71, "right:wall": 71, "front:open": 71}}
+{"t": 33.584, "event": "decision_votes", "votes": {"left:wall": 72, "right:wall": 72, "front:open": 72}}
+{"t": 33.586, "event": "decision_votes", "votes": {"left:wall": 73, "right:wall": 73, "front:open": 73}}
+{"t": 33.588, "event": "decision_votes", "votes": {"left:wall": 74, "right:wall": 74, "front:open": 74}}
+{"t": 33.59, "from": "DECIDE", "to": "CRUISE", "reason": "front_open", "cell": [4, 0], "heading": 0, "s": 0.09200630726444341}
+{"t": 40.302, "from": "CRUISE", "to": "DECIDE", "reason": "cell_center_reached", "cell": [5, 0], "heading": 0, "s": 0.09200970484118001}
+{"t": 40.302, "event": "decision_votes", "votes": {}}
+{"t": 40.304, "event": "decision_votes", "votes": {"left:wall": 1, "right:wall": 1, "front:open": 1}}
+{"t": 40.306, "event": "decision_votes", "votes": {"left:wall": 2, "right:wall": 2, "front:open": 2}}
+{"t": 40.308, "event": "decision_votes", "votes": {"left:wall": 3, "right:wall": 3, "front:open": 3}}
+{"t": 40.31, "event": "decision_votes", "votes": {"left:wall": 4, "right:wall": 4, "front:open": 4}}
+{"t": 40.312, "event": "decision_votes", "votes": {"left:wall": 5, "right:wall": 5, "front:open": 5}}
+{"t": 40.314, "event": "decision_votes", "votes": {"left:wall": 6, "right:wall": 6, "front:open": 6}}
+{"t": 40.316, "event": "decision_votes", "votes": {"left:wall": 7, "right:wall": 7, "front:open": 7}}
+{"t": 40.318, "event": "decision_votes", "votes": {"left:wall": 8, "right:wall": 8, "front:open": 8}}
+{"t": 40.32, "event": "decision_votes", "votes": {"left:wall": 9, "right:wall": 9, "front:open": 9}}
+{"t": 40.322, "event": "decision_votes", "votes": {"left:wall": 10, "right:wall": 10, "front:open": 10}}
+{"t": 40.324, "event": "decision_votes", "votes": {"left:wall": 11, "right:wall": 11, "front:open": 11}}
+{"t": 40.326, "event": "decision_votes", "votes": {"left:wall": 12, "right:wall": 12, "front:open": 12}}
+{"t": 40.328, "event": "decision_votes", "votes": {"left:wall": 13, "right:wall": 13, "front:open": 13}}
+{"t": 40.33, "event": "decision_votes", "votes": {"left:wall": 14, "right:wall": 14, "front:open": 14}}
+{"t": 40.332, "event": "decision_votes", "votes": {"left:wall": 15, "right:wall": 15, "front:open": 15}}
+{"t": 40.334, "event": "decision_votes", "votes": {"left:wall": 16, "right:wall": 16, "front:open": 16}}
+{"t": 40.336, "event": "decision_votes", "votes": {"left:wall": 17, "right:wall": 17, "front:open": 17}}
+{"t": 40.338, "event": "decision_votes", "votes": {"left:wall": 18, "right:wall": 18, "front:open": 18}}
+{"t": 40.34, "event": "decision_votes", "votes": {"left:wall": 19, "right:wall": 19, "front:open": 19}}
+{"t": 40.342, "event": "decision_votes", "votes": {"left:wall": 20, "right:wall": 20, "front:open": 20}}
+{"t": 40.344, "event": "decision_votes", "votes": {"left:wall": 21, "right:wall": 21, "front:open": 21}}
+{"t": 40.346, "event": "decision_votes", "votes": {"left:wall": 22, "right:wall": 22, "front:open": 22}}
+{"t": 40.348, "event": "decision_votes", "votes": {"left:wall": 23, "right:wall": 23, "front:open": 23}}
+{"t": 40.35, "event": "decision_votes", "votes": {"left:wall": 24, "right:wall": 24, "front:open": 24}}
+{"t": 40.352, "event": "decision_votes", "votes": {"left:wall": 25, "right:wall": 25, "front:open": 25}}
+{"t": 40.354, "event": "decision_votes", "votes": {"left:wall": 26, "right:wall": 26, "front:open": 26}}
+{"t": 40.356, "event": "decision_votes", "votes": {"left:wall": 27, "right:wall": 27, "front:open": 27}}
+{"t": 40.358, "event": "decision_votes", "votes": {"left:wall": 28, "right:wall": 28, "front:open": 28}}
+{"t": 40.36, "event": "decision_votes", "votes": {"left:wall": 29, "right:wall": 29, "front:open": 29}}
+{"t": 40.362, "event": "decision_votes", "votes": {"left:wall": 30, "right:wall": 30, "front:open": 30}}
+{"t": 40.364, "event": "decision_votes", "votes": {"left:wall": 31, "right:wall": 31, "front:open": 31}}
+{"t": 40.366, "event": "decision_votes", "votes": {"left:wall": 32, "right:wall": 32, "front:open": 32}}
+{"t": 40.368, "event": "decision_votes", "votes": {"left:wall": 33, "right:wall": 33, "front:open": 33}}
+{"t": 40.37, "event": "decision_votes", "votes": {"left:wall": 34, "right:wall": 34, "front:open": 34}}
+{"t": 40.372, "event": "decision_votes", "votes": {"left:wall": 35, "right:wall": 35, "front:open": 35}}
+{"t": 40.374, "event": "decision_votes", "votes": {"left:wall": 36, "right:wall": 36, "front:open": 36}}
+{"t": 40.376, "event": "decision_votes", "votes": {"left:wall": 37, "right:wall": 37, "front:open": 37}}
+{"t": 40.378, "event": "decision_votes", "votes": {"left:wall": 38, "right:wall": 38, "front:open": 38}}
+{"t": 40.38, "event": "decision_votes", "votes": {"left:wall": 39, "right:wall": 39, "front:open": 39}}
+{"t": 40.382, "event": "decision_votes", "votes": {"left:wall": 40, "right:wall": 40, "front:open": 40}}
+{"t": 40.384, "event": "decision_votes", "votes": {"left:wall": 41, "right:wall": 41, "front:open": 41}}
+{"t": 40.386, "event": "decision_votes", "votes": {"left:wall": 42, "right:wall": 42, "front:open": 42}}
+{"t": 40.388, "event": "decision_votes", "votes": {"left:wall": 43, "right:wall": 43, "front:open": 43}}
+{"t": 40.39, "event": "decision_votes", "votes": {"left:wall": 44, "right:wall": 44, "front:open": 44}}
+{"t": 40.392, "event": "decision_votes", "votes": {"left:wall": 45, "right:wall": 45, "front:open": 45}}
+{"t": 40.394, "event": "decision_votes", "votes": {"left:wall": 46, "right:wall": 46, "front:open": 46}}
+{"t": 40.396, "event": "decision_votes", "votes": {"left:wall": 47, "right:wall": 47, "front:open": 47}}
+{"t": 40.398, "event": "decision_votes", "votes": {"left:wall": 48, "right:wall": 48, "front:open": 48}}
+{"t": 40.4, "event": "decision_votes", "votes": {"left:wall": 49, "right:wall": 49, "front:open": 49}}
+{"t": 40.402, "event": "decision_votes", "votes": {"left:wall": 50, "right:wall": 50, "front:open": 50}}
+{"t": 40.404, "event": "decision_votes", "votes": {"left:wall": 51, "right:wall": 51, "front:open": 51}}
+{"t": 40.406, "event": "decision_votes", "votes": {"left:wall": 52, "right:wall": 52, "front:open": 52}}
+{"t": 40.408, "event": "decision_votes", "votes": {"left:wall": 53, "right:wall": 53, "front:open": 53}}
+{"t": 40.41, "event": "decision_votes", "votes": {"left:wall": 54, "right:wall": 54, "front:open": 54}}
+{"t": 40.412, "event": "decision_votes", "votes": {"left:wall": 55, "right:wall": 55, "front:open": 55}}
+{"t": 40.414, "event": "decision_votes", "votes": {"left:wall": 56, "right:wall": 56, "front:open": 56}}
+{"t": 40.416, "event": "decision_votes", "votes": {"left:wall": 57, "right:wall": 57, "front:open": 57}}
+{"t": 40.418, "event": "decision_votes", "votes": {"left:wall": 58, "right:wall": 58, "front:open": 58}}
+{"t": 40.42, "event": "decision_votes", "votes": {"left:wall": 59, "right:wall": 59, "front:open": 59}}
+{"t": 40.422, "event": "decision_votes", "votes": {"left:wall": 60, "right:wall": 60, "front:open": 60}}
+{"t": 40.424, "event": "decision_votes", "votes": {"left:wall": 61, "right:wall": 61, "front:open": 61}}
+{"t": 40.426, "event": "decision_votes", "votes": {"left:wall": 62, "right:wall": 62, "front:open": 62}}
+{"t": 40.428, "event": "decision_votes", "votes": {"left:wall": 63, "right:wall": 63, "front:open": 63}}
+{"t": 40.43, "event": "decision_votes", "votes": {"left:wall": 64, "right:wall": 64, "front:open": 64}}
+{"t": 40.432, "event": "decision_votes", "votes": {"left:wall": 65, "right:wall": 65, "front:open": 65}}
+{"t": 40.434, "event": "decision_votes", "votes": {"left:wall": 66, "right:wall": 66, "front:open": 66}}
+{"t": 40.436, "event": "decision_votes", "votes": {"left:wall": 67, "right:wall": 67, "front:open": 67}}
+{"t": 40.438, "event": "decision_votes", "votes": {"left:wall": 68, "right:wall": 68, "front:open": 68}}
+{"t": 40.44, "event": "decision_votes", "votes": {"left:wall": 69, "right:wall": 69, "front:open": 69}}
+{"t": 40.442, "event": "decision_votes", "votes": {"left:wall": 70, "right:wall": 70, "front:open": 70}}
+{"t": 40.444, "event": "decision_votes", "votes": {"left:wall": 71, "right:wall": 71, "front:open": 71}}
+{"t": 40.446, "event": "decision_votes", "votes": {"left:wall": 72, "right:wall": 72, "front:open": 72}}
+{"t": 40.448, "event": "decision_votes", "votes": {"left:wall": 73, "right:wall": 73, "front:open": 73}}
+{"t": 40.45, "event": "decision_votes", "votes": {"left:wall": 74, "right:wall": 74, "front:open": 74}}
+{"t": 40.452, "from": "DECIDE", "to": "CRUISE", "reason": "front_open", "cell": [5, 0], "heading": 0, "s": 0.09200970484118001}
+{"t": 47.164, "from": "CRUISE", "to": "DECIDE", "reason": "cell_center_reached", "cell": [6, 0], "heading": 0, "s": 0.09200803640556363}
+{"t": 47.164, "event": "decision_votes", "votes": {}}
+{"t": 47.166, "event": "decision_votes", "votes": {"left:wall": 1, "right:wall": 1, "front:open": 1}}
+{"t": 47.168, "event": "decision_votes", "votes": {"left:wall": 2, "right:wall": 2, "front:open": 2}}
+{"t": 47.17, "event": "decision_votes", "votes": {"left:wall": 3, "right:wall": 3, "front:open": 3}}
+{"t": 47.172, "event": "decision_votes", "votes": {"left:wall": 4, "right:wall": 4, "front:open": 4}}
+{"t": 47.174, "event": "decision_votes", "votes": {"left:wall": 5, "right:wall": 5, "front:open": 5}}
+{"t": 47.176, "event": "decision_votes", "votes": {"left:wall": 6, "right:wall": 6, "front:open": 6}}
+{"t": 47.178, "event": "decision_votes", "votes": {"left:wall": 7, "right:wall": 7, "front:open": 7}}
+{"t": 47.18, "event": "decision_votes", "votes": {"left:wall": 8, "right:wall": 8, "front:open": 8}}
+{"t": 47.182, "event": "decision_votes", "votes": {"left:wall": 9, "right:wall": 9, "front:open": 9}}
+{"t": 47.184, "event": "decision_votes", "votes": {"left:wall": 10, "right:wall": 10, "front:open": 10}}
+{"t": 47.186, "event": "decision_votes", "votes": {"left:wall": 11, "right:wall": 11, "front:open": 11}}
+{"t": 47.188, "event": "decision_votes", "votes": {"left:wall": 12, "right:wall": 12, "front:open": 12}}
+{"t": 47.19, "event": "decision_votes", "votes": {"left:wall": 13, "right:wall": 13, "front:open": 13}}
+{"t": 47.192, "event": "decision_votes", "votes": {"left:wall": 14, "right:wall": 14, "front:open": 14}}
+{"t": 47.194, "event": "decision_votes", "votes": {"left:wall": 15, "right:wall": 15, "front:open": 15}}
+{"t": 47.196, "event": "decision_votes", "votes": {"left:wall": 16, "right:wall": 16, "front:open": 16}}
+{"t": 47.198, "event": "decision_votes", "votes": {"left:wall": 17, "right:wall": 17, "front:open": 17}}
+{"t": 47.2, "event": "decision_votes", "votes": {"left:wall": 18, "right:wall": 18, "front:open": 18}}
+{"t": 47.202, "event": "decision_votes", "votes": {"left:wall": 19, "right:wall": 19, "front:open": 19}}
+{"t": 47.204, "event": "decision_votes", "votes": {"left:wall": 20, "right:wall": 20, "front:open": 20}}
+{"t": 47.206, "event": "decision_votes", "votes": {"left:wall": 21, "right:wall": 21, "front:open": 21}}
+{"t": 47.208, "event": "decision_votes", "votes": {"left:wall": 22, "right:wall": 22, "front:open": 22}}
+{"t": 47.21, "event": "decision_votes", "votes": {"left:wall": 23, "right:wall": 23, "front:open": 23}}
+{"t": 47.212, "event": "decision_votes", "votes": {"left:wall": 24, "right:wall": 24, "front:open": 24}}
+{"t": 47.214, "event": "decision_votes", "votes": {"left:wall": 25, "right:wall": 25, "front:open": 25}}
+{"t": 47.216, "event": "decision_votes", "votes": {"left:wall": 26, "right:wall": 26, "front:open": 26}}
+{"t": 47.218, "event": "decision_votes", "votes": {"left:wall": 27, "right:wall": 27, "front:open": 27}}
+{"t": 47.22, "event": "decision_votes", "votes": {"left:wall": 28, "right:wall": 28, "front:open": 28}}
+{"t": 47.222, "event": "decision_votes", "votes": {"left:wall": 29, "right:wall": 29, "front:open": 29}}
+{"t": 47.224, "event": "decision_votes", "votes": {"left:wall": 30, "right:wall": 30, "front:open": 30}}
+{"t": 47.226, "event": "decision_votes", "votes": {"left:wall": 31, "right:wall": 31, "front:open": 31}}
+{"t": 47.228, "event": "decision_votes", "votes": {"left:wall": 32, "right:wall": 32, "front:open": 32}}
+{"t": 47.23, "event": "decision_votes", "votes": {"left:wall": 33, "right:wall": 33, "front:open": 33}}
+{"t": 47.232, "event": "decision_votes", "votes": {"left:wall": 34, "right:wall": 34, "front:open": 34}}
+{"t": 47.234, "event": "decision_votes", "votes": {"left:wall": 35, "right:wall": 35, "front:open": 35}}
+{"t": 47.236, "event": "decision_votes", "votes": {"left:wall": 36, "right:wall": 36, "front:open": 36}}
+{"t": 47.238, "event": "decision_votes", "votes": {"left:wall": 37, "right:wall": 37, "front:open": 37}}
+{"t": 47.24, "event": "decision_votes", "votes": {"left:wall": 38, "right:wall": 38, "front:open": 38}}
+{"t": 47.242, "event": "decision_votes", "votes": {"left:wall": 39, "right:wall": 39, "front:open": 39}}
+{"t": 47.244, "event": "decision_votes", "votes": {"left:wall": 40, "right:wall": 40, "front:open": 40}}
+{"t": 47.246, "event": "decision_votes", "votes": {"left:wall": 41, "right:wall": 41, "front:open": 41}}
+{"t": 47.248, "event": "decision_votes", "votes": {"left:wall": 42, "right:wall": 42, "front:open": 42}}
+{"t": 47.25, "event": "decision_votes", "votes": {"left:wall": 43, "right:wall": 43, "front:open": 43}}
+{"t": 47.252, "event": "decision_votes", "votes": {"left:wall": 44, "right:wall": 44, "front:open": 44}}
+{"t": 47.254, "event": "decision_votes", "votes": {"left:wall": 45, "right:wall": 45, "front:open": 45}}
+{"t": 47.256, "event": "decision_votes", "votes": {"left:wall": 46, "right:wall": 46, "front:open": 46}}
+{"t": 47.258, "event": "decision_votes", "votes": {"left:wall": 47, "right:wall": 47, "front:open": 47}}
+{"t": 47.26, "event": "decision_votes", "votes": {"left:wall": 48, "right:wall": 48, "front:open": 48}}
+{"t": 47.262, "event": "decision_votes", "votes": {"left:wall": 49, "right:wall": 49, "front:open": 49}}
+{"t": 47.264, "event": "decision_votes", "votes": {"left:wall": 50, "right:wall": 50, "front:open": 50}}
+{"t": 47.266, "event": "decision_votes", "votes": {"left:wall": 51, "right:wall": 51, "front:open": 51}}
+{"t": 47.268, "event": "decision_votes", "votes": {"left:wall": 52, "right:wall": 52, "front:open": 52}}
+{"t": 47.27, "event": "decision_votes", "votes": {"left:wall": 53, "right:wall": 53, "front:open": 53}}
+{"t": 47.272, "event": "decision_votes", "votes": {"left:wall": 54, "right:wall": 54, "front:open": 54}}
+{"t": 47.274, "event": "decision_votes", "votes": {"left:wall": 55, "right:wall": 55, "front:open": 55}}
+{"t": 47.276, "event": "decision_votes", "votes": {"left:wall": 56, "right:wall": 56, "front:open": 56}}
+{"t": 47.278, "event": "decision_votes", "votes": {"left:wall": 57, "right:wall": 57, "front:open": 57}}
+{"t": 47.28, "event": "decision_votes", "votes": {"left:wall": 58, "right:wall": 58, "front:open": 58}}
+{"t": 47.282, "event": "decision_votes", "votes": {"left:wall": 59, "right:wall": 59, "front:open": 59}}
+{"t": 47.284, "event": "decision_votes", "votes": {"left:wall": 60, "right:wall": 60, "front:open": 60}}
+{"t": 47.286, "event": "decision_votes", "votes": {"left:wall": 61, "right:wall": 61, "front:open": 61}}
+{"t": 47.288, "event": "decision_votes", "votes": {"left:wall": 62, "right:wall": 62, "front:open": 62}}
+{"t": 47.29, "event": "decision_votes", "votes": {"left:wall": 63, "right:wall": 63, "front:open": 63}}
+{"t": 47.292, "event": "decision_votes", "votes": {"left:wall": 64, "right:wall": 64, "front:open": 64}}
+{"t": 47.294, "event": "decision_votes", "votes": {"left:wall": 65, "right:wall": 65, "front:open": 65}}
+{"t": 47.296, "event": "decision_votes", "votes": {"left:wall": 66, "right:wall": 66, "front:open": 66}}
+{"t": 47.298, "event": "decision_votes", "votes": {"left:wall": 67, "right:wall": 67, "front:open": 67}}
+{"t": 47.3, "event": "decision_votes", "votes": {"left:wall": 68, "right:wall": 68, "front:open": 68}}
+{"t": 47.302, "event": "decision_votes", "votes": {"left:wall": 69, "right:wall": 69, "front:open": 69}}
+{"t": 47.304, "event": "decision_votes", "votes": {"left:wall": 70, "right:wall": 70, "front:open": 70}}
+{"t": 47.306, "event": "decision_votes", "votes": {"left:wall": 71, "right:wall": 71, "front:open": 71}}
+{"t": 47.308, "event": "decision_votes", "votes": {"left:wall": 72, "right:wall": 72, "front:open": 72}}
+{"t": 47.31, "event": "decision_votes", "votes": {"left:wall": 73, "right:wall": 73, "front:open": 73}}
+{"t": 47.312, "event": "decision_votes", "votes": {"left:wall": 74, "right:wall": 74, "front:open": 74}}
+{"t": 47.314, "from": "DECIDE", "to": "CRUISE", "reason": "front_open", "cell": [6, 0], "heading": 0, "s": 0.09200803640556363}
+{"t": 54.028, "from": "CRUISE", "to": "DECIDE", "reason": "cell_center_reached", "cell": [7, 0], "heading": 0, "s": 0.09201620827274117}
+{"t": 54.028, "event": "decision_votes", "votes": {}}
+{"t": 54.03, "event": "decision_votes", "votes": {"left:wall": 1, "right:wall": 1, "front:open": 1}}
+{"t": 54.032, "event": "decision_votes", "votes": {"left:wall": 2, "right:wall": 2, "front:open": 2}}
+{"t": 54.034, "event": "decision_votes", "votes": {"left:wall": 3, "right:wall": 3, "front:open": 3}}
+{"t": 54.036, "event": "decision_votes", "votes": {"left:wall": 4, "right:wall": 4, "front:open": 4}}
+{"t": 54.038, "event": "decision_votes", "votes": {"left:wall": 5, "right:wall": 5, "front:open": 5}}
+{"t": 54.04, "event": "decision_votes", "votes": {"left:wall": 6, "right:wall": 6, "front:open": 6}}
+{"t": 54.042, "event": "decision_votes", "votes": {"left:wall": 7, "right:wall": 7, "front:open": 7}}
+{"t": 54.044, "event": "decision_votes", "votes": {"left:wall": 8, "right:wall": 8, "front:open": 8}}
+{"t": 54.046, "event": "decision_votes", "votes": {"left:wall": 9, "right:wall": 9, "front:open": 9}}
+{"t": 54.048, "event": "decision_votes", "votes": {"left:wall": 10, "right:wall": 10, "front:open": 10}}
+{"t": 54.05, "event": "decision_votes", "votes": {"left:wall": 11, "right:wall": 11, "front:open": 11}}
+{"t": 54.052, "event": "decision_votes", "votes": {"left:wall": 12, "right:wall": 12, "front:open": 12}}
+{"t": 54.054, "event": "decision_votes", "votes": {"left:wall": 13, "right:wall": 13, "front:open": 13}}
+{"t": 54.056, "event": "decision_votes", "votes": {"left:wall": 14, "right:wall": 14, "front:open": 14}}
+{"t": 54.058, "event": "decision_votes", "votes": {"left:wall": 15, "right:wall": 15, "front:open": 15}}
+{"t": 54.06, "event": "decision_votes", "votes": {"left:wall": 16, "right:wall": 16, "front:open": 16}}
+{"t": 54.062, "event": "decision_votes", "votes": {"left:wall": 17, "right:wall": 17, "front:open": 17}}
+{"t": 54.064, "event": "decision_votes", "votes": {"left:wall": 18, "right:wall": 18, "front:open": 18}}
+{"t": 54.066, "event": "decision_votes", "votes": {"left:wall": 19, "right:wall": 19, "front:open": 19}}
+{"t": 54.068, "event": "decision_votes", "votes": {"left:wall": 20, "right:wall": 20, "front:open": 20}}
+{"t": 54.07, "event": "decision_votes", "votes": {"left:wall": 21, "right:wall": 21, "front:open": 21}}
+{"t": 54.072, "event": "decision_votes", "votes": {"left:wall": 22, "right:wall": 22, "front:open": 22}}
+{"t": 54.074, "event": "decision_votes", "votes": {"left:wall": 23, "right:wall": 23, "front:open": 23}}
+{"t": 54.076, "event": "decision_votes", "votes": {"left:wall": 24, "right:wall": 24, "front:open": 24}}
+{"t": 54.078, "event": "decision_votes", "votes": {"left:wall": 25, "right:wall": 25, "front:open": 25}}
+{"t": 54.08, "event": "decision_votes", "votes": {"left:wall": 26, "right:wall": 26, "front:open": 26}}
+{"t": 54.082, "event": "decision_votes", "votes": {"left:wall": 27, "right:wall": 27, "front:open": 27}}
+{"t": 54.084, "event": "decision_votes", "votes": {"left:wall": 28, "right:wall": 28, "front:open": 28}}
+{"t": 54.086, "event": "decision_votes", "votes": {"left:wall": 29, "right:wall": 29, "front:open": 29}}
+{"t": 54.088, "event": "decision_votes", "votes": {"left:wall": 30, "right:wall": 30, "front:open": 30}}
+{"t": 54.09, "event": "decision_votes", "votes": {"left:wall": 31, "right:wall": 31, "front:open": 31}}
+{"t": 54.092, "event": "decision_votes", "votes": {"left:wall": 32, "right:wall": 32, "front:open": 32}}
+{"t": 54.094, "event": "decision_votes", "votes": {"left:wall": 33, "right:wall": 33, "front:open": 33}}
+{"t": 54.096, "event": "decision_votes", "votes": {"left:wall": 34, "right:wall": 34, "front:open": 34}}
+{"t": 54.098, "event": "decision_votes", "votes": {"left:wall": 35, "right:wall": 35, "front:open": 35}}
+{"t": 54.1, "event": "decision_votes", "votes": {"left:wall": 36, "right:wall": 36, "front:open": 36}}
+{"t": 54.102, "event": "decision_votes", "votes": {"left:wall": 37, "right:wall": 37, "front:open": 37}}
+{"t": 54.104, "event": "decision_votes", "votes": {"left:wall": 38, "right:wall": 38, "front:open": 38}}
+{"t": 54.106, "event": "decision_votes", "votes": {"left:wall": 39, "right:wall": 39, "front:open": 39}}
+{"t": 54.108, "event": "decision_votes", "votes": {"left:wall": 40, "right:wall": 40, "front:open": 40}}
+{"t": 54.11, "event": "decision_votes", "votes": {"left:wall": 41, "right:wall": 41, "front:open": 41}}
+{"t": 54.112, "event": "decision_votes", "votes": {"left:wall": 42, "right:wall": 42, "front:open": 42}}
+{"t": 54.114, "event": "decision_votes", "votes": {"left:wall": 43, "right:wall": 43, "front:open": 43}}
+{"t": 54.116, "event": "decision_votes", "votes": {"left:wall": 44, "right:wall": 44, "front:open": 44}}
+{"t": 54.118, "event": "decision_votes", "votes": {"left:wall": 45, "right:wall": 45, "front:open": 45}}
+{"t": 54.12, "event": "decision_votes", "votes": {"left:wall": 46, "right:wall": 46, "front:open": 46}}
+{"t": 54.122, "event": "decision_votes", "votes": {"left:wall": 47, "right:wall": 47, "front:open": 47}}
+{"t": 54.124, "event": "decision_votes", "votes": {"left:wall": 48, "right:wall": 48, "front:open": 48}}
+{"t": 54.126, "event": "decision_votes", "votes": {"left:wall": 49, "right:wall": 49, "front:open": 49}}
+{"t": 54.128, "event": "decision_votes", "votes": {"left:wall": 50, "right:wall": 50, "front:open": 50}}
+{"t": 54.13, "event": "decision_votes", "votes": {"left:wall": 51, "right:wall": 51, "front:open": 51}}
+{"t": 54.132, "event": "decision_votes", "votes": {"left:wall": 52, "right:wall": 52, "front:open": 52}}
+{"t": 54.134, "event": "decision_votes", "votes": {"left:wall": 53, "right:wall": 53, "front:open": 53}}
+{"t": 54.136, "event": "decision_votes", "votes": {"left:wall": 54, "right:wall": 54, "front:open": 54}}
+{"t": 54.138, "event": "decision_votes", "votes": {"left:wall": 55, "right:wall": 55, "front:open": 55}}
+{"t": 54.14, "event": "decision_votes", "votes": {"left:wall": 56, "right:wall": 56, "front:open": 56}}
+{"t": 54.142, "event": "decision_votes", "votes": {"left:wall": 57, "right:wall": 57, "front:open": 57}}
+{"t": 54.144, "event": "decision_votes", "votes": {"left:wall": 58, "right:wall": 58, "front:open": 58}}
+{"t": 54.146, "event": "decision_votes", "votes": {"left:wall": 59, "right:wall": 59, "front:open": 59}}
+{"t": 54.148, "event": "decision_votes", "votes": {"left:wall": 60, "right:wall": 60, "front:open": 60}}
+{"t": 54.15, "event": "decision_votes", "votes": {"left:wall": 61, "right:wall": 61, "front:open": 61}}
+{"t": 54.152, "event": "decision_votes", "votes": {"left:wall": 62, "right:wall": 62, "front:open": 62}}
+{"t": 54.154, "event": "decision_votes", "votes": {"left:wall": 63, "right:wall": 63, "front:open": 63}}
+{"t": 54.156, "event": "decision_votes", "votes": {"left:wall": 64, "right:wall": 64, "front:open": 64}}
+{"t": 54.158, "event": "decision_votes", "votes": {"left:wall": 65, "right:wall": 65, "front:open": 65}}
+{"t": 54.16, "event": "decision_votes", "votes": {"left:wall": 66, "right:wall": 66, "front:open": 66}}
+{"t": 54.162, "event": "decision_votes", "votes": {"left:wall": 67, "right:wall": 67, "front:open": 67}}
+{"t": 54.164, "event": "decision_votes", "votes": {"left:wall": 68, "right:wall": 68, "front:open": 68}}
+{"t": 54.166, "event": "decision_votes", "votes": {"left:wall": 69, "right:wall": 69, "front:open": 69}}
+{"t": 54.168, "event": "decision_votes", "votes": {"left:wall": 70, "right:wall": 70, "front:open": 70}}
+{"t": 54.17, "event": "decision_votes", "votes": {"left:wall": 71, "right:wall": 71, "front:open": 71}}
+{"t": 54.172, "event": "decision_votes", "votes": {"left:wall": 72, "right:wall": 72, "front:open": 72}}
+{"t": 54.174, "event": "decision_votes", "votes": {"left:wall": 73, "right:wall": 73, "front:open": 73}}
+{"t": 54.176, "event": "decision_votes", "votes": {"left:wall": 74, "right:wall": 74, "front:open": 74}}
+{"t": 54.178, "from": "DECIDE", "to": "CRUISE", "reason": "front_open", "cell": [7, 0], "heading": 0, "s": 0.09201620827274117}
+{"t": 60.89, "from": "CRUISE", "to": "DECIDE", "reason": "cell_center_reached", "cell": [8, 0], "heading": 0, "s": 0.09201158597948937}
+{"t": 60.89, "event": "decision_votes", "votes": {}}
+{"t": 60.892, "event": "decision_votes", "votes": {"left:wall": 1, "right:wall": 1, "front:open": 1}}
+{"t": 60.894, "event": "decision_votes", "votes": {"left:wall": 2, "right:wall": 2, "front:open": 2}}
+{"t": 60.896, "event": "decision_votes", "votes": {"left:wall": 3, "right:wall": 3, "front:open": 3}}
+{"t": 60.898, "event": "decision_votes", "votes": {"left:wall": 4, "right:wall": 4, "front:open": 4}}
+{"t": 60.9, "event": "decision_votes", "votes": {"left:wall": 5, "right:wall": 5, "front:open": 5}}
+{"t": 60.902, "event": "decision_votes", "votes": {"left:wall": 6, "right:wall": 6, "front:open": 6}}
+{"t": 60.904, "event": "decision_votes", "votes": {"left:wall": 7, "right:wall": 7, "front:open": 7}}
+{"t": 60.906, "event": "decision_votes", "votes": {"left:wall": 8, "right:wall": 8, "front:open": 8}}
+{"t": 60.908, "event": "decision_votes", "votes": {"left:wall": 9, "right:wall": 9, "front:open": 9}}
+{"t": 60.91, "event": "decision_votes", "votes": {"left:wall": 10, "right:wall": 10, "front:open": 10}}
+{"t": 60.912, "event": "decision_votes", "votes": {"left:wall": 11, "right:wall": 11, "front:open": 11}}
+{"t": 60.914, "event": "decision_votes", "votes": {"left:wall": 12, "right:wall": 12, "front:open": 12}}
+{"t": 60.916, "event": "decision_votes", "votes": {"left:wall": 13, "right:wall": 13, "front:open": 13}}
+{"t": 60.918, "event": "decision_votes", "votes": {"left:wall": 14, "right:wall": 14, "front:open": 14}}
+{"t": 60.92, "event": "decision_votes", "votes": {"left:wall": 15, "right:wall": 15, "front:open": 15}}
+{"t": 60.922, "event": "decision_votes", "votes": {"left:wall": 16, "right:wall": 16, "front:open": 16}}
+{"t": 60.924, "event": "decision_votes", "votes": {"left:wall": 17, "right:wall": 17, "front:open": 17}}
+{"t": 60.926, "event": "decision_votes", "votes": {"left:wall": 18, "right:wall": 18, "front:open": 18}}
+{"t": 60.928, "event": "decision_votes", "votes": {"left:wall": 19, "right:wall": 19, "front:open": 19}}
+{"t": 60.93, "event": "decision_votes", "votes": {"left:wall": 20, "right:wall": 20, "front:open": 20}}
+{"t": 60.932, "event": "decision_votes", "votes": {"left:wall": 21, "right:wall": 21, "front:open": 21}}
+{"t": 60.934, "event": "decision_votes", "votes": {"left:wall": 22, "right:wall": 22, "front:open": 22}}
+{"t": 60.936, "event": "decision_votes", "votes": {"left:wall": 23, "right:wall": 23, "front:open": 23}}
+{"t": 60.938, "event": "decision_votes", "votes": {"left:wall": 24, "right:wall": 24, "front:open": 24}}
+{"t": 60.94, "event": "decision_votes", "votes": {"left:wall": 25, "right:wall": 25, "front:open": 25}}
+{"t": 60.942, "event": "decision_votes", "votes": {"left:wall": 26, "right:wall": 26, "front:open": 26}}
+{"t": 60.944, "event": "decision_votes", "votes": {"left:wall": 27, "right:wall": 27, "front:open": 27}}
+{"t": 60.946, "event": "decision_votes", "votes": {"left:wall": 28, "right:wall": 28, "front:open": 28}}
+{"t": 60.948, "event": "decision_votes", "votes": {"left:wall": 29, "right:wall": 29, "front:open": 29}}
+{"t": 60.95, "event": "decision_votes", "votes": {"left:wall": 30, "right:wall": 30, "front:open": 30}}
+{"t": 60.952, "event": "decision_votes", "votes": {"left:wall": 31, "right:wall": 31, "front:open": 31}}
+{"t": 60.954, "event": "decision_votes", "votes": {"left:wall": 32, "right:wall": 32, "front:open": 32}}
+{"t": 60.956, "event": "decision_votes", "votes": {"left:wall": 33, "right:wall": 33, "front:open": 33}}
+{"t": 60.958, "event": "decision_votes", "votes": {"left:wall": 34, "right:wall": 34, "front:open": 34}}
+{"t": 60.96, "event": "decision_votes", "votes": {"left:wall": 35, "right:wall": 35, "front:open": 35}}
+{"t": 60.962, "event": "decision_votes", "votes": {"left:wall": 36, "right:wall": 36, "front:open": 36}}
+{"t": 60.964, "event": "decision_votes", "votes": {"left:wall": 37, "right:wall": 37, "front:open": 37}}
+{"t": 60.966, "event": "decision_votes", "votes": {"left:wall": 38, "right:wall": 38, "front:open": 38}}
+{"t": 60.968, "event": "decision_votes", "votes": {"left:wall": 39, "right:wall": 39, "front:open": 39}}
+{"t": 60.97, "event": "decision_votes", "votes": {"left:wall": 40, "right:wall": 40, "front:open": 40}}
+{"t": 60.972, "event": "decision_votes", "votes": {"left:wall": 41, "right:wall": 41, "front:open": 41}}
+{"t": 60.974, "event": "decision_votes", "votes": {"left:wall": 42, "right:wall": 42, "front:open": 42}}
+{"t": 60.976, "event": "decision_votes", "votes": {"left:wall": 43, "right:wall": 43, "front:open": 43}}
+{"t": 60.978, "event": "decision_votes", "votes": {"left:wall": 44, "right:wall": 44, "front:open": 44}}
+{"t": 60.98, "event": "decision_votes", "votes": {"left:wall": 45, "right:wall": 45, "front:open": 45}}
+{"t": 60.982, "event": "decision_votes", "votes": {"left:wall": 46, "right:wall": 46, "front:open": 46}}
+{"t": 60.984, "event": "decision_votes", "votes": {"left:wall": 47, "right:wall": 47, "front:open": 47}}
+{"t": 60.986, "event": "decision_votes", "votes": {"left:wall": 48, "right:wall": 48, "front:open": 48}}
+{"t": 60.988, "event": "decision_votes", "votes": {"left:wall": 49, "right:wall": 49, "front:open": 49}}
+{"t": 60.99, "event": "decision_votes", "votes": {"left:wall": 50, "right:wall": 50, "front:open": 50}}
+{"t": 60.992, "event": "decision_votes", "votes": {"left:wall": 51, "right:wall": 51, "front:open": 51}}
+{"t": 60.994, "event": "decision_votes", "votes": {"left:wall": 52, "right:wall": 52, "front:open": 52}}
+{"t": 60.996, "event": "decision_votes", "votes": {"left:wall": 53, "right:wall": 53, "front:open": 53}}
+{"t": 60.998, "event": "decision_votes", "votes": {"left:wall": 54, "right:wall": 54, "front:open": 54}}
+{"t": 61.0, "event": "decision_votes", "votes": {"left:wall": 55, "right:wall": 55, "front:open": 55}}
+{"t": 61.002, "event": "decision_votes", "votes": {"left:wall": 56, "right:wall": 56, "front:open": 56}}
+{"t": 61.004, "event": "decision_votes", "votes": {"left:wall": 57, "right:wall": 57, "front:open": 57}}
+{"t": 61.006, "event": "decision_votes", "votes": {"left:wall": 58, "right:wall": 58, "front:open": 58}}
+{"t": 61.008, "event": "decision_votes", "votes": {"left:wall": 59, "right:wall": 59, "front:open": 59}}
+{"t": 61.01, "event": "decision_votes", "votes": {"left:wall": 60, "right:wall": 60, "front:open": 60}}
+{"t": 61.012, "event": "decision_votes", "votes": {"left:wall": 61, "right:wall": 61, "front:open": 61}}
+{"t": 61.014, "event": "decision_votes", "votes": {"left:wall": 62, "right:wall": 62, "front:open": 62}}
+{"t": 61.016, "event": "decision_votes", "votes": {"left:wall": 63, "right:wall": 63, "front:open": 63}}
+{"t": 61.018, "event": "decision_votes", "votes": {"left:wall": 64, "right:wall": 64, "front:open": 64}}
+{"t": 61.02, "event": "decision_votes", "votes": {"left:wall": 65, "right:wall": 65, "front:open": 65}}
+{"t": 61.022, "event": "decision_votes", "votes": {"left:wall": 66, "right:wall": 66, "front:open": 66}}
+{"t": 61.024, "event": "decision_votes", "votes": {"left:wall": 67, "right:wall": 67, "front:open": 67}}
+{"t": 61.026, "event": "decision_votes", "votes": {"left:wall": 68, "right:wall": 68, "front:open": 68}}
+{"t": 61.028, "event": "decision_votes", "votes": {"left:wall": 69, "right:wall": 69, "front:open": 69}}
+{"t": 61.03, "event": "decision_votes", "votes": {"left:wall": 70, "right:wall": 70, "front:open": 70}}
+{"t": 61.032, "event": "decision_votes", "votes": {"left:wall": 71, "right:wall": 71, "front:open": 71}}
+{"t": 61.034, "event": "decision_votes", "votes": {"left:wall": 72, "right:wall": 72, "front:open": 72}}
+{"t": 61.036, "event": "decision_votes", "votes": {"left:wall": 73, "right:wall": 73, "front:open": 73}}
+{"t": 61.038, "event": "decision_votes", "votes": {"left:wall": 74, "right:wall": 74, "front:open": 74}}
+{"t": 61.04, "from": "DECIDE", "to": "CRUISE", "reason": "front_open", "cell": [8, 0], "heading": 0, "s": 0.09201158597948937}
+{"t": 67.754, "from": "CRUISE", "to": "DECIDE", "reason": "cell_center_reached", "cell": [9, 0], "heading": 0, "s": 0.09202370696334791}
+{"t": 67.754, "event": "decision_votes", "votes": {}}
+{"t": 67.756, "event": "decision_votes", "votes": {"left:wall": 1, "right:wall": 1, "front:open": 1}}
+{"t": 67.758, "event": "decision_votes", "votes": {"left:wall": 2, "right:wall": 2, "front:open": 2}}
+{"t": 67.76, "event": "decision_votes", "votes": {"left:wall": 3, "right:wall": 3, "front:open": 3}}
+{"t": 67.762, "event": "decision_votes", "votes": {"left:wall": 4, "right:wall": 4, "front:open": 4}}
+{"t": 67.764, "event": "decision_votes", "votes": {"left:wall": 5, "right:wall": 5, "front:open": 5}}
+{"t": 67.766, "event": "decision_votes", "votes": {"left:wall": 6, "right:wall": 6, "front:open": 6}}
+{"t": 67.768, "event": "decision_votes", "votes": {"left:wall": 7, "right:wall": 7, "front:open": 7}}
+{"t": 67.77, "event": "decision_votes", "votes": {"left:wall": 8, "right:wall": 8, "front:open": 8}}
+{"t": 67.772, "event": "decision_votes", "votes": {"left:wall": 9, "right:wall": 9, "front:open": 9}}
+{"t": 67.774, "event": "decision_votes", "votes": {"left:wall": 10, "right:wall": 10, "front:open": 10}}
+{"t": 67.776, "event": "decision_votes", "votes": {"left:wall": 11, "right:wall": 11, "front:open": 11}}
+{"t": 67.778, "event": "decision_votes", "votes": {"left:wall": 12, "right:wall": 12, "front:open": 12}}
+{"t": 67.78, "event": "decision_votes", "votes": {"left:wall": 13, "right:wall": 13, "front:open": 13}}
+{"t": 67.782, "event": "decision_votes", "votes": {"left:wall": 14, "right:wall": 14, "front:open": 14}}
+{"t": 67.784, "event": "decision_votes", "votes": {"left:wall": 15, "right:wall": 15, "front:open": 15}}
+{"t": 67.786, "event": "decision_votes", "votes": {"left:wall": 16, "right:wall": 16, "front:open": 16}}
+{"t": 67.788, "event": "decision_votes", "votes": {"left:wall": 17, "right:wall": 17, "front:open": 17}}
+{"t": 67.79, "event": "decision_votes", "votes": {"left:wall": 18, "right:wall": 18, "front:open": 18}}
+{"t": 67.792, "event": "decision_votes", "votes": {"left:wall": 19, "right:wall": 19, "front:open": 19}}
+{"t": 67.794, "event": "decision_votes", "votes": {"left:wall": 20, "right:wall": 20, "front:open": 20}}
+{"t": 67.796, "event": "decision_votes", "votes": {"left:wall": 21, "right:wall": 21, "front:open": 21}}
+{"t": 67.798, "event": "decision_votes", "votes": {"left:wall": 22, "right:wall": 22, "front:open": 22}}
+{"t": 67.8, "event": "decision_votes", "votes": {"left:wall": 23, "right:wall": 23, "front:open": 23}}
+{"t": 67.802, "event": "decision_votes", "votes": {"left:wall": 24, "right:wall": 24, "front:open": 24}}
+{"t": 67.804, "event": "decision_votes", "votes": {"left:wall": 25, "right:wall": 25, "front:open": 25}}
+{"t": 67.806, "event": "decision_votes", "votes": {"left:wall": 26, "right:wall": 26, "front:open": 26}}
+{"t": 67.808, "event": "decision_votes", "votes": {"left:wall": 27, "right:wall": 27, "front:open": 27}}
+{"t": 67.81, "event": "decision_votes", "votes": {"left:wall": 28, "right:wall": 28, "front:open": 28}}
+{"t": 67.812, "event": "decision_votes", "votes": {"left:wall": 29, "right:wall": 29, "front:open": 29}}
+{"t": 67.814, "event": "decision_votes", "votes": {"left:wall": 30, "right:wall": 30, "front:open": 30}}
+{"t": 67.816, "event": "decision_votes", "votes": {"left:wall": 31, "right:wall": 31, "front:open": 31}}
+{"t": 67.818, "event": "decision_votes", "votes": {"left:wall": 32, "right:wall": 32, "front:open": 32}}
+{"t": 67.82, "event": "decision_votes", "votes": {"left:wall": 33, "right:wall": 33, "front:open": 33}}
+{"t": 67.822, "event": "decision_votes", "votes": {"left:wall": 34, "right:wall": 34, "front:open": 34}}
+{"t": 67.824, "event": "decision_votes", "votes": {"left:wall": 35, "right:wall": 35, "front:open": 35}}
+{"t": 67.826, "event": "decision_votes", "votes": {"left:wall": 36, "right:wall": 36, "front:open": 36}}
+{"t": 67.828, "event": "decision_votes", "votes": {"left:wall": 37, "right:wall": 37, "front:open": 37}}
+{"t": 67.83, "event": "decision_votes", "votes": {"left:wall": 38, "right:wall": 38, "front:open": 38}}
+{"t": 67.832, "event": "decision_votes", "votes": {"left:wall": 39, "right:wall": 39, "front:open": 39}}
+{"t": 67.834, "event": "decision_votes", "votes": {"left:wall": 40, "right:wall": 40, "front:open": 40}}
+{"t": 67.836, "event": "decision_votes", "votes": {"left:wall": 41, "right:wall": 41, "front:open": 41}}
+{"t": 67.838, "event": "decision_votes", "votes": {"left:wall": 42, "right:wall": 42, "front:open": 42}}
+{"t": 67.84, "event": "decision_votes", "votes": {"left:wall": 43, "right:wall": 43, "front:open": 43}}
+{"t": 67.842, "event": "decision_votes", "votes": {"left:wall": 44, "right:wall": 44, "front:open": 44}}
+{"t": 67.844, "event": "decision_votes", "votes": {"left:wall": 45, "right:wall": 45, "front:open": 45}}
+{"t": 67.846, "event": "decision_votes", "votes": {"left:wall": 46, "right:wall": 46, "front:open": 46}}
+{"t": 67.848, "event": "decision_votes", "votes": {"left:wall": 47, "right:wall": 47, "front:open": 47}}
+{"t": 67.85, "event": "decision_votes", "votes": {"left:wall": 48, "right:wall": 48, "front:open": 48}}
+{"t": 67.852, "event": "decision_votes", "votes": {"left:wall": 49, "right:wall": 49, "front:open": 49}}
+{"t": 67.854, "event": "decision_votes", "votes": {"left:wall": 50, "right:wall": 50, "front:open": 50}}
+{"t": 67.856, "event": "decision_votes", "votes": {"left:wall": 51, "right:wall": 51, "front:open": 51}}
+{"t": 67.858, "event": "decision_votes", "votes": {"left:wall": 52, "right:wall": 52, "front:open": 52}}
+{"t": 67.86, "event": "decision_votes", "votes": {"left:wall": 53, "right:wall": 53, "front:open": 53}}
+{"t": 67.862, "event": "decision_votes", "votes": {"left:wall": 54, "right:wall": 54, "front:open": 54}}
+{"t": 67.864, "event": "decision_votes", "votes": {"left:wall": 55, "right:wall": 55, "front:open": 55}}
+{"t": 67.866, "event": "decision_votes", "votes": {"left:wall": 56, "right:wall": 56, "front:open": 56}}
+{"t": 67.868, "event": "decision_votes", "votes": {"left:wall": 57, "right:wall": 57, "front:open": 57}}
+{"t": 67.87, "event": "decision_votes", "votes": {"left:wall": 58, "right:wall": 58, "front:open": 58}}
+{"t": 67.872, "event": "decision_votes", "votes": {"left:wall": 59, "right:wall": 59, "front:open": 59}}
+{"t": 67.874, "event": "decision_votes", "votes": {"left:wall": 60, "right:wall": 60, "front:open": 60}}
+{"t": 67.876, "event": "decision_votes", "votes": {"left:wall": 61, "right:wall": 61, "front:open": 61}}
+{"t": 67.878, "event": "decision_votes", "votes": {"left:wall": 62, "right:wall": 62, "front:open": 62}}
+{"t": 67.88, "event": "decision_votes", "votes": {"left:wall": 63, "right:wall": 63, "front:open": 63}}
+{"t": 67.882, "event": "decision_votes", "votes": {"left:wall": 64, "right:wall": 64, "front:open": 64}}
+{"t": 67.884, "event": "decision_votes", "votes": {"left:wall": 65, "right:wall": 65, "front:open": 65}}
+{"t": 67.886, "event": "decision_votes", "votes": {"left:wall": 66, "right:wall": 66, "front:open": 66}}
+{"t": 67.888, "event": "decision_votes", "votes": {"left:wall": 67, "right:wall": 67, "front:open": 67}}
+{"t": 67.89, "event": "decision_votes", "votes": {"left:wall": 68, "right:wall": 68, "front:open": 68}}
+{"t": 67.892, "event": "decision_votes", "votes": {"left:wall": 69, "right:wall": 69, "front:open": 69}}
+{"t": 67.894, "event": "decision_votes", "votes": {"left:wall": 70, "right:wall": 70, "front:open": 70}}
+{"t": 67.896, "event": "decision_votes", "votes": {"left:wall": 71, "right:wall": 71, "front:open": 71}}
+{"t": 67.898, "event": "decision_votes", "votes": {"left:wall": 72, "right:wall": 72, "front:open": 72}}
+{"t": 67.9, "event": "decision_votes", "votes": {"left:wall": 73, "right:wall": 73, "front:open": 73}}
+{"t": 67.902, "event": "decision_votes", "votes": {"left:wall": 74, "right:wall": 74, "front:open": 74}}
+{"t": 67.904, "from": "DECIDE", "to": "CRUISE", "reason": "front_open", "cell": [9, 0], "heading": 0, "s": 0.09202370696334791}
+{"t": 74.616, "from": "CRUISE", "to": "DECIDE", "reason": "cell_center_reached", "cell": [10, 0], "heading": 0, "s": 0.0920152100759064}
+{"t": 74.616, "event": "decision_votes", "votes": {}}
+{"t": 74.618, "event": "decision_votes", "votes": {"left:wall": 1, "right:wall": 1, "front:open": 1}}
+{"t": 74.62, "event": "decision_votes", "votes": {"left:wall": 2, "right:wall": 2, "front:open": 2}}
+{"t": 74.622, "event": "decision_votes", "votes": {"left:wall": 3, "right:wall": 3, "front:open": 3}}
+{"t": 74.624, "event": "decision_votes", "votes": {"left:wall": 4, "right:wall": 4, "front:open": 4}}
+{"t": 74.626, "event": "decision_votes", "votes": {"left:wall": 5, "right:wall": 5, "front:open": 5}}
+{"t": 74.628, "event": "decision_votes", "votes": {"left:wall": 6, "right:wall": 6, "front:open": 6}}
+{"t": 74.63, "event": "decision_votes", "votes": {"left:wall": 7, "right:wall": 7, "front:open": 7}}
+{"t": 74.632, "event": "decision_votes", "votes": {"left:wall": 8, "right:wall": 8, "front:open": 8}}
+{"t": 74.634, "event": "decision_votes", "votes": {"left:wall": 9, "right:wall": 9, "front:open": 9}}
+{"t": 74.636, "event": "decision_votes", "votes": {"left:wall": 10, "right:wall": 10, "front:open": 10}}
+{"t": 74.638, "event": "decision_votes", "votes": {"left:wall": 11, "right:wall": 11, "front:open": 11}}
+{"t": 74.64, "event": "decision_votes", "votes": {"left:wall": 12, "right:wall": 12, "front:open": 12}}
+{"t": 74.642, "event": "decision_votes", "votes": {"left:wall": 13, "right:wall": 13, "front:open": 13}}
+{"t": 74.644, "event": "decision_votes", "votes": {"left:wall": 14, "right:wall": 14, "front:open": 14}}
+{"t": 74.646, "event": "decision_votes", "votes": {"left:wall": 15, "right:wall": 15, "front:open": 15}}
+{"t": 74.648, "event": "decision_votes", "votes": {"left:wall": 16, "right:wall": 16, "front:open": 16}}
+{"t": 74.65, "event": "decision_votes", "votes": {"left:wall": 17, "right:wall": 17, "front:open": 17}}
+{"t": 74.652, "event": "decision_votes", "votes": {"left:wall": 18, "right:wall": 18, "front:open": 18}}
+{"t": 74.654, "event": "decision_votes", "votes": {"left:wall": 19, "right:wall": 19, "front:open": 19}}
+{"t": 74.656, "event": "decision_votes", "votes": {"left:wall": 20, "right:wall": 20, "front:open": 20}}
+{"t": 74.658, "event": "decision_votes", "votes": {"left:wall": 21, "right:wall": 21, "front:open": 21}}
+{"t": 74.66, "event": "decision_votes", "votes": {"left:wall": 22, "right:wall": 22, "front:open": 22}}
+{"t": 74.662, "event": "decision_votes", "votes": {"left:wall": 23, "right:wall": 23, "front:open": 23}}
+{"t": 74.664, "event": "decision_votes", "votes": {"left:wall": 24, "right:wall": 24, "front:open": 24}}
+{"t": 74.666, "event": "decision_votes", "votes": {"left:wall": 25, "right:wall": 25, "front:open": 25}}
+{"t": 74.668, "event": "decision_votes", "votes": {"left:wall": 26, "right:wall": 26, "front:open": 26}}
+{"t": 74.67, "event": "decision_votes", "votes": {"left:wall": 27, "right:wall": 27, "front:open": 27}}
+{"t": 74.672, "event": "decision_votes", "votes": {"left:wall": 28, "right:wall": 28, "front:open": 28}}
+{"t": 74.674, "event": "decision_votes", "votes": {"left:wall": 29, "right:wall": 29, "front:open": 29}}
+{"t": 74.676, "event": "decision_votes", "votes": {"left:wall": 30, "right:wall": 30, "front:open": 30}}
+{"t": 74.678, "event": "decision_votes", "votes": {"left:wall": 31, "right:wall": 31, "front:open": 31}}
+{"t": 74.68, "event": "decision_votes", "votes": {"left:wall": 32, "right:wall": 32, "front:open": 32}}
+{"t": 74.682, "event": "decision_votes", "votes": {"left:wall": 33, "right:wall": 33, "front:open": 33}}
+{"t": 74.684, "event": "decision_votes", "votes": {"left:wall": 34, "right:wall": 34, "front:open": 34}}
+{"t": 74.686, "event": "decision_votes", "votes": {"left:wall": 35, "right:wall": 35, "front:open": 35}}
+{"t": 74.688, "event": "decision_votes", "votes": {"left:wall": 36, "right:wall": 36, "front:open": 36}}
+{"t": 74.69, "event": "decision_votes", "votes": {"left:wall": 37, "right:wall": 37, "front:open": 37}}
+{"t": 74.692, "event": "decision_votes", "votes": {"left:wall": 38, "right:wall": 38, "front:open": 38}}
+{"t": 74.694, "event": "decision_votes", "votes": {"left:wall": 39, "right:wall": 39, "front:open": 39}}
+{"t": 74.696, "event": "decision_votes", "votes": {"left:wall": 40, "right:wall": 40, "front:open": 40}}
+{"t": 74.698, "event": "decision_votes", "votes": {"left:wall": 41, "right:wall": 41, "front:open": 41}}
+{"t": 74.7, "event": "decision_votes", "votes": {"left:wall": 42, "right:wall": 42, "front:open": 42}}
+{"t": 74.702, "event": "decision_votes", "votes": {"left:wall": 43, "right:wall": 43, "front:open": 43}}
+{"t": 74.704, "event": "decision_votes", "votes": {"left:wall": 44, "right:wall": 44, "front:open": 44}}
+{"t": 74.706, "event": "decision_votes", "votes": {"left:wall": 45, "right:wall": 45, "front:open": 45}}
+{"t": 74.708, "event": "decision_votes", "votes": {"left:wall": 46, "right:wall": 46, "front:open": 46}}
+{"t": 74.71, "event": "decision_votes", "votes": {"left:wall": 47, "right:wall": 47, "front:open": 47}}
+{"t": 74.712, "event": "decision_votes", "votes": {"left:wall": 48, "right:wall": 48, "front:open": 48}}
+{"t": 74.714, "event": "decision_votes", "votes": {"left:wall": 49, "right:wall": 49, "front:open": 49}}
+{"t": 74.716, "event": "decision_votes", "votes": {"left:wall": 50, "right:wall": 50, "front:open": 50}}
+{"t": 74.718, "event": "decision_votes", "votes": {"left:wall": 51, "right:wall": 51, "front:open": 51}}
+{"t": 74.72, "event": "decision_votes", "votes": {"left:wall": 52, "right:wall": 52, "front:open": 52}}
+{"t": 74.722, "event": "decision_votes", "votes": {"left:wall": 53, "right:wall": 53, "front:open": 53}}
+{"t": 74.724, "event": "decision_votes", "votes": {"left:wall": 54, "right:wall": 54, "front:open": 54}}
+{"t": 74.726, "event": "decision_votes", "votes": {"left:wall": 55, "right:wall": 55, "front:open": 55}}
+{"t": 74.728, "event": "decision_votes", "votes": {"left:wall": 56, "right:wall": 56, "front:open": 56}}
+{"t": 74.73, "event": "decision_votes", "votes": {"left:wall": 57, "right:wall": 57, "front:open": 57}}
+{"t": 74.732, "event": "decision_votes", "votes": {"left:wall": 58, "right:wall": 58, "front:open": 58}}
+{"t": 74.734, "event": "decision_votes", "votes": {"left:wall": 59, "right:wall": 59, "front:open": 59}}
+{"t": 74.736, "event": "decision_votes", "votes": {"left:wall": 60, "right:wall": 60, "front:open": 60}}
+{"t": 74.738, "event": "decision_votes", "votes": {"left:wall": 61, "right:wall": 61, "front:open": 61}}
+{"t": 74.74, "event": "decision_votes", "votes": {"left:wall": 62, "right:wall": 62, "front:open": 62}}
+{"t": 74.742, "event": "decision_votes", "votes": {"left:wall": 63, "right:wall": 63, "front:open": 63}}
+{"t": 74.744, "event": "decision_votes", "votes": {"left:wall": 64, "right:wall": 64, "front:open": 64}}
+{"t": 74.746, "event": "decision_votes", "votes": {"left:wall": 65, "right:wall": 65, "front:open": 65}}
+{"t": 74.748, "event": "decision_votes", "votes": {"left:wall": 66, "right:wall": 66, "front:open": 66}}
+{"t": 74.75, "event": "decision_votes", "votes": {"left:wall": 67, "right:wall": 67, "front:open": 67}}
+{"t": 74.752, "event": "decision_votes", "votes": {"left:wall": 68, "right:wall": 68, "front:open": 68}}
+{"t": 74.754, "event": "decision_votes", "votes": {"left:wall": 69, "right:wall": 69, "front:open": 69}}
+{"t": 74.756, "event": "decision_votes", "votes": {"left:wall": 70, "right:wall": 70, "front:open": 70}}
+{"t": 74.758, "event": "decision_votes", "votes": {"left:wall": 71, "right:wall": 71, "front:open": 71}}
+{"t": 74.76, "event": "decision_votes", "votes": {"left:wall": 72, "right:wall": 72, "front:open": 72}}
+{"t": 74.762, "event": "decision_votes", "votes": {"left:wall": 73, "right:wall": 73, "front:open": 73}}
+{"t": 74.764, "event": "decision_votes", "votes": {"left:wall": 74, "right:wall": 74, "front:open": 74}}
+{"t": 74.766, "from": "DECIDE", "to": "CRUISE", "reason": "front_open", "cell": [10, 0], "heading": 0, "s": 0.0920152100759064}
+{"t": 81.478, "from": "CRUISE", "to": "DECIDE", "reason": "cell_center_reached", "cell": [11, 0], "heading": 0, "s": 0.09202037133322939}
+{"t": 81.478, "event": "decision_votes", "votes": {}}
+{"t": 81.48, "event": "decision_votes", "votes": {"left:wall": 1, "right:wall": 1, "front:open": 1}}
+{"t": 81.482, "event": "decision_votes", "votes": {"left:wall": 2, "right:wall": 2, "front:open": 2}}
+{"t": 81.484, "event": "decision_votes", "votes": {"left:wall": 3, "right:wall": 3, "front:open": 3}}
+{"t": 81.486, "event": "decision_votes", "votes": {"left:wall": 4, "right:wall": 4, "front:open": 4}}
+{"t": 81.488, "event": "decision_votes", "votes": {"left:wall": 5, "right:wall": 5, "front:open": 5}}
+{"t": 81.49, "event": "decision_votes", "votes": {"left:wall": 6, "right:wall": 6, "front:open": 6}}
+{"t": 81.492, "event": "decision_votes", "votes": {"left:wall": 7, "right:wall": 7, "front:open": 7}}
+{"t": 81.494, "event": "decision_votes", "votes": {"left:wall": 8, "right:wall": 8, "front:open": 8}}
+{"t": 81.496, "event": "decision_votes", "votes": {"left:wall": 9, "right:wall": 9, "front:open": 9}}
+{"t": 81.498, "event": "decision_votes", "votes": {"left:wall": 10, "right:wall": 10, "front:open": 10}}
+{"t": 81.5, "event": "decision_votes", "votes": {"left:wall": 11, "right:wall": 11, "front:open": 11}}
+{"t": 81.502, "event": "decision_votes", "votes": {"left:wall": 12, "right:wall": 12, "front:open": 12}}
+{"t": 81.504, "event": "decision_votes", "votes": {"left:wall": 13, "right:wall": 13, "front:open": 13}}
+{"t": 81.506, "event": "decision_votes", "votes": {"left:wall": 14, "right:wall": 14, "front:open": 14}}
+{"t": 81.508, "event": "decision_votes", "votes": {"left:wall": 15, "right:wall": 15, "front:open": 15}}
+{"t": 81.51, "event": "decision_votes", "votes": {"left:wall": 16, "right:wall": 16, "front:open": 16}}
+{"t": 81.512, "event": "decision_votes", "votes": {"left:wall": 17, "right:wall": 17, "front:open": 17}}
+{"t": 81.514, "event": "decision_votes", "votes": {"left:wall": 18, "right:wall": 18, "front:open": 18}}
+{"t": 81.516, "event": "decision_votes", "votes": {"left:wall": 19, "right:wall": 19, "front:open": 19}}
+{"t": 81.518, "event": "decision_votes", "votes": {"left:wall": 20, "right:wall": 20, "front:open": 20}}
+{"t": 81.52, "event": "decision_votes", "votes": {"left:wall": 21, "right:wall": 21, "front:open": 21}}
+{"t": 81.522, "event": "decision_votes", "votes": {"left:wall": 22, "right:wall": 22, "front:open": 22}}
+{"t": 81.524, "event": "decision_votes", "votes": {"left:wall": 23, "right:wall": 23, "front:open": 23}}
+{"t": 81.526, "event": "decision_votes", "votes": {"left:wall": 24, "right:wall": 24, "front:open": 24}}
+{"t": 81.528, "event": "decision_votes", "votes": {"left:wall": 25, "right:wall": 25, "front:open": 25}}
+{"t": 81.53, "event": "decision_votes", "votes": {"left:wall": 26, "right:wall": 26, "front:open": 26}}
+{"t": 81.532, "event": "decision_votes", "votes": {"left:wall": 27, "right:wall": 27, "front:open": 27}}
+{"t": 81.534, "event": "decision_votes", "votes": {"left:wall": 28, "right:wall": 28, "front:open": 28}}
+{"t": 81.536, "event": "decision_votes", "votes": {"left:wall": 29, "right:wall": 29, "front:open": 29}}
+{"t": 81.538, "event": "decision_votes", "votes": {"left:wall": 30, "right:wall": 30, "front:open": 30}}
+{"t": 81.54, "event": "decision_votes", "votes": {"left:wall": 31, "right:wall": 31, "front:open": 31}}
+{"t": 81.542, "event": "decision_votes", "votes": {"left:wall": 32, "right:wall": 32, "front:open": 32}}
+{"t": 81.544, "event": "decision_votes", "votes": {"left:wall": 33, "right:wall": 33, "front:open": 33}}
+{"t": 81.546, "event": "decision_votes", "votes": {"left:wall": 34, "right:wall": 34, "front:open": 34}}
+{"t": 81.548, "event": "decision_votes", "votes": {"left:wall": 35, "right:wall": 35, "front:open": 35}}
+{"t": 81.55, "event": "decision_votes", "votes": {"left:wall": 36, "right:wall": 36, "front:open": 36}}
+{"t": 81.552, "event": "decision_votes", "votes": {"left:wall": 37, "right:wall": 37, "front:open": 37}}
+{"t": 81.554, "event": "decision_votes", "votes": {"left:wall": 38, "right:wall": 38, "front:open": 38}}
+{"t": 81.556, "event": "decision_votes", "votes": {"left:wall": 39, "right:wall": 39, "front:open": 39}}
+{"t": 81.558, "event": "decision_votes", "votes": {"left:wall": 40, "right:wall": 40, "front:open": 40}}
+{"t": 81.56, "event": "decision_votes", "votes": {"left:wall": 41, "right:wall": 41, "front:open": 41}}
+{"t": 81.562, "event": "decision_votes", "votes": {"left:wall": 42, "right:wall": 42, "front:open": 42}}
+{"t": 81.564, "event": "decision_votes", "votes": {"left:wall": 43, "right:wall": 43, "front:open": 43}}
+{"t": 81.566, "event": "decision_votes", "votes": {"left:wall": 44, "right:wall": 44, "front:open": 44}}
+{"t": 81.568, "event": "decision_votes", "votes": {"left:wall": 45, "right:wall": 45, "front:open": 45}}
+{"t": 81.57, "event": "decision_votes", "votes": {"left:wall": 46, "right:wall": 46, "front:open": 46}}
+{"t": 81.572, "event": "decision_votes", "votes": {"left:wall": 47, "right:wall": 47, "front:open": 47}}
+{"t": 81.574, "event": "decision_votes", "votes": {"left:wall": 48, "right:wall": 48, "front:open": 48}}
+{"t": 81.576, "event": "decision_votes", "votes": {"left:wall": 49, "right:wall": 49, "front:open": 49}}
+{"t": 81.578, "event": "decision_votes", "votes": {"left:wall": 50, "right:wall": 50, "front:open": 50}}
+{"t": 81.58, "event": "decision_votes", "votes": {"left:wall": 51, "right:wall": 51, "front:open": 51}}
+{"t": 81.582, "event": "decision_votes", "votes": {"left:wall": 52, "right:wall": 52, "front:open": 52}}
+{"t": 81.584, "event": "decision_votes", "votes": {"left:wall": 53, "right:wall": 53, "front:open": 53}}
+{"t": 81.586, "event": "decision_votes", "votes": {"left:wall": 54, "right:wall": 54, "front:open": 54}}
+{"t": 81.588, "event": "decision_votes", "votes": {"left:wall": 55, "right:wall": 55, "front:open": 55}}
+{"t": 81.59, "event": "decision_votes", "votes": {"left:wall": 56, "right:wall": 56, "front:open": 56}}
+{"t": 81.592, "event": "decision_votes", "votes": {"left:wall": 57, "right:wall": 57, "front:open": 57}}
+{"t": 81.594, "event": "decision_votes", "votes": {"left:wall": 58, "right:wall": 58, "front:open": 58}}
+{"t": 81.596, "event": "decision_votes", "votes": {"left:wall": 59, "right:wall": 59, "front:open": 59}}
+{"t": 81.598, "event": "decision_votes", "votes": {"left:wall": 60, "right:wall": 60, "front:open": 60}}
+{"t": 81.6, "event": "decision_votes", "votes": {"left:wall": 61, "right:wall": 61, "front:open": 61}}
+{"t": 81.602, "event": "decision_votes", "votes": {"left:wall": 62, "right:wall": 62, "front:open": 62}}
+{"t": 81.604, "event": "decision_votes", "votes": {"left:wall": 63, "right:wall": 63, "front:open": 63}}
+{"t": 81.606, "event": "decision_votes", "votes": {"left:wall": 64, "right:wall": 64, "front:open": 64}}
+{"t": 81.608, "event": "decision_votes", "votes": {"left:wall": 65, "right:wall": 65, "front:open": 65}}
+{"t": 81.61, "event": "decision_votes", "votes": {"left:wall": 66, "right:wall": 66, "front:open": 66}}
+{"t": 81.612, "event": "decision_votes", "votes": {"left:wall": 67, "right:wall": 67, "front:open": 67}}
+{"t": 81.614, "event": "decision_votes", "votes": {"left:wall": 68, "right:wall": 68, "front:open": 68}}
+{"t": 81.616, "event": "decision_votes", "votes": {"left:wall": 69, "right:wall": 69, "front:open": 69}}
+{"t": 81.618, "event": "decision_votes", "votes": {"left:wall": 70, "right:wall": 70, "front:open": 70}}
+{"t": 81.62, "event": "decision_votes", "votes": {"left:wall": 71, "right:wall": 71, "front:open": 71}}
+{"t": 81.622, "event": "decision_votes", "votes": {"left:wall": 72, "right:wall": 72, "front:open": 72}}
+{"t": 81.624, "event": "decision_votes", "votes": {"left:wall": 73, "right:wall": 73, "front:open": 73}}
+{"t": 81.626, "event": "decision_votes", "votes": {"left:wall": 74, "right:wall": 74, "front:open": 74}}
+{"t": 81.628, "from": "DECIDE", "to": "CRUISE", "reason": "front_open", "cell": [11, 0], "heading": 0, "s": 0.09202037133322939}
+{"t": 88.34, "from": "CRUISE", "to": "DECIDE", "reason": "cell_center_reached", "cell": [12, 0], "heading": 0, "s": 0.09202056101312293}
+{"t": 88.34, "event": "decision_votes", "votes": {}}
+{"t": 88.342, "event": "decision_votes", "votes": {"left:wall": 1, "right:wall": 1, "front:open": 1}}
+{"t": 88.344, "event": "decision_votes", "votes": {"left:wall": 2, "right:wall": 2, "front:open": 2}}
+{"t": 88.346, "event": "decision_votes", "votes": {"left:wall": 3, "right:wall": 3, "front:open": 3}}
+{"t": 88.348, "event": "decision_votes", "votes": {"left:wall": 4, "right:wall": 4, "front:open": 4}}
+{"t": 88.35, "event": "decision_votes", "votes": {"left:wall": 5, "right:wall": 5, "front:open": 5}}
+{"t": 88.352, "event": "decision_votes", "votes": {"left:wall": 6, "right:wall": 6, "front:open": 6}}
+{"t": 88.354, "event": "decision_votes", "votes": {"left:wall": 7, "right:wall": 7, "front:open": 7}}
+{"t": 88.356, "event": "decision_votes", "votes": {"left:wall": 8, "right:wall": 8, "front:open": 8}}
+{"t": 88.358, "event": "decision_votes", "votes": {"left:wall": 9, "right:wall": 9, "front:open": 9}}
+{"t": 88.36, "event": "decision_votes", "votes": {"left:wall": 10, "right:wall": 10, "front:open": 10}}
+{"t": 88.362, "event": "decision_votes", "votes": {"left:wall": 11, "right:wall": 11, "front:open": 11}}
+{"t": 88.364, "event": "decision_votes", "votes": {"left:wall": 12, "right:wall": 12, "front:open": 12}}
+{"t": 88.366, "event": "decision_votes", "votes": {"left:wall": 13, "right:wall": 13, "front:open": 13}}
+{"t": 88.368, "event": "decision_votes", "votes": {"left:wall": 14, "right:wall": 14, "front:open": 14}}
+{"t": 88.37, "event": "decision_votes", "votes": {"left:wall": 15, "right:wall": 15, "front:open": 15}}
+{"t": 88.372, "event": "decision_votes", "votes": {"left:wall": 16, "right:wall": 16, "front:open": 16}}
+{"t": 88.374, "event": "decision_votes", "votes": {"left:wall": 17, "right:wall": 17, "front:open": 17}}
+{"t": 88.376, "event": "decision_votes", "votes": {"left:wall": 18, "right:wall": 18, "front:open": 18}}
+{"t": 88.378, "event": "decision_votes", "votes": {"left:wall": 19, "right:wall": 19, "front:open": 19}}
+{"t": 88.38, "event": "decision_votes", "votes": {"left:wall": 20, "right:wall": 20, "front:open": 20}}
+{"t": 88.382, "event": "decision_votes", "votes": {"left:wall": 21, "right:wall": 21, "front:open": 21}}
+{"t": 88.384, "event": "decision_votes", "votes": {"left:wall": 22, "right:wall": 22, "front:open": 22}}
+{"t": 88.386, "event": "decision_votes", "votes": {"left:wall": 23, "right:wall": 23, "front:open": 23}}
+{"t": 88.388, "event": "decision_votes", "votes": {"left:wall": 24, "right:wall": 24, "front:open": 24}}
+{"t": 88.39, "event": "decision_votes", "votes": {"left:wall": 25, "right:wall": 25, "front:open": 25}}
+{"t": 88.392, "event": "decision_votes", "votes": {"left:wall": 26, "right:wall": 26, "front:open": 26}}
+{"t": 88.394, "event": "decision_votes", "votes": {"left:wall": 27, "right:wall": 27, "front:open": 27}}
+{"t": 88.396, "event": "decision_votes", "votes": {"left:wall": 28, "right:wall": 28, "front:open": 28}}
+{"t": 88.398, "event": "decision_votes", "votes": {"left:wall": 29, "right:wall": 29, "front:open": 29}}
+{"t": 88.4, "event": "decision_votes", "votes": {"left:wall": 30, "right:wall": 30, "front:open": 30}}
+{"t": 88.402, "event": "decision_votes", "votes": {"left:wall": 31, "right:wall": 31, "front:open": 31}}
+{"t": 88.404, "event": "decision_votes", "votes": {"left:wall": 32, "right:wall": 32, "front:open": 32}}
+{"t": 88.406, "event": "decision_votes", "votes": {"left:wall": 33, "right:wall": 33, "front:open": 33}}
+{"t": 88.408, "event": "decision_votes", "votes": {"left:wall": 34, "right:wall": 34, "front:open": 34}}
+{"t": 88.41, "event": "decision_votes", "votes": {"left:wall": 35, "right:wall": 35, "front:open": 35}}
+{"t": 88.412, "event": "decision_votes", "votes": {"left:wall": 36, "right:wall": 36, "front:open": 36}}
+{"t": 88.414, "event": "decision_votes", "votes": {"left:wall": 37, "right:wall": 37, "front:open": 37}}
+{"t": 88.416, "event": "decision_votes", "votes": {"left:wall": 38, "right:wall": 38, "front:open": 38}}
+{"t": 88.418, "event": "decision_votes", "votes": {"left:wall": 39, "right:wall": 39, "front:open": 39}}
+{"t": 88.42, "event": "decision_votes", "votes": {"left:wall": 40, "right:wall": 40, "front:open": 40}}
+{"t": 88.422, "event": "decision_votes", "votes": {"left:wall": 41, "right:wall": 41, "front:open": 41}}
+{"t": 88.424, "event": "decision_votes", "votes": {"left:wall": 42, "right:wall": 42, "front:open": 42}}
+{"t": 88.426, "event": "decision_votes", "votes": {"left:wall": 43, "right:wall": 43, "front:open": 43}}
+{"t": 88.428, "event": "decision_votes", "votes": {"left:wall": 44, "right:wall": 44, "front:open": 44}}
+{"t": 88.43, "event": "decision_votes", "votes": {"left:wall": 45, "right:wall": 45, "front:open": 45}}
+{"t": 88.432, "event": "decision_votes", "votes": {"left:wall": 46, "right:wall": 46, "front:open": 46}}
+{"t": 88.434, "event": "decision_votes", "votes": {"left:wall": 47, "right:wall": 47, "front:open": 47}}
+{"t": 88.436, "event": "decision_votes", "votes": {"left:wall": 48, "right:wall": 48, "front:open": 48}}
+{"t": 88.438, "event": "decision_votes", "votes": {"left:wall": 49, "right:wall": 49, "front:open": 49}}
+{"t": 88.44, "event": "decision_votes", "votes": {"left:wall": 50, "right:wall": 50, "front:open": 50}}
+{"t": 88.442, "event": "decision_votes", "votes": {"left:wall": 51, "right:wall": 51, "front:open": 51}}
+{"t": 88.444, "event": "decision_votes", "votes": {"left:wall": 52, "right:wall": 52, "front:open": 52}}
+{"t": 88.446, "event": "decision_votes", "votes": {"left:wall": 53, "right:wall": 53, "front:open": 53}}
+{"t": 88.448, "event": "decision_votes", "votes": {"left:wall": 54, "right:wall": 54, "front:open": 54}}
+{"t": 88.45, "event": "decision_votes", "votes": {"left:wall": 55, "right:wall": 55, "front:open": 55}}
+{"t": 88.452, "event": "decision_votes", "votes": {"left:wall": 56, "right:wall": 56, "front:open": 56}}
+{"t": 88.454, "event": "decision_votes", "votes": {"left:wall": 57, "right:wall": 57, "front:open": 57}}
+{"t": 88.456, "event": "decision_votes", "votes": {"left:wall": 58, "right:wall": 58, "front:open": 58}}
+{"t": 88.458, "event": "decision_votes", "votes": {"left:wall": 59, "right:wall": 59, "front:open": 59}}
+{"t": 88.46, "event": "decision_votes", "votes": {"left:wall": 60, "right:wall": 60, "front:open": 60}}
+{"t": 88.462, "event": "decision_votes", "votes": {"left:wall": 61, "right:wall": 61, "front:open": 61}}
+{"t": 88.464, "event": "decision_votes", "votes": {"left:wall": 62, "right:wall": 62, "front:open": 62}}
+{"t": 88.466, "event": "decision_votes", "votes": {"left:wall": 63, "right:wall": 63, "front:open": 63}}
+{"t": 88.468, "event": "decision_votes", "votes": {"left:wall": 64, "right:wall": 64, "front:open": 64}}
+{"t": 88.47, "event": "decision_votes", "votes": {"left:wall": 65, "right:wall": 65, "front:open": 65}}
+{"t": 88.472, "event": "decision_votes", "votes": {"left:wall": 66, "right:wall": 66, "front:open": 66}}
+{"t": 88.474, "event": "decision_votes", "votes": {"left:wall": 67, "right:wall": 67, "front:open": 67}}
+{"t": 88.476, "event": "decision_votes", "votes": {"left:wall": 68, "right:wall": 68, "front:open": 68}}
+{"t": 88.478, "event": "decision_votes", "votes": {"left:wall": 69, "right:wall": 69, "front:open": 69}}
+{"t": 88.48, "event": "decision_votes", "votes": {"left:wall": 70, "right:wall": 70, "front:open": 70}}
+{"t": 88.482, "event": "decision_votes", "votes": {"left:wall": 71, "right:wall": 71, "front:open": 71}}
+{"t": 88.484, "event": "decision_votes", "votes": {"left:wall": 72, "right:wall": 72, "front:open": 72}}
+{"t": 88.486, "event": "decision_votes", "votes": {"left:wall": 73, "right:wall": 73, "front:open": 73}}
+{"t": 88.488, "event": "decision_votes", "votes": {"left:wall": 74, "right:wall": 74, "front:open": 74}}
+{"t": 88.49, "from": "DECIDE", "to": "CRUISE", "reason": "front_open", "cell": [12, 0], "heading": 0, "s": 0.09202056101312293}
+{"t": 95.204, "from": "CRUISE", "to": "DECIDE", "reason": "cell_center_reached", "cell": [13, 0], "heading": 0, "s": 0.09202714346354776}
+{"t": 95.204, "event": "decision_votes", "votes": {}}
+{"t": 95.206, "event": "decision_votes", "votes": {"left:wall": 1, "right:wall": 1, "front:open": 1}}
+{"t": 95.208, "event": "decision_votes", "votes": {"left:wall": 2, "right:wall": 2, "front:open": 2}}
+{"t": 95.21, "event": "decision_votes", "votes": {"left:wall": 3, "right:wall": 3, "front:open": 3}}
+{"t": 95.212, "event": "decision_votes", "votes": {"left:wall": 4, "right:wall": 4, "front:open": 4}}
+{"t": 95.214, "event": "decision_votes", "votes": {"left:wall": 5, "right:wall": 5, "front:open": 5}}
+{"t": 95.216, "event": "decision_votes", "votes": {"left:wall": 6, "right:wall": 6, "front:open": 6}}
+{"t": 95.218, "event": "decision_votes", "votes": {"left:wall": 7, "right:wall": 7, "front:open": 7}}
+{"t": 95.22, "event": "decision_votes", "votes": {"left:wall": 8, "right:wall": 8, "front:open": 8}}
+{"t": 95.222, "event": "decision_votes", "votes": {"left:wall": 9, "right:wall": 9, "front:open": 9}}
+{"t": 95.224, "event": "decision_votes", "votes": {"left:wall": 10, "right:wall": 10, "front:open": 10}}
+{"t": 95.226, "event": "decision_votes", "votes": {"left:wall": 11, "right:wall": 11, "front:open": 11}}
+{"t": 95.228, "event": "decision_votes", "votes": {"left:wall": 12, "right:wall": 12, "front:open": 12}}
+{"t": 95.23, "event": "decision_votes", "votes": {"left:wall": 13, "right:wall": 13, "front:open": 13}}
+{"t": 95.232, "event": "decision_votes", "votes": {"left:wall": 14, "right:wall": 14, "front:open": 14}}
+{"t": 95.234, "event": "decision_votes", "votes": {"left:wall": 15, "right:wall": 15, "front:open": 15}}
+{"t": 95.236, "event": "decision_votes", "votes": {"left:wall": 16, "right:wall": 16, "front:open": 16}}
+{"t": 95.238, "event": "decision_votes", "votes": {"left:wall": 17, "right:wall": 17, "front:open": 17}}
+{"t": 95.24, "event": "decision_votes", "votes": {"left:wall": 18, "right:wall": 18, "front:open": 18}}
+{"t": 95.242, "event": "decision_votes", "votes": {"left:wall": 19, "right:wall": 19, "front:open": 19}}
+{"t": 95.244, "event": "decision_votes", "votes": {"left:wall": 20, "right:wall": 20, "front:open": 20}}
+{"t": 95.246, "event": "decision_votes", "votes": {"left:wall": 21, "right:wall": 21, "front:open": 21}}
+{"t": 95.248, "event": "decision_votes", "votes": {"left:wall": 22, "right:wall": 22, "front:open": 22}}
+{"t": 95.25, "event": "decision_votes", "votes": {"left:wall": 23, "right:wall": 23, "front:open": 23}}
+{"t": 95.252, "event": "decision_votes", "votes": {"left:wall": 24, "right:wall": 24, "front:open": 24}}
+{"t": 95.254, "event": "decision_votes", "votes": {"left:wall": 25, "right:wall": 25, "front:open": 25}}
+{"t": 95.256, "event": "decision_votes", "votes": {"left:wall": 26, "right:wall": 26, "front:open": 26}}
+{"t": 95.258, "event": "decision_votes", "votes": {"left:wall": 27, "right:wall": 27, "front:open": 27}}
+{"t": 95.26, "event": "decision_votes", "votes": {"left:wall": 28, "right:wall": 28, "front:open": 28}}
+{"t": 95.262, "event": "decision_votes", "votes": {"left:wall": 29, "right:wall": 29, "front:open": 29}}
+{"t": 95.264, "event": "decision_votes", "votes": {"left:wall": 30, "right:wall": 30, "front:open": 30}}
+{"t": 95.266, "event": "decision_votes", "votes": {"left:wall": 31, "right:wall": 31, "front:open": 31}}
+{"t": 95.268, "event": "decision_votes", "votes": {"left:wall": 32, "right:wall": 32, "front:open": 32}}
+{"t": 95.27, "event": "decision_votes", "votes": {"left:wall": 33, "right:wall": 33, "front:open": 33}}
+{"t": 95.272, "event": "decision_votes", "votes": {"left:wall": 34, "right:wall": 34, "front:open": 34}}
+{"t": 95.274, "event": "decision_votes", "votes": {"left:wall": 35, "right:wall": 35, "front:open": 35}}
+{"t": 95.276, "event": "decision_votes", "votes": {"left:wall": 36, "right:wall": 36, "front:open": 36}}
+{"t": 95.278, "event": "decision_votes", "votes": {"left:wall": 37, "right:wall": 37, "front:open": 37}}
+{"t": 95.28, "event": "decision_votes", "votes": {"left:wall": 38, "right:wall": 38, "front:open": 38}}
+{"t": 95.282, "event": "decision_votes", "votes": {"left:wall": 39, "right:wall": 39, "front:open": 39}}
+{"t": 95.284, "event": "decision_votes", "votes": {"left:wall": 40, "right:wall": 40, "front:open": 40}}
+{"t": 95.286, "event": "decision_votes", "votes": {"left:wall": 41, "right:wall": 41, "front:open": 41}}
+{"t": 95.288, "event": "decision_votes", "votes": {"left:wall": 42, "right:wall": 42, "front:open": 42}}
+{"t": 95.29, "event": "decision_votes", "votes": {"left:wall": 43, "right:wall": 43, "front:open": 43}}
+{"t": 95.292, "event": "decision_votes", "votes": {"left:wall": 44, "right:wall": 44, "front:open": 44}}
+{"t": 95.294, "event": "decision_votes", "votes": {"left:wall": 45, "right:wall": 45, "front:open": 45}}
+{"t": 95.296, "event": "decision_votes", "votes": {"left:wall": 46, "right:wall": 46, "front:open": 46}}
+{"t": 95.298, "event": "decision_votes", "votes": {"left:wall": 47, "right:wall": 47, "front:open": 47}}
+{"t": 95.3, "event": "decision_votes", "votes": {"left:wall": 48, "right:wall": 48, "front:open": 48}}
+{"t": 95.302, "event": "decision_votes", "votes": {"left:wall": 49, "right:wall": 49, "front:open": 49}}
+{"t": 95.304, "event": "decision_votes", "votes": {"left:wall": 50, "right:wall": 50, "front:open": 50}}
+{"t": 95.306, "event": "decision_votes", "votes": {"left:wall": 51, "right:wall": 51, "front:open": 51}}
+{"t": 95.308, "event": "decision_votes", "votes": {"left:wall": 52, "right:wall": 52, "front:open": 52}}
+{"t": 95.31, "event": "decision_votes", "votes": {"left:wall": 53, "right:wall": 53, "front:open": 53}}
+{"t": 95.312, "event": "decision_votes", "votes": {"left:wall": 54, "right:wall": 54, "front:open": 54}}
+{"t": 95.314, "event": "decision_votes", "votes": {"left:wall": 55, "right:wall": 55, "front:open": 55}}
+{"t": 95.316, "event": "decision_votes", "votes": {"left:wall": 56, "right:wall": 56, "front:open": 56}}
+{"t": 95.318, "event": "decision_votes", "votes": {"left:wall": 57, "right:wall": 57, "front:open": 57}}
+{"t": 95.32, "event": "decision_votes", "votes": {"left:wall": 58, "right:wall": 58, "front:open": 58}}
+{"t": 95.322, "event": "decision_votes", "votes": {"left:wall": 59, "right:wall": 59, "front:open": 59}}
+{"t": 95.324, "event": "decision_votes", "votes": {"left:wall": 60, "right:wall": 60, "front:open": 60}}
+{"t": 95.326, "event": "decision_votes", "votes": {"left:wall": 61, "right:wall": 61, "front:open": 61}}
+{"t": 95.328, "event": "decision_votes", "votes": {"left:wall": 62, "right:wall": 62, "front:open": 62}}
+{"t": 95.33, "event": "decision_votes", "votes": {"left:wall": 63, "right:wall": 63, "front:open": 63}}
+{"t": 95.332, "event": "decision_votes", "votes": {"left:wall": 64, "right:wall": 64, "front:open": 64}}
+{"t": 95.334, "event": "decision_votes", "votes": {"left:wall": 65, "right:wall": 65, "front:open": 65}}
+{"t": 95.336, "event": "decision_votes", "votes": {"left:wall": 66, "right:wall": 66, "front:open": 66}}
+{"t": 95.338, "event": "decision_votes", "votes": {"left:wall": 67, "right:wall": 67, "front:open": 67}}
+{"t": 95.34, "event": "decision_votes", "votes": {"left:wall": 68, "right:wall": 68, "front:open": 68}}
+{"t": 95.342, "event": "decision_votes", "votes": {"left:wall": 69, "right:wall": 69, "front:open": 69}}
+{"t": 95.344, "event": "decision_votes", "votes": {"left:wall": 70, "right:wall": 70, "front:open": 70}}
+{"t": 95.346, "event": "decision_votes", "votes": {"left:wall": 71, "right:wall": 71, "front:open": 71}}
+{"t": 95.348, "event": "decision_votes", "votes": {"left:wall": 72, "right:wall": 72, "front:open": 72}}
+{"t": 95.35, "event": "decision_votes", "votes": {"left:wall": 73, "right:wall": 73, "front:open": 73}}
+{"t": 95.352, "event": "decision_votes", "votes": {"left:wall": 74, "right:wall": 74, "front:open": 74}}
+{"t": 95.354, "from": "DECIDE", "to": "CRUISE", "reason": "front_open", "cell": [13, 0], "heading": 0, "s": 0.09202714346354776}

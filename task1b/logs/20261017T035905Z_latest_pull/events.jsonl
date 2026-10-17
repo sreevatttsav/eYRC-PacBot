@@ -1,0 +1,6 @@
+{"t": 5.336, "event": "translation_unverified", "state": "GATE", "commanded_m": 0.08000999998669209}
+{"t": 30.004, "from": "GATE", "to": "RECOVER", "reason": "no_gate_landmark", "cell": [0, 0], "heading": 0, "s": null}
+{"t": 33.208, "from": "RECOVER", "to": "PIVOT", "reason": "recovery_backed_by_range_or_distance", "cell": [0, 0], "heading": 0, "s": null}
+{"t": 36.57, "event": "turn_complete", "target_deg": 90.0, "actual_deg": 88.13091857839306, "error_deg": 1.86908142160694, "center_error_m": null, "lateral_m": -0.0008205075086218667, "recovery": true}
+{"t": 36.57, "from": "PIVOT", "to": "GATE", "reason": "recovery_pivot_complete", "cell": [0, 0], "heading": 1, "s": null}
+{"t": 40.518, "from": "GATE", "to": "RECOVER", "reason": "recovery_reanchor_front_uncertain", "cell": [0, 0], "heading": 1, "s": null}

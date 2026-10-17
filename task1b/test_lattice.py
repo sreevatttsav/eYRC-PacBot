@@ -242,6 +242,53 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(ctl.recovery_phase, "HOLD")
         self.assertEqual(ctl.step(frame()), (0.0, 0.0))
 
+    def test_recovery_gate_uses_side_edge_to_reanchor(self):
+        ctl = LatticeController()
+        ctl.state = "GATE"
+        ctl.recovery_reacquire = True
+        ctl.recovery_cycles = 1
+        ctl.est.psi_valid = True
+        ctl.gate_start_travel = ctl.est.travel
+        for _ in range(30):
+            ctl.step(frame(fl=0.300, fr=0.300, sl=0.051, sr=0.051))
+        self.assertEqual(ctl.state, "GATE")
+        for _ in range(30):
+            ctl.step(frame(fl=0.300, fr=0.300, sl=0.300, sr=0.051))
+            if ctl.state == "CRUISE":
+                break
+        self.assertEqual(ctl.state, "CRUISE")
+        self.assertFalse(ctl.recovery_reacquire)
+        self.assertEqual(ctl.recovery_cycles, 0)
+        self.assertEqual(ctl.events[-1]["reason"], "recovery_landmark_found")
+
+    def test_recovery_gate_holds_at_one_pitch_without_landmark(self):
+        ctl = LatticeController()
+        ctl.state = "GATE"
+        ctl.recovery_reacquire = True
+        ctl.recovery_cycles = 1
+        ctl.est.psi_valid = True
+        ctl.gate_start_travel = ctl.est.travel
+        for _ in range(1000):
+            ctl.step(frame(fl=0.300, fr=0.300, sl=0.051, sr=0.051))
+            if ctl.state == "RECOVER":
+                break
+        self.assertEqual(ctl.state, "RECOVER")
+        self.assertEqual(ctl.recovery_phase, "HOLD")
+        self.assertLessEqual(ctl.est.travel, 0.221)
+        self.assertEqual(ctl.events[-1]["reason"],
+                         "recovery_reanchor_distance_exhausted")
+
+    def test_recovery_gate_holds_on_unknown_front(self):
+        ctl = LatticeController()
+        ctl.state = "GATE"
+        ctl.recovery_reacquire = True
+        ctl.est.psi_valid = True
+        ctl.step(frame(fl=None, fr=None, sl=0.051, sr=0.051))
+        self.assertEqual(ctl.state, "RECOVER")
+        self.assertEqual(ctl.recovery_phase, "HOLD")
+        self.assertEqual(ctl.events[-1]["reason"],
+                         "recovery_reanchor_front_uncertain")
+
     def test_gate_startup_grace_avoids_immediate_recovery(self):
         ctl = LatticeController()
         for _ in range(10):

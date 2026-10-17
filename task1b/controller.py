@@ -8,6 +8,8 @@ import math
 
 from lattice import Frame, LatticeEstimator, PITCH, K_LINEAR, RangeHold, clamp
 
+RECOVERY_REACQUIRE_DISTANCE_M = PITCH
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -62,6 +64,7 @@ class LatticeController:
         self.recovery_probe_used = False
         self.pivot_centered = False
         self.unverified_gate_reported = False
+        self.recovery_reacquire = False
 
     def _set_state(self, state: str, reason: str) -> None:
         assert state in self.STATES
@@ -237,6 +240,7 @@ class LatticeController:
                 self._begin_cruise("pivot_complete")
             else:
                 self.gate_start_travel = self.est.travel
+                self.recovery_reacquire = True
                 self._set_state("GATE", "recovery_pivot_complete")
             self.recovery_phase = "BACK"
             return self._wheels(0.0, 0.0)
@@ -319,8 +323,27 @@ class LatticeController:
                                     "commanded_m": self.est.travel - self.gate_start_travel})
                 self.unverified_gate_reported = True
             if self.est.s is not None:
-                self._begin_cruise("wall_anchor_found")
+                reason = ("recovery_landmark_found" if self.recovery_reacquire
+                          else "wall_anchor_found")
+                self.recovery_reacquire = False
+                self.recovery_cycles = 0
+                self.recovery_probe_used = False
+                self._begin_cruise(reason)
                 return self._track(frame, self.cfg.cruise_mps)
+            if self.recovery_reacquire:
+                distance = self.est.travel - self.gate_start_travel
+                if distance >= RECOVERY_REACQUIRE_DISTANCE_M:
+                    self.recovery_phase = "HOLD"
+                    self._set_state("RECOVER", "recovery_reanchor_distance_exhausted")
+                    return self._wheels(0.0, 0.0)
+                # Recovery re-entry is a straight landmark search, not a new
+                # route choice. Creep only with an unblocked, valid front and
+                # let side-wall feedback keep the robot in the corridor.
+                if frame.front_label != "open" or frame.front_hazard:
+                    self.recovery_phase = "HOLD"
+                    self._set_state("RECOVER", "recovery_reanchor_front_uncertain")
+                    return self._wheels(0.0, 0.0)
+                return self._track(frame, self.cfg.crawl_mps)
             if self.est.travel - self.gate_start_travel > self.cfg.gate_max_travel:
                 self._recover(frame, "no_gate_landmark")
                 return self._wheels(0.0, 0.0)
@@ -417,6 +440,7 @@ class LatticeController:
                 "wheels": self.last_wheels, "edges": self.est.edge_count,
                 "last_edge_spacing": (self.est.edge_spacings[-1]
                                       if self.est.edge_spacings else None),
+                "recovery_reacquire": self.recovery_reacquire,
                 "duplicate_edges": self.est.duplicate_edges,
                 "front_anchors": self.est.front_count,
                 "rejected_anchors": self.est.rejected_anchors}
